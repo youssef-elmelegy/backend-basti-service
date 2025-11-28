@@ -156,11 +156,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: env.JWT_ACCESS_SECRET,
-        expiresIn: env.JWT_ACCESS_EXPIRES_IN as unknown as number,
+        expiresIn: env.JWT_ACCESS_EXPIRES_IN,
       }),
       this.jwtService.signAsync(payload, {
         secret: env.JWT_REFRESH_SECRET,
-        expiresIn: env.JWT_REFRESH_EXPIRES_IN as unknown as number,
+        expiresIn: env.JWT_REFRESH_EXPIRES_IN,
       }),
     ]);
 
