@@ -51,7 +51,7 @@ export class AuthService {
 
       this.logger.log(`User created: ${newUser.id} (${email})`);
 
-      const tokens = await this.generateTokens(newUser.id, newUser.email);
+      const tokens = this.generateTokens(newUser.id, newUser.email);
 
       return successResponse(
         {
@@ -102,7 +102,7 @@ export class AuthService {
 
     this.logger.log(`User login: ${user.id} (${email})`);
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = this.generateTokens(user.id, user.email);
 
     return successResponse(
       {
@@ -132,7 +132,7 @@ export class AuthService {
 
     this.logger.debug(`Token refreshed: ${userId}`);
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    const tokens = this.generateTokens(user.id, user.email);
 
     return successResponse(tokens, 'Tokens refreshed successfully', HttpStatus.OK);
   }
@@ -143,26 +143,25 @@ export class AuthService {
     return successResponse({ message: 'Logout successful' }, 'Logout successful', HttpStatus.OK);
   }
 
-  private async generateTokens(
+  private generateTokens(
     userId: string,
     email: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): { accessToken: string; refreshToken: string } {
     this.logger.debug(`Generating tokens for: ${userId}`);
     const payload = {
       sub: userId,
       email,
     };
 
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: env.JWT_ACCESS_SECRET,
-        expiresIn: env.JWT_ACCESS_EXPIRES_IN,
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: env.JWT_REFRESH_SECRET,
-        expiresIn: env.JWT_REFRESH_EXPIRES_IN,
-      }),
-    ]);
+    const accessToken = this.jwtService.sign(payload, {
+      secret: env.JWT_ACCESS_SECRET,
+      expiresIn: env.JWT_ACCESS_EXPIRES_IN,
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: env.JWT_REFRESH_SECRET,
+      expiresIn: env.JWT_REFRESH_EXPIRES_IN,
+    });
 
     return {
       accessToken,
