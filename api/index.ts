@@ -1,4 +1,3 @@
-// Register tsconfig paths before any other imports
 import 'tsconfig-paths/register';
 
 import { NestFactory } from '@nestjs/core';
@@ -30,8 +29,6 @@ async function bootstrap() {
       app = await NestFactory.create(AppModule, expressAdapter, {
         logger: logLevelMap[env.LOG_LEVEL] || logLevelMap.info,
       });
-
-      app.setGlobalPrefix('api');
 
       app.useGlobalPipes(
         new ValidationPipe({
