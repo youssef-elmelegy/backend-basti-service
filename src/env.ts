@@ -21,9 +21,9 @@ const envSchema = z.object({
 
   // JWT
   JWT_ACCESS_SECRET: z.string().min(8, 'JWT_ACCESS_SECRET must be provided'),
-  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_ACCESS_EXPIRES_IN: z.coerce.number().default(15 * 60), // 15 minutes in seconds
   JWT_REFRESH_SECRET: z.string().min(8, 'JWT_REFRESH_SECRET must be provided'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  JWT_REFRESH_EXPIRES_IN: z.coerce.number().default(7 * 24 * 60 * 60), // 7 days in seconds
 
   BCRYPT_SALT_ROUNDS: z.coerce.number().default(10),
 
