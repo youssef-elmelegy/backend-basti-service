@@ -48,6 +48,12 @@ importers:
       drizzle-orm:
         specifier: ^0.44.7
         version: 0.44.7(pg@8.16.3)
+      express:
+        specifier: ^5.1.0
+        version: 5.1.0
+      jsonwebtoken:
+        specifier: ^9.0.2
+        version: 9.0.2
       passport:
         specifier: ^0.7.0
         version: 0.7.0
