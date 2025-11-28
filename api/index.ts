@@ -1,3 +1,5 @@
+import 'tsconfig-paths/register';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, INestApplication } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
@@ -16,45 +18,62 @@ const logLevelMap: Record<string, NestLogLevel[]> = {
   debug: ['error', 'warn', 'log', 'debug', 'verbose'],
 };
 
-const expressApp = express();
-let cachedApp: INestApplication | undefined;
+const server = express();
+let app: INestApplication | undefined;
 
-async function createNestApp(): Promise<INestApplication> {
-  if (!cachedApp) {
-    const adapter = new ExpressAdapter(expressApp);
+async function bootstrap() {
+  if (!app) {
+    try {
+      const expressAdapter = new ExpressAdapter(server);
 
-    const app = await NestFactory.create(AppModule, adapter, {
-      logger: logLevelMap[env.LOG_LEVEL] || logLevelMap.info,
-    });
+      app = await NestFactory.create(AppModule, expressAdapter, {
+        logger: logLevelMap[env.LOG_LEVEL] || logLevelMap.info,
+      });
 
-    app.setGlobalPrefix('api');
+      app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+        }),
+      );
 
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
+      // Configure CORS
+      const corsOrigins = env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : '*';
+      app.enableCors({
+        origin: corsOrigins,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+      });
 
-    // Configure CORS for frontend clients
-    const corsOrigins = env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : '*';
-    app.enableCors({
-      origin: corsOrigins,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    });
+      await app.init();
 
-    await app.init();
-    cachedApp = app;
+      console.log('✅ NestJS app initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize NestJS app:', error);
+      throw error;
+    }
   }
-  return cachedApp;
+
+  return app;
 }
 
-async function handler(req: Request, res: Response): Promise<void> {
-  await createNestApp();
-  expressApp(req, res);
+export default async function handler(req: Request, res: Response) {
+  try {
+    await bootstrap();
+    server(req, res);
+  } catch (error) {
+    console.error('❌ Handler error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack:
+        process.env.NODE_ENV === 'development'
+          ? error instanceof Error
+            ? error.stack
+            : undefined
+          : undefined,
+    });
+  }
 }
-
-export default handler;

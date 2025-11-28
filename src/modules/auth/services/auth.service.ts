@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 import { env } from '@/env';
 import { SignupDto, LoginDto, AuthResponse, RefreshTokenResponse } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-
+import { sign } from 'jsonwebtoken';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -153,13 +153,11 @@ export class AuthService {
       email,
     };
 
-    const accessToken = this.jwtService.sign(payload, {
-      secret: env.JWT_ACCESS_SECRET,
+    const accessToken = sign(payload, env.JWT_ACCESS_SECRET, {
       expiresIn: env.JWT_ACCESS_EXPIRES_IN,
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: env.JWT_REFRESH_SECRET,
+    const refreshToken = sign(payload, env.JWT_REFRESH_SECRET, {
       expiresIn: env.JWT_REFRESH_EXPIRES_IN,
     });
 
