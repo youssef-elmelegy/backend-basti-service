@@ -26,6 +26,6 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*", "api/**/*"],
+  "include": ["src/**/*", "api/**/*", "drizzle.config.ts", "jest.config.ts"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }
