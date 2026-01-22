@@ -1,5 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
-import { ApiConsumes, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiConsumes, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 
 /**
  * Decorator for image upload endpoint
@@ -7,12 +7,13 @@ import { ApiConsumes, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger
  */
 export function UploadImageDecorator(description: string = 'Upload image') {
   return applyDecorators(
+    ApiBearerAuth(),
+    ApiConsumes('multipart/form-data'),
     ApiOperation({
       summary: description,
       description:
-        'Upload an image file to Cloudinary storage. Returns secure_url for use in database.',
+        'Upload an image file to Cloudinary storage. Returns secure_url for use in database. Requires JWT Bearer token authentication.',
     }),
-    ApiConsumes('multipart/form-data'),
     ApiBody({
       schema: {
         type: 'object',
@@ -77,10 +78,11 @@ export function UploadImageDecorator(description: string = 'Upload image') {
  */
 export function DeleteImagesDecorator(description: string = 'Delete images') {
   return applyDecorators(
+    ApiBearerAuth(),
     ApiOperation({
       summary: description,
       description:
-        'Delete multiple images from Cloudinary by providing their URLs. Returns detailed results.',
+        'Delete multiple images from Cloudinary by providing their URLs. Returns detailed results. Requires JWT Bearer token authentication.',
     }),
     ApiBody({
       schema: {
