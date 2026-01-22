@@ -30,7 +30,8 @@ export class AccessTokenStrategy extends PassportStrategy(Strategy, 'jwt') {
   validate(payload: JwtPayload): JwtPayload {
     this.logger.debug(`JWT validation successful - Payload: ${JSON.stringify(payload)}`);
     return {
-      id: payload.id,
+      sub: payload.sub || payload.id,
+      id: payload.sub || payload.id,
       email: payload.email,
       role: payload.role,
     };
