@@ -1,43 +1,32 @@
-# Stage 1: Builder
+# ---------- Builder ----------
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+RUN npm install -g pnpm
+
 COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
-
-# Copy source code
 COPY . .
 
-# Build application
 RUN pnpm run build
 
-# Stage 2: Runtime
+
+# ---------- Runtime ----------
 FROM node:22-alpine
 
 WORKDIR /app
 
-# Install pnpm
+ENV NODE_ENV=production
+
 RUN npm install -g pnpm
 
-# Copy package files
 COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Install only production dependencies
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy built application from builder
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 
-# Expose port
 EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api', (r) => {if (r.statusCode !== 404) throw new Error(r.statusCode)})"
-
-# Start application
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main"]

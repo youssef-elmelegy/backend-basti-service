@@ -7,7 +7,7 @@ export class RefreshTokenDto {
     example:
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoiamsiLCJpYXQiOjE3MzI2NzA0NzgsImV4cCI6MTczMjc1Njg3OH0.f9X9nU_WmSfQ',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsString({ message: 'refreshToken must be a string' })
+  @IsNotEmpty({ message: 'refreshToken must not be empty' })
   refreshToken: string;
 }

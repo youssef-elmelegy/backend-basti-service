@@ -1,7 +1,6 @@
 import { applyDecorators, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { SuccessAuthResponseDto, ErrorResponseDto, LoginDto } from '../dto';
-import { AuthExamples } from '@/constants/examples';
+import { ErrorResponseDto, LoginDto, AuthResponseWrapperDto } from '../dto';
 
 export function AuthLoginDecorator() {
   return applyDecorators(
@@ -14,36 +13,26 @@ export function AuthLoginDecorator() {
     ApiBody({
       type: LoginDto,
       description: 'User login credentials',
-      examples: {
-        success: {
-          summary: 'Valid login request',
-          value: AuthExamples.login.request,
-        },
-      },
     }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'User successfully logged in',
-      type: SuccessAuthResponseDto,
-      example: AuthExamples.login.response.success,
+      type: AuthResponseWrapperDto,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
       description: 'Invalid input data (validation failed)',
       type: ErrorResponseDto,
-      example: AuthExamples.login.response.validationError,
     }),
     ApiResponse({
       status: HttpStatus.UNAUTHORIZED,
       description: 'Invalid credentials (user not found or wrong password)',
       type: ErrorResponseDto,
-      example: AuthExamples.login.response.unauthorized,
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       description: 'Server error during authentication',
       type: ErrorResponseDto,
-      example: AuthExamples.login.response.internalServerError,
     }),
   );
 }

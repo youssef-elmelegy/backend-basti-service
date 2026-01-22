@@ -24,6 +24,8 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.coerce.number().default(15 * 60), // 15 minutes in seconds
   JWT_REFRESH_SECRET: z.string().min(8, 'JWT_REFRESH_SECRET must be provided'),
   JWT_REFRESH_EXPIRES_IN: z.coerce.number().default(7 * 24 * 60 * 60), // 7 days in seconds
+  JWT_SETUP_PROFILE_EXPIRES_IN: z.coerce.number().default(10 * 60), // 10 minutes in seconds
+  JWT_RESET_PASSWORD_EXPIRES_IN: z.coerce.number().default(60 * 60), // 1 hour in seconds
 
   BCRYPT_SALT_ROUNDS: z.coerce.number().default(10),
 
@@ -47,6 +49,11 @@ const envSchema = z.object({
   SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
   MAIL_FROM_NAME: z.string().min(1, 'MAIL_FROM_NAME is required'),
   MAIL_FROM: z.string().min(1, 'MAIL_FROM is required'),
+
+  // Cloudinary
+  CLOUDINARY_CLOUD_NAME: z.string().min(1, 'CLOUDINARY_CLOUD_NAME is required'),
+  CLOUDINARY_API_KEY: z.string().min(1, 'CLOUDINARY_API_KEY is required'),
+  CLOUDINARY_API_SECRET: z.string().min(1, 'CLOUDINARY_API_SECRET is required'),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -627,9 +627,3 @@ DELETE /api/posts/:id          → Delete post
 | Routes              | lowercase/kebab-case | `/api/auth/signup`, `/api/user-posts`   |
 
 ---
-
-## Related Documentation
-
-- [Project README](./README.md)
-- [Database Seeding](./SEEDING.md)
-- [API Endpoints](./API_ENDPOINTS_GUIDE.md)

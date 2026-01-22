@@ -10,10 +10,8 @@ README.md
 coverage
 .eslintignore
 .prettierignore
-tsconfig.json
 .husky
 .vscode
 .idea
 *.log
 .pnpm-store
-drizzle.config.ts

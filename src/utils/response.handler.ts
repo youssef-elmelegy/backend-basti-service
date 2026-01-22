@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { SuccessResponse, ErrorResponse } from '@/types';
+import { SuccessResponse, ErrorResponse } from '@/types/response.types';
 
 /**
  * Creates a standardized success response

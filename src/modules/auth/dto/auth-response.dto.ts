@@ -4,53 +4,70 @@ export class UserDataDto {
   @ApiProperty({
     example: '550e8400-e29b-41d4-a716-446655440000',
     description: 'Unique user identifier (UUID)',
-    type: 'string',
   })
   id: string;
 
   @ApiProperty({
     example: 'user@example.com',
     description: 'User email address',
-    type: 'string',
   })
   email: string;
 
   @ApiProperty({
-    example: 'John Doe',
-    description: 'User full name',
-    type: 'string',
+    example: 'John',
+    description: 'User first name',
   })
-  name: string;
+  firstName: string;
 
   @ApiProperty({
-    example: '2025-11-28T10:00:00.000Z',
+    example: 'Doe',
+    description: 'User last name',
+  })
+  lastName: string;
+
+  @ApiProperty({
+    example: '+1234567890',
+    description: 'User phone number',
+    required: false,
+  })
+  phoneNumber?: string;
+
+  @ApiProperty({
+    example: 'https://example.com/profile.jpg',
+    description: 'User profile image URL',
+    required: false,
+  })
+  profileImage?: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether email is verified',
+  })
+  isEmailVerified: boolean;
+
+  @ApiProperty({
+    example: '2025-01-11T10:00:00.000Z',
     description: 'User creation timestamp',
-    type: 'string',
   })
-  createdAt: string;
+  createdAt: Date;
 
   @ApiProperty({
-    example: '2025-11-28T10:00:00.000Z',
+    example: '2025-01-11T10:00:00.000Z',
     description: 'User last update timestamp',
-    type: 'string',
   })
-  updatedAt: string;
+  updatedAt: Date;
 }
 
 export class AuthResponseDto {
   @ApiProperty({
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTczMTU3MjAwMCwiZXhwIjoxNzMxNTc1NjAwfQ.signature',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     description: 'JWT access token for API authentication',
-    type: 'string',
   })
   accessToken: string;
 
   @ApiProperty({
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTczMTU3MjAwMCwiZXhwIjoxNzMxNjU4NDAwfQ.signature',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     description: 'JWT refresh token for obtaining new access tokens',
-    type: 'string',
   })
   refreshToken: string;
 
@@ -63,18 +80,14 @@ export class AuthResponseDto {
 
 export class RefreshTokenResponseDto {
   @ApiProperty({
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTczMTU3MjEwMCwiZXhwIjoxNzMxNTc1NzAwfQ.newsignature',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     description: 'New JWT access token',
-    type: 'string',
   })
   accessToken: string;
 
   @ApiProperty({
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImlhdCI6MTczMTU3MjEwMCwiZXhwIjoxNzMxNjU4NTAwfQ.newsignature',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     description: 'New JWT refresh token',
-    type: 'string',
   })
   refreshToken: string;
 }
@@ -83,28 +96,73 @@ export class LogoutResponseDto {
   @ApiProperty({
     example: 'Logout successful',
     description: 'Logout confirmation message',
-    type: 'string',
   })
   message: string;
+}
+
+export class SignupResponseDto {
+  @ApiProperty({
+    example: 'OTP sent to user@example.com',
+    description: 'Success message indicating OTP was sent',
+  })
+  message: string;
+
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'Email address where OTP was sent',
+  })
+  email: string;
+}
+
+export class VerifyOtpResponseDto {
+  @ApiProperty({
+    example: 'Email verified successfully',
+    description: 'Success message',
+  })
+  message: string;
+
+  @ApiProperty({
+    type: UserDataDto,
+    description: 'User information after verification',
+  })
+  user: UserDataDto;
+}
+
+export class SetupProfileResponseDto {
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'JWT access token',
+  })
+  accessToken: string;
+
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'JWT refresh token',
+  })
+  refreshToken: string;
+
+  @ApiProperty({
+    type: UserDataDto,
+    description: 'Complete user information after profile setup',
+  })
+  user: UserDataDto;
 }
 
 export class ErrorResponseDto {
   @ApiProperty({
     example: 400,
     description: 'HTTP status code',
-    type: 'number',
   })
   code: number;
 
   @ApiProperty({
     example: false,
     description: 'Response success status',
-    type: 'boolean',
   })
   success: boolean;
 
   @ApiProperty({
-    example: ['email must be an email', 'password must be at least 8 characters'],
+    example: 'Validation error',
     description: 'Error message or validation error details',
     oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
   })
@@ -113,14 +171,12 @@ export class ErrorResponseDto {
   @ApiProperty({
     example: 'BadRequestException',
     description: 'Error type',
-    type: 'string',
   })
   error: string;
 
   @ApiProperty({
-    example: '2025-11-28T10:00:00.000Z',
+    example: '2025-01-11T10:00:00.000Z',
     description: 'Response timestamp',
-    type: 'string',
   })
   timestamp: string;
 }
