@@ -21,7 +21,7 @@ export const orders = pgTable(
       .notNull()
       .references(() => users.id),
     bakeryId: uuid('bakery_id')
-      .notNull()
+      // .notNull()
       .references(() => bakeries.id),
     locationId: uuid('location_id')
       .notNull()
