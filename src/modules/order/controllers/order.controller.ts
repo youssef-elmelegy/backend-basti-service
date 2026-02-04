@@ -15,6 +15,15 @@ import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, AdminRoles, AdminRolesGuard, FlexibleJwtGuard } from '@/common/guards/';
 import { SuccessResponse } from '@/utils';
 import { ChangeOrderStatusDto, CreateOrderDto, OrderResponseDto } from '../dto';
+import {
+  CancelOrderDecorator,
+  ChangeOrderStatusDecorator,
+  GetAllOrdersDecorator,
+  GetMyOrdersDecorator,
+  GetOrderByIdDecorator,
+  PlaceOrderDecorator,
+  RefuseOrderDecorator,
+} from '../decorators';
 
 @ApiTags('order')
 @Controller('orders')
@@ -24,6 +33,7 @@ export class OrderController {
 
   @UseGuards(JwtAuthGuard)
   @Post('place')
+  @PlaceOrderDecorator()
   async placeOrder(
     @CurrentUser('sub') userId: string,
     @Body() orderData: CreateOrderDto,
@@ -34,6 +44,7 @@ export class OrderController {
 
   @UseGuards(JwtAuthGuard)
   @Get('my-orders')
+  @GetMyOrdersDecorator()
   async getMyOrders(
     @CurrentUser('sub') userId: string,
   ): Promise<SuccessResponse<OrderResponseDto[]>> {
@@ -45,6 +56,7 @@ export class OrderController {
   @AdminRoles('admin')
   @UseGuards(JwtAuthGuard)
   @Get()
+  @GetAllOrdersDecorator()
   async getAllOrders(): Promise<SuccessResponse<OrderResponseDto[]>> {
     this.logger.debug('getting all orders');
     return this.orderService.getAllOrders();
@@ -52,6 +64,7 @@ export class OrderController {
 
   @UseGuards(FlexibleJwtGuard)
   @Get(':id')
+  @GetOrderByIdDecorator()
   async getOrderById(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') userId: string,
@@ -62,6 +75,7 @@ export class OrderController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/cancel')
+  @CancelOrderDecorator()
   async cancelOrder(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') userId: string,
@@ -74,6 +88,7 @@ export class OrderController {
   @AdminRoles('admin')
   @UseGuards(JwtAuthGuard)
   @Patch(':id/refuse')
+  @RefuseOrderDecorator()
   async refuseOrder(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SuccessResponse<{ id: string; status: string }>> {
@@ -85,6 +100,7 @@ export class OrderController {
   @AdminRoles('admin')
   @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
+  @ChangeOrderStatusDecorator()
   async changeOrderStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() changeOrderStatusDto: ChangeOrderStatusDto,

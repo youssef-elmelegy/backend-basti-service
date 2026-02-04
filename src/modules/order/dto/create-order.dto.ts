@@ -33,12 +33,12 @@ class OrderItemOptionDto {
 }
 
 export class OrderItemDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
   cakeId?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
   addonId?: string;
@@ -48,17 +48,27 @@ export class OrderItemDto {
   @Min(1)
   quantity: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   size?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   flavor?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    example: [
+      {
+        optionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'option',
+        label: 'label',
+        value: '10,00',
+      },
+    ],
+    type: [OrderItemOptionDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemOptionDto)
@@ -127,6 +137,7 @@ export class CreateOrderDto {
         flavor: 'vanilla',
       },
     ],
+    type: [OrderItemDto],
   })
   @IsArray()
   @ValidateNested({ each: true })
