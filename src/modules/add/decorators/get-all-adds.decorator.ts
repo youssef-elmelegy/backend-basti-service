@@ -10,20 +10,6 @@ export function GetAllAddsDecorator() {
       summary: 'Get all add-ons',
       description: 'Retrieve all add-ons with pagination support',
     }),
-    // ApiQuery({
-    //   name: 'page',
-    //   required: false,
-    //   type: Number,
-    //   description: 'Page number for pagination (default: 1)',
-    //   example: 1,
-    // }),
-    // ApiQuery({
-    //   name: 'limit',
-    //   required: false,
-    //   type: Number,
-    //   description: 'Number of items per page (default: 10)',
-    //   example: 10,
-    // }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Add-ons retrieved successfully',

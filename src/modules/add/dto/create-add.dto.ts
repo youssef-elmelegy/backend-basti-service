@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-enum AddonCategory {
+export enum AddonCategory {
   BALLOONS = 'balloons',
   CARDS = 'cards',
   CANDLES = 'candles',
