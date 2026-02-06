@@ -21,3 +21,4 @@ export * from './payment-method';
 export * from './location';
 export * from './review';
 export * from './wishlist-item';
+export * from './slider-image';

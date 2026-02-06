@@ -7,6 +7,7 @@ export const MOCK_DATA = {
     cake: '990e8400-e29b-41d4-a716-446655440005',
     add: 'aa0e8400-e29b-41d4-a716-446655440006',
     admin: '990e8400-e29b-41d4-a716-446655440004',
+    sliderImage: 'bb0e8400-e29b-41d4-a716-446655440007',
   },
   email: {
     user: 'ahmed@example.com',
@@ -25,6 +26,10 @@ export const MOCK_DATA = {
   },
   image: {
     chef: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+    sliderImages: [
+      'https://api.example.com/images/sliders/summer-collection.jpg',
+      'https://api.example.com/images/sliders/winter-special.jpg',
+    ],
   },
   numbers: {
     capacity: 50,

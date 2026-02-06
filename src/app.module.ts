@@ -9,6 +9,8 @@ import { CakeModule } from './modules/cake/cake.module';
 import { AddModule } from './modules/add/add.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { SliderImageModule } from './modules/slider-image/slider-image.module';
+import { TagsModule } from './modules/tags/tags.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
@@ -27,6 +29,8 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     OrderModule,
     WishlistModule,
     // ReviewModule,
+    SliderImageModule,
+    TagsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -5,3 +5,5 @@ export * from './bakery-examples';
 export * from './chef-examples';
 export * from './cake-examples';
 export * from './add-examples';
+export * from './slider-image-examples';
+export * from './tags-examples';
