@@ -7,10 +7,9 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { addons } from '@/db/schema';
-import { eq, desc, sql, asc } from 'drizzle-orm';
-import { CreateAddDto, UpdateAddDto, PaginationDto, SortDto } from '../dto';
+import { eq, desc, sql, asc, SQL, and } from 'drizzle-orm';
+import { CreateAddDto, UpdateAddDto, GetAddsQueryDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
-import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
 @Injectable()
 export class AddService {
@@ -49,8 +48,8 @@ export class AddService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto, sortDto: SortDto) {
-    const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = paginationDto;
+  async findAll(query: GetAddsQueryDto) {
+    const { page, limit, tag, order, sort } = query;
 
     try {
       const offset = (page - 1) * limit;
@@ -58,13 +57,24 @@ export class AddService {
       // Get total count
       const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(addons);
 
-      const sortOrder = sortDto.order === 'desc' ? desc : asc;
+      const sortOrder = order === 'desc' ? desc : asc;
+
+      const whereConditions: SQL[] = [];
+
+      if (tag) {
+        whereConditions.push(
+          sql`
+            ${addons.tags} @> ${JSON.stringify(tag)}::jsonb
+          `,
+        );
+      }
 
       // Get paginated add-ons
       const allAdds = await db
         .select()
         .from(addons)
-        .orderBy(sortDto.sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
+        .where(and(...whereConditions))
+        .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
         .limit(limit)
         .offset(offset);
 

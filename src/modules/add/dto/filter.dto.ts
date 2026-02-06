@@ -1,23 +1,45 @@
-import { IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { AddonCategory } from '../dto/create-add.dto';
 
 export class FilterDto {
-  @ApiProperty({
-    description: 'filter by region',
+  @ApiPropertyOptional({
+    name: 'regionId',
+    description: 'Filter by region',
+    type: String,
     required: false,
   })
   @IsOptional()
-  @Type(() => String)
+  @IsString()
   regionId: string;
 
-  @ApiProperty({
-    description: 'Sorting order',
-    example: 'desc',
-    enum: ['asc', 'desc'],
+  @ApiPropertyOptional({
+    description: 'Filter by tag',
+    example: 'candels',
     required: false,
   })
   @IsOptional()
-  @Type(() => String)
+  @IsString()
   tag: string;
+
+  @ApiPropertyOptional({
+    name: 'category',
+    required: false,
+    enum: AddonCategory,
+    type: String,
+    description: 'Filter by category',
+  })
+  @IsOptional()
+  @IsString()
+  category: AddonCategory;
+
+  @ApiPropertyOptional({
+    name: 'isActive',
+    required: false,
+    enum: ['true', 'false'],
+    type: String,
+    description: 'filter by category',
+  })
+  @IsOptional()
+  isActive: boolean;
 }
