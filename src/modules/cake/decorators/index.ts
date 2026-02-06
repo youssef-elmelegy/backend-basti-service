@@ -4,3 +4,4 @@ export * from './get-cake-by-id.decorator';
 export * from './update-cake.decorator';
 export * from './delete-cake.decorator';
 export * from './toggle-cake-status.decorator';
+export * from './filter.decorator';

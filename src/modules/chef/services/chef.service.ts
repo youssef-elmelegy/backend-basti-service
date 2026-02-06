@@ -8,13 +8,14 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { chefs, bakeries } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, asc, desc } from 'drizzle-orm';
 import {
   CreateChefDto,
   UpdateChefDto,
   PaginationDto,
   ChefResponse,
   PaginatedChefResponse,
+  SortDto,
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
@@ -66,8 +67,11 @@ export class ChefService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto): Promise<SuccessResponse<PaginatedChefResponse>> {
-    const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = paginationDto;
+  async findAll(
+    pagination: PaginationDto,
+    sort: SortDto,
+  ): Promise<SuccessResponse<PaginatedChefResponse>> {
+    const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = pagination;
 
     try {
       const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(chefs);
@@ -76,7 +80,14 @@ export class ChefService {
       const totalPages = Math.ceil(totalCount / limit);
       const offset = (page - 1) * limit;
 
-      const allChefs = await db.select().from(chefs).limit(limit).offset(offset);
+      const sortOrder = sort.order === 'desc' ? desc : asc;
+
+      const allChefs = await db
+        .select()
+        .from(chefs)
+        .orderBy(sort.sort === 'alpha' ? sortOrder(chefs.fullName) : sortOrder(chefs.createdAt))
+        .limit(limit)
+        .offset(offset);
 
       const formattedChefs = await Promise.all(
         allChefs.map((chef) => this.formatChefResponse(chef.id)),

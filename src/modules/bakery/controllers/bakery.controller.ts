@@ -8,16 +8,20 @@ import {
   Delete,
   Logger,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BakeryService } from '../services/bakery.service';
-import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse } from '../dto';
+import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
 import {
   CreateBakeryDecorator,
   GetAllBakeriesDecorator,
   GetBakeryDecorator,
   UpdateBakeryDecorator,
   DeleteBakeryDecorator,
+  PaginationDecorator,
+  SortDecorator,
+  FilterDecorator,
 } from '../decorators';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -46,9 +50,12 @@ export class BakeryController {
 
   @Get()
   @GetAllBakeriesDecorator()
-  async findAll() {
+  @PaginationDecorator()
+  @SortDecorator()
+  @FilterDecorator()
+  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
     this.logger.debug('Retrieving all bakeries');
-    return this.bakeryService.findAll();
+    return this.bakeryService.findAll(query.pagination, query.sort);
   }
 
   @Get(':id')

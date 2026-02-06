@@ -12,8 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ChefService } from '../services/chef.service';
-import { CreateChefDto, UpdateChefDto, PaginationDto } from '../dto';
-import { CreateChefDecorator, GetAllChefsDecorator } from '../decorators';
+import { CreateChefDto, UpdateChefDto, PaginationDto, SortDto } from '../dto';
+import {
+  CreateChefDecorator,
+  GetAllChefsDecorator,
+  SortDecorator,
+  PaginationDecorator,
+  FilterDecorator,
+} from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
@@ -40,9 +46,13 @@ export class ChefController {
   @Get()
   @Public()
   @GetAllChefsDecorator()
-  async findAll(@Query() paginationDto: PaginationDto) {
-    this.logger.debug(`Retrieving chefs: page ${paginationDto.page}, limit ${paginationDto.limit}`);
-    return this.chefService.findAll(paginationDto);
+  @PaginationDecorator()
+  @SortDecorator()
+  @FilterDecorator()
+  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
+    this.logger.debug(`
+      Retrieving chefs: page ${query.pagination.page}, limit ${query.pagination.limit}`);
+    return this.chefService.findAll(query.pagination, query.sort);
   }
 
   @Get(':id')

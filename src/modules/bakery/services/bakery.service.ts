@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { bakeries, regions } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse } from '../dto';
+import { eq, desc, asc, sql } from 'drizzle-orm';
+import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -67,15 +67,43 @@ export class BakeryService {
     }
   }
 
-  async findAll(): Promise<SuccessResponse<BakeryResponse[]>> {
+  async findAll(pagination: PaginationDto, sort: SortDto) {
     try {
-      const allBakeries = await db.select().from(bakeries);
+      const offset = (pagination.page - 1) * pagination.limit;
+
+      // Get total count
+      const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(bakeries);
+
+      const sortOrder = sort.order === 'desc' ? desc : asc;
+
+      const allBakeries = await db
+        .select()
+        .from(bakeries)
+        .orderBy(sort.sort === 'alpha' ? sortOrder(bakeries.name) : sortOrder(bakeries.createdAt))
+        .limit(pagination.limit)
+        .offset(offset);
+
+      const totalPages = Math.ceil(total / pagination.limit);
+
+      this.logger.debug(`Retrieved bakeries: page ${pagination.page}, total ${total}`);
 
       const formattedBakeries = allBakeries.map((bakery) => this.formatBakeryResponse(bakery));
 
       this.logger.debug(`Retrieved ${allBakeries.length} bakeries`);
 
-      return successResponse(formattedBakeries, 'Bakeries retrieved successfully', HttpStatus.OK);
+      return successResponse(
+        {
+          items: formattedBakeries,
+          pagination: {
+            total,
+            totalPages,
+            page: pagination.page,
+            limit: pagination.limit,
+          },
+        },
+        'Bakeries retrieved successfully',
+        HttpStatus.OK,
+      );
     } catch {
       this.logger.error('Failed to retrieve bakeries');
       throw new InternalServerErrorException(

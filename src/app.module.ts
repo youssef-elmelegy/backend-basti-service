@@ -11,6 +11,8 @@ import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
+// import { ReviewModule } from './modules/review/review.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { OrderModule } from './modules/order/order.module';
     AdminAuthModule,
     UploadModule,
     OrderModule,
+    WishlistModule,
+    // ReviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],
