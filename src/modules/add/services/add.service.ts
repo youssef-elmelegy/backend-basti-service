@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { addons } from '@/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
-import { CreateAddDto, UpdateAddDto, PaginationDto } from '../dto';
+import { eq, desc, sql, asc } from 'drizzle-orm';
+import { CreateAddDto, UpdateAddDto, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
@@ -49,7 +49,7 @@ export class AddService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto, sortDto: SortDto) {
     const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = paginationDto;
 
     try {
@@ -58,11 +58,13 @@ export class AddService {
       // Get total count
       const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(addons);
 
+      const sortOrder = sortDto.order === 'desc' ? desc : asc;
+
       // Get paginated add-ons
       const allAdds = await db
         .select()
         .from(addons)
-        .orderBy(desc(addons.createdAt))
+        .orderBy(sortDto.sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
         .limit(limit)
         .offset(offset);
 
@@ -73,10 +75,12 @@ export class AddService {
       return successResponse(
         {
           items: allAdds.map((add) => this.mapToAddResponse(add)),
-          total,
-          page,
-          limit,
-          totalPages,
+          pagination: {
+            total,
+            limit,
+            page,
+            totalPages,
+          },
         },
         'Add-ons retrieved successfully',
       );

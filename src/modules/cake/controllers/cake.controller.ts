@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CakeService } from '../services/cake.service';
-import { CreateCakeDto, UpdateCakeDto, PaginationDto } from '../dto';
+import { CreateCakeDto, UpdateCakeDto, PaginationDto, SortDto } from '../dto';
 import {
   CreateCakeDecorator,
   GetAllCakesDecorator,
@@ -20,11 +20,12 @@ import {
   UpdateCakeDecorator,
   DeleteCakeDecorator,
   ToggleCakeStatusDecorator,
+  FilterDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
-import { Public } from '@/common';
+import { PaginationDecorator, Public, SortDecorator } from '@/common';
 
 @ApiTags('cake')
 @Controller('cakes')
@@ -48,9 +49,13 @@ export class CakeController {
   @Get()
   @Public()
   @GetAllCakesDecorator()
-  async findAll(@Query() paginationDto: PaginationDto) {
-    this.logger.debug(`Retrieving cakes: page ${paginationDto.page}, limit ${paginationDto.limit}`);
-    return this.cakeService.findAll(paginationDto);
+  @PaginationDecorator()
+  @SortDecorator()
+  @FilterDecorator()
+  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
+    this.logger.debug(`
+      Retrieving cakes: page ${query.pagination.page}, limit ${query.pagination.limit}`);
+    return this.cakeService.findAll(query.pagination, query.sort);
   }
 
   @Get(':id')

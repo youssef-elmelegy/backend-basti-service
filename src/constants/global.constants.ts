@@ -57,3 +57,14 @@ export const PAGINATION_DEFAULTS = {
   LIMIT: 10,
   MAX_LIMIT: 100,
 } as const;
+
+export const SORT_DEFAULTS = {
+  SORT: 'created_at',
+  ORDER: 'desc',
+} as const;
+
+export const BAKERY_DEFAULTS = {
+  BAKERY_OPEN_HOUR: 10,
+  BAKERY_CLOSE_HOUR: 18,
+  MIN_HOURS_TO_PREPARE: 24,
+} as const;

@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { cakes } from '@/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
-import { CreateCakeDto, UpdateCakeDto, PaginationDto } from '../dto';
+import { eq, desc, sql, asc } from 'drizzle-orm';
+import { CreateCakeDto, UpdateCakeDto, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
@@ -61,7 +61,7 @@ export class CakeService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto) {
+  async findAll(paginationDto: PaginationDto, sortDto: SortDto) {
     const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = paginationDto;
 
     try {
@@ -70,11 +70,13 @@ export class CakeService {
       // Get total count
       const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(cakes);
 
+      const sortOrder = sortDto.order === 'desc' ? desc : asc;
+
       // Get paginated cakes
       const allCakes = await db
         .select()
         .from(cakes)
-        .orderBy(desc(cakes.createdAt))
+        .orderBy(sortDto.sort === 'alpha' ? sortOrder(cakes.name) : sortOrder(cakes.createdAt))
         .limit(limit)
         .offset(offset);
 

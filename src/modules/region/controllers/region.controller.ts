@@ -8,6 +8,8 @@ import {
   GetRegionDecorator,
   UpdateRegionDecorator,
   DeleteRegionDecorator,
+  PaginationDecorator,
+  SortDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 
@@ -30,6 +32,8 @@ export class RegionController {
 
   @Get()
   @GetAllRegionsDecorator()
+  @PaginationDecorator()
+  @SortDecorator()
   async findAll() {
     this.logger.debug('Retrieving all regions');
     return this.regionService.findAll();

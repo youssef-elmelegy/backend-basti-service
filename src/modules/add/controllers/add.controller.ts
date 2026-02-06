@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AddService } from '../services/add.service';
-import { CreateAddDto, UpdateAddDto, PaginationDto } from '../dto';
+import { CreateAddDto, UpdateAddDto, PaginationDto, SortDto } from '../dto';
 import {
   CreateAddDecorator,
   GetAllAddsDecorator,
@@ -20,6 +20,9 @@ import {
   UpdateAddDecorator,
   DeleteAddDecorator,
   ToggleAddStatusDecorator,
+  PaginationDecorator,
+  SortDecorator,
+  FilterDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -48,11 +51,14 @@ export class AddController {
   @Get()
   @Public()
   @GetAllAddsDecorator()
-  async findAll(@Query() paginationDto: PaginationDto) {
+  @PaginationDecorator()
+  @FilterDecorator()
+  @SortDecorator()
+  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
     this.logger.debug(
-      `Retrieving add-ons: page ${paginationDto.page}, limit ${paginationDto.limit}`,
+      `Retrieving add-ons: page ${query.pagination.page}, limit ${query.pagination.limit}`,
     );
-    return this.addService.findAll(paginationDto);
+    return this.addService.findAll(query.pagination, query.sort);
   }
 
   @Get(':id')
