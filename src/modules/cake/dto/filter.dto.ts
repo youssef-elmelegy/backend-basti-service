@@ -1,23 +1,21 @@
-import { IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'filter by region',
     required: false,
   })
   @IsOptional()
-  @Type(() => String)
-  regionId: string;
+  @IsString()
+  regionId?: string;
 
-  @ApiProperty({
-    description: 'Sorting order',
-    example: 'desc',
-    enum: ['asc', 'desc'],
+  @ApiPropertyOptional({
+    description: 'Filter by tag name',
+    example: 'chocolate',
     required: false,
   })
   @IsOptional()
-  @Type(() => String)
-  tag: string;
+  @IsString()
+  tag?: string;
 }

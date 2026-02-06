@@ -7,10 +7,9 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { cakes } from '@/db/schema';
-import { eq, desc, sql, asc } from 'drizzle-orm';
-import { CreateCakeDto, UpdateCakeDto, PaginationDto, SortDto } from '../dto';
+import { eq, desc, sql, asc, and, SQL } from 'drizzle-orm';
+import { CreateCakeDto, UpdateCakeDto, GetCakesQueryDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
-import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
 @Injectable()
 export class CakeService {
@@ -61,8 +60,8 @@ export class CakeService {
     }
   }
 
-  async findAll(paginationDto: PaginationDto, sortDto: SortDto) {
-    const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = paginationDto;
+  async findAll(query: GetCakesQueryDto) {
+    const { page, limit, tag, order, sort } = query;
 
     try {
       const offset = (page - 1) * limit;
@@ -70,13 +69,23 @@ export class CakeService {
       // Get total count
       const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(cakes);
 
-      const sortOrder = sortDto.order === 'desc' ? desc : asc;
+      const sortOrder = order === 'desc' ? desc : asc;
 
-      // Get paginated cakes
+      const whereConditions: SQL[] = [];
+
+      if (tag) {
+        whereConditions.push(
+          sql`
+            ${cakes.tags} @> ${JSON.stringify(tag)}::jsonb
+          `,
+        );
+      }
+
       const allCakes = await db
         .select()
         .from(cakes)
-        .orderBy(sortDto.sort === 'alpha' ? sortOrder(cakes.name) : sortOrder(cakes.createdAt))
+        .where(and(...whereConditions))
+        .orderBy(sort === 'alpha' ? sortOrder(cakes.name) : sortOrder(cakes.createdAt))
         .limit(limit)
         .offset(offset);
 
