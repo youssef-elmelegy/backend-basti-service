@@ -1,6 +1,6 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { CreateAddonDto } from '../dto';
+import { SuccessAddonResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { AddExamples } from '@/constants/examples';
 
@@ -19,7 +19,7 @@ export function GetAddonByIdDecorator() {
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Add-on retrieved successfully',
-      type: CreateAddonDto,
+      type: SuccessAddonResponseDto,
       example: AddExamples.getById.response.success,
     }),
     ApiResponse({

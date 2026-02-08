@@ -1,6 +1,6 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
-import { UpdateAddonDto, CreateAddonDto } from '../dto';
+import { UpdateAddonDto, SuccessAddonResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { AddExamples } from '@/constants/examples';
 
@@ -31,7 +31,7 @@ export function UpdateAddonDecorator() {
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Add-on updated successfully',
-      type: CreateAddonDto,
+      type: SuccessAddonResponseDto,
       example: AddExamples.update.response.success,
     }),
     ApiResponse({
