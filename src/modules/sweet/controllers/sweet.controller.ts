@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SweetService } from '../services/sweet.service';
-import { CreateSweetDto, UpdateSweetDto, GetSweetsQueryDto } from '../dto';
+import {
+  CreateSweetDto,
+  UpdateSweetDto,
+  GetSweetsQueryDto,
+  CreateSweetRegionItemPriceDto,
+} from '../dto';
 import {
   CreateSweetDecorator,
   GetAllSweetsDecorator,
@@ -20,6 +25,7 @@ import {
   UpdateSweetDecorator,
   DeleteSweetDecorator,
   ToggleSweetStatusDecorator,
+  CreateSweetRegionItemPriceDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -89,6 +95,17 @@ export class SweetController {
     this.logger.debug(`Toggling sweet status: ${id}`);
     const result = await this.sweetService.toggleStatus(id);
     this.logger.log(`Sweet status toggled: ${id}`);
+    return result;
+  }
+
+  @Post('region-pricing')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateSweetRegionItemPriceDecorator()
+  async createRegionItemPrice(
+    @Body() createSweetRegionItemPriceDto: CreateSweetRegionItemPriceDto,
+  ) {
+    const result = await this.sweetService.createRegionItemPrice(createSweetRegionItemPriceDto);
     return result;
   }
 }

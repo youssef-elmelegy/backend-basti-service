@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Logger,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   CreateSweetDto,
@@ -12,18 +13,46 @@ import {
   SweetDataDto,
   GetAllSweetsDataDto,
   DeleteSweetResponseDto,
+  CreateSweetRegionItemPriceDto,
+  SortBy,
 } from '../dto';
 import { db } from '@/db';
-import { sweets, tags } from '@/db/schema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { sweets, tags, regionItemPrices, regions } from '@/db/schema';
+import { eq, desc, asc, and, sql } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
 export class SweetService {
   private readonly logger = new Logger(SweetService.name);
 
+  /**
+   * Validate that a tag exists by ID
+   */
+  private async validateTagExists(tagId: string): Promise<void> {
+    const tagResult = await db
+      .select({ id: tags.id })
+      .from(tags)
+      .where(eq(tags.id, tagId))
+      .limit(1);
+
+    if (tagResult.length === 0) {
+      throw new BadRequestException(
+        errorResponse(
+          `Tag with ID ${tagId} not found`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+  }
+
   async create(createDto: CreateSweetDto): Promise<SuccessResponse<SweetDataDto>> {
     try {
+      // Validate tag exists if tagId is provided
+      if (createDto.tagId) {
+        await this.validateTagExists(createDto.tagId);
+      }
+
       const [newSweet] = await db
         .insert(sweets)
         .values({
@@ -53,6 +82,9 @@ export class SweetService {
         HttpStatus.CREATED,
       );
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Sweet creation error: ${errMsg}`);
       throw new InternalServerErrorException(
@@ -69,28 +101,96 @@ export class SweetService {
     try {
       const offset = (query.page - 1) * query.limit;
       const sortOrder = query.order === 'desc' ? desc : asc;
+      const sortColumn = query.sortBy === SortBy.NAME ? sweets.name : sweets.createdAt;
 
-      const allSweets = await db
-        .select({
-          sweet: sweets,
-          tag: {
-            id: tags.id,
+      let allSweetsResult: Array<{
+        sweet: typeof sweets.$inferSelect;
+        tagName: string;
+        price?: string;
+        sizesPrices?: Record<string, string>;
+      }> = [];
+      let total = 0;
+
+      if (query.regionId) {
+        const joinConditions = [
+          eq(regionItemPrices.sweetId, sweets.id),
+          eq(regionItemPrices.regionId, query.regionId),
+        ] as const;
+
+        const whereConditions: ReturnType<typeof eq>[] = [];
+        if (query.tag) {
+          whereConditions.push(eq(tags.name, query.tag));
+        }
+
+        const [{ count: regionCount }] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
+          .from(sweets)
+          .innerJoin(regionItemPrices, and(...joinConditions))
+          .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+
+        total = Number(regionCount);
+
+        allSweetsResult = await db
+          .select({
+            sweet: sweets,
             tagName: tags.name,
-          },
-        })
-        .from(sweets)
-        .leftJoin(tags, eq(sweets.tagId, tags.id))
-        .orderBy(sortOrder(sweets.createdAt))
-        .limit(query.limit)
-        .offset(offset);
+            price: regionItemPrices.price,
+            sizesPrices: regionItemPrices.sizesPrices,
+          })
+          .from(sweets)
+          .innerJoin(regionItemPrices, and(...joinConditions))
+          .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
+      } else if (query.tag) {
+        const [{ count: tagCount }] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
+          .from(sweets)
+          .innerJoin(tags, eq(sweets.tagId, tags.id))
+          .where(eq(tags.name, query.tag));
 
-      const [{ count: total }] = await db.select({ count: db.$count(sweets) }).from(sweets);
+        total = Number(tagCount);
+
+        allSweetsResult = await db
+          .select({
+            sweet: sweets,
+            tagName: tags.name,
+          })
+          .from(sweets)
+          .innerJoin(tags, eq(sweets.tagId, tags.id))
+          .where(eq(tags.name, query.tag))
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
+      } else {
+        const [{ count: untaggedCount }] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(sweets);
+
+        total = Number(untaggedCount);
+
+        allSweetsResult = await db
+          .select({
+            sweet: sweets,
+            tagName: tags.name,
+          })
+          .from(sweets)
+          .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
+      }
 
       const totalPages = Math.ceil(total / query.limit);
 
       return successResponse(
         {
-          items: allSweets.map((row) => this.mapToSweetResponse(row.sweet, row.tag?.tagName)),
+          items: allSweetsResult.map((row) =>
+            this.mapToSweetResponse(row.sweet, row.tagName, row.price, row.sizesPrices),
+          ),
           pagination: {
             total,
             totalPages,
@@ -291,7 +391,126 @@ export class SweetService {
     }
   }
 
-  private mapToSweetResponse(sweet: typeof sweets.$inferSelect, tagName?: string) {
+  /**
+   * Validate that a sweet exists by ID
+   */
+  private async validateSweetExists(sweetId: string): Promise<void> {
+    const sweetResult = await db
+      .select({ id: sweets.id })
+      .from(sweets)
+      .where(eq(sweets.id, sweetId))
+      .limit(1);
+
+    if (sweetResult.length === 0) {
+      throw new BadRequestException(
+        errorResponse(
+          `Sweet with ID ${sweetId} not found`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Validate that a region exists by ID
+   */
+  private async validateRegionExists(regionId: string): Promise<void> {
+    const regionResult = await db
+      .select({ id: regions.id })
+      .from(regions)
+      .where(eq(regions.id, regionId))
+      .limit(1);
+
+    if (regionResult.length === 0) {
+      throw new BadRequestException(
+        errorResponse(
+          `Region with ID ${regionId} not found`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+  }
+
+  async createRegionItemPrice(createSweetRegionItemPriceDto: CreateSweetRegionItemPriceDto) {
+    const { sweetId, regionId, price, sizesPrices } = createSweetRegionItemPriceDto;
+
+    try {
+      // Validate both IDs exist
+      await this.validateSweetExists(sweetId);
+      await this.validateRegionExists(regionId);
+
+      // Check if pricing already exists for this sweet and region
+      const existingPrice = await db
+        .select()
+        .from(regionItemPrices)
+        .where(and(eq(regionItemPrices.sweetId, sweetId), eq(regionItemPrices.regionId, regionId)))
+        .limit(1);
+
+      let regionItemPrice: typeof regionItemPrices.$inferSelect;
+      if (existingPrice.length > 0) {
+        const [updated] = await db
+          .update(regionItemPrices)
+          .set({
+            price,
+            sizesPrices: sizesPrices || null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(eq(regionItemPrices.sweetId, sweetId), eq(regionItemPrices.regionId, regionId)),
+          )
+          .returning();
+        regionItemPrice = updated;
+        this.logger.log(`Region pricing updated: sweet ${sweetId}, region ${regionId}`);
+      } else {
+        const [created] = await db
+          .insert(regionItemPrices)
+          .values({
+            sweetId,
+            regionId,
+            price,
+            sizesPrices: sizesPrices || null,
+          })
+          .returning();
+        regionItemPrice = created;
+        this.logger.log(`Region pricing created: sweet ${sweetId}, region ${regionId}`);
+      }
+
+      return successResponse(
+        {
+          sweetId: regionItemPrice.sweetId,
+          regionId: regionItemPrice.regionId,
+          price: regionItemPrice.price,
+          sizesPrices: regionItemPrice.sizesPrices || undefined,
+          createdAt: regionItemPrice.createdAt,
+          updatedAt: regionItemPrice.updatedAt,
+        },
+        'Region pricing created successfully',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to create region pricing: ${errorMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to create region pricing',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  private mapToSweetResponse(
+    sweet: typeof sweets.$inferSelect,
+    tagName?: string,
+    price?: string,
+    sizesPrices?: Record<string, string>,
+  ) {
     return {
       id: sweet.id,
       name: sweet.name,
@@ -300,6 +519,8 @@ export class SweetService {
       tagName: tagName || undefined,
       images: sweet.images,
       sizes: sweet.sizes,
+      price: price || undefined,
+      sizesPrices: sizesPrices || undefined,
       isActive: sweet.isActive,
       createdAt: sweet.createdAt,
       updatedAt: sweet.updatedAt,

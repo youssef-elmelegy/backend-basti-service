@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, Min, Max, IsOptional, IsEnum } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, Min, Max, IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
 
-enum SortBy {
+export enum SortBy {
   CREATED_AT = 'createdAt',
   NAME = 'name',
   UPDATED_AT = 'updatedAt',
@@ -14,6 +15,7 @@ export class GetSweetsQueryDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page: number = 1;
@@ -24,6 +26,7 @@ export class GetSweetsQueryDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
@@ -46,4 +49,21 @@ export class GetSweetsQueryDto {
   @IsOptional()
   @IsEnum(['asc', 'desc'])
   order: 'asc' | 'desc' = 'desc';
+
+  @ApiPropertyOptional({
+    description: 'Filter by tag name',
+    example: 'chocolate',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by region ID',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  regionId?: string;
 }

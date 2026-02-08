@@ -22,6 +22,20 @@ export class SweetDataDto {
   @ApiProperty({ type: [String] })
   sizes: string[];
 
+  @ApiProperty({
+    description: 'Price for the region (if filtered by region)',
+    example: 150,
+    required: false,
+  })
+  price?: string;
+
+  @ApiProperty({
+    description: 'Price for each size (if filtered by region)',
+    example: { Small: 100, Large: 200 },
+    required: false,
+  })
+  sizesPrices?: Record<string, string>;
+
   @ApiProperty()
   isActive: boolean;
 
