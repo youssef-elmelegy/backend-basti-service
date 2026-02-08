@@ -1,7 +1,6 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { CreateChefDto, SuccessChefResponseDto } from '../dto';
-import { ErrorResponseDto } from '@/modules/auth/dto';
 import { ChefExamples } from '@/constants/examples';
 
 export function CreateChefDecorator() {
@@ -29,12 +28,24 @@ export function CreateChefDecorator() {
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
       description: 'Invalid input data (validation failed or bakery not found)',
-      type: ErrorResponseDto,
+      schema: {
+        example: {
+          message: 'Invalid input data',
+          error: 'Bad Request',
+          statusCode: 400,
+        },
+      },
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       description: 'Failed to create chef due to server error',
-      type: ErrorResponseDto,
+      schema: {
+        example: {
+          message: 'Failed to create chef',
+          error: 'Internal Server Error',
+          statusCode: 500,
+        },
+      },
     }),
   );
 }

@@ -25,6 +25,16 @@ export class UploadController {
    * @param folder - Target folder in Cloudinary (e.g., 'basti/chefs', 'basti/products')
    * @returns CloudinaryUploadResult with secure_url
    */
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    return 'unknown error';
+  }
+
   @Post('image')
   @UseGuards(FlexibleJwtGuard)
   @ApiQuery({ name: 'folder', required: false, description: 'Target folder in Cloudinary' })
@@ -75,31 +85,32 @@ export class UploadController {
               let originalFilename: string;
               let fileMimetype: string;
 
-              bb.on('file', (fieldname: string, file: any, fileInfo: any) => {
-                if (fieldname === 'file') {
-                  originalFilename = fileInfo.filename;
-                  fileMimetype = fileInfo.mimeType;
+              bb.on(
+                'file',
+                (
+                  fieldname: string,
+                  file: NodeJS.ReadableStream,
+                  fileInfo: { filename: string; mimeType: string },
+                ) => {
+                  if (fieldname === 'file') {
+                    originalFilename = fileInfo.filename;
+                    fileMimetype = fileInfo.mimeType;
 
-                  const chunks: Buffer[] = [];
-                  file.on('data', (data: Buffer) => {
-                    chunks.push(data);
-                  });
+                    const chunks: Buffer[] = [];
+                    file.on('data', (data: Buffer) => {
+                      chunks.push(data);
+                    });
 
-                  file.on('end', () => {
-                    fileBuffer = Buffer.concat(chunks);
-                  });
+                    file.on('end', () => {
+                      fileBuffer = Buffer.concat(chunks);
+                    });
 
-                  file.on('error', (err: unknown) => {
-                    const errorMsg =
-                      err instanceof Error
-                        ? err.message
-                        : typeof err === 'string'
-                          ? err
-                          : 'unknown';
-                    this.logger.error(`File stream error: ${errorMsg}`);
-                  });
-                }
-              });
+                    file.on('error', (err: unknown) => {
+                      this.logger.error(`File stream error: ${this.getErrorMessage(err)}`);
+                    });
+                  }
+                },
+              );
 
               bb.on('close', async () => {
                 try {
@@ -142,9 +153,7 @@ export class UploadController {
                   this.logger.log(`Image uploaded to ${folder}: ${result.public_id}`);
                   return resolve(successResponse(result, 'Image uploaded successfully', 201));
                 } catch (error) {
-                  this.logger.error(
-                    `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
-                  );
+                  this.logger.error(`Upload failed: ${this.getErrorMessage(error)}`);
                   return resolve(
                     successResponse(
                       { secure_url: null },
@@ -156,9 +165,7 @@ export class UploadController {
               });
 
               bb.on('error', (err: unknown) => {
-                const errorMsg =
-                  err instanceof Error ? err.message : typeof err === 'string' ? err : 'unknown';
-                this.logger.error(`Busboy error: ${errorMsg}`);
+                this.logger.error(`Busboy error: ${this.getErrorMessage(err)}`);
                 resolve(successResponse({ secure_url: null }, 'Failed to parse upload', 400));
               });
 

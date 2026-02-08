@@ -6,10 +6,10 @@ export class CreateWishlistItemDto {
   @IsUUID()
   userId: string;
 
-  @ApiPropertyOptional({ description: 'Cake ID to add' })
+  @ApiPropertyOptional({ description: 'Featured Cake ID to add' })
   @IsOptional()
   @IsUUID()
-  cakeId?: string;
+  featuredCakeId?: string;
 
   @ApiPropertyOptional({ description: 'Addon ID to add' })
   @IsOptional()
@@ -25,7 +25,7 @@ export class WishlistItemResponse {
   userId: string;
 
   @ApiProperty({ nullable: true })
-  cakeId: string;
+  featuredCakeId: string;
 
   @ApiProperty({ nullable: true })
   addonId: string;

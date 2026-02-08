@@ -5,8 +5,8 @@ export class OrderItemResponseDto {
   createdAt: Date;
   price: string;
   quantity: number;
-  cakeId: string;
-  addonId: string;
+  addonId?: string;
+  featuredCakeOrderItemId?: string;
   orderId: string;
   size: string;
   flavor: string;

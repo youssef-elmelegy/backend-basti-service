@@ -7,12 +7,11 @@ import {
   Param,
   UseGuards,
   Logger,
-  BadRequestException,
-  HttpStatus,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SliderImageService } from '../services/slider-image.service';
-import { SliderImageResponseDto } from '../dto';
+import { SliderImageResponseDto, SliderImageItemDto } from '../dto';
 import {
   GetSliderImagesDecorator,
   UpdateSliderImagesDecorator,
@@ -23,7 +22,6 @@ import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { SuccessResponse } from '@/utils';
-import { errorResponse } from '@/utils';
 
 @ApiTags('slider-images')
 @Controller('slider-images')
@@ -44,50 +42,12 @@ export class SliderImageController {
   @AdminRoles('super_admin', 'admin')
   @Post()
   @UpdateSliderImagesDecorator()
-  async update(@Body() imageUrls: string[]): Promise<SuccessResponse<SliderImageResponseDto[]>> {
-    if (!Array.isArray(imageUrls)) {
-      throw new BadRequestException(
-        errorResponse(
-          'Request body must be an array of image URLs',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-
-    if (imageUrls.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          'At least one image URL must be provided',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-
-    // Validate each URL
-    const invalidUrls = imageUrls.filter((url) => {
-      if (typeof url !== 'string') return true;
-      try {
-        new URL(url);
-        return false;
-      } catch {
-        return true;
-      }
-    });
-
-    if (invalidUrls.length > 0) {
-      throw new BadRequestException(
-        errorResponse(
-          'All image URLs must be valid URLs',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-
-    this.logger.debug(`Updating slider images with ${imageUrls.length} URLs`);
-    const result = await this.sliderImageService.update({ imageUrls });
+  async update(
+    @Body(new ParseArrayPipe({ items: SliderImageItemDto }))
+    images: SliderImageItemDto[],
+  ): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+    this.logger.debug(`Updating slider images with ${images.length} images`);
+    const result = await this.sliderImageService.update(images);
     this.logger.log(`Slider images updated successfully`);
     return result;
   }

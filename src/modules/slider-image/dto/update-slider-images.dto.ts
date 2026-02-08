@@ -1,13 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsUrl } from 'class-validator';
 
-export class UpdateSliderImagesDto extends Array<string> {
+export class SliderImageItemDto {
   @ApiProperty({
-    description: 'Array of image URLs for the slider',
-    type: [String],
-    example: [
-      'https://api.example.com/images/sliders/summer-collection.jpg',
-      'https://api.example.com/images/sliders/winter-special.jpg',
-    ],
+    description: 'Title of the slider image',
+    example: 'Summer Collection',
   })
-  declare: string[];
+  @IsString()
+  title: string;
+
+  @ApiProperty({
+    description: 'URL of the slider image',
+    example: 'https://api.example.com/images/sliders/summer-collection.jpg',
+  })
+  @IsUrl()
+  imageUrl: string;
 }

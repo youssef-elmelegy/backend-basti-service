@@ -5,7 +5,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RegionModule } from './modules/region/region.module';
 import { BakeryModule } from './modules/bakery/bakery.module';
 import { ChefModule } from './modules/chef/chef.module';
-import { CakeModule } from './modules/cake/cake.module';
+import { FeaturedCakeModule } from './modules/featured-cake/featured-cake.module';
+import { SweetModule } from './modules/sweet/sweet.module';
 import { AddModule } from './modules/add/add.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { UploadModule } from './modules/upload/upload.module';
@@ -22,7 +23,8 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     RegionModule,
     BakeryModule,
     ChefModule,
-    CakeModule,
+    FeaturedCakeModule,
+    SweetModule,
     AddModule,
     AdminAuthModule,
     UploadModule,

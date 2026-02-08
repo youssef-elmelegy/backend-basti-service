@@ -1,6 +1,6 @@
 import { pgTable, varchar, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { bakeries } from '.';
+import { bakeries, regionItemPrices } from '.';
 
 export const regions = pgTable('regions', {
   id: uuid('id')
@@ -13,4 +13,5 @@ export const regions = pgTable('regions', {
 
 export const regionsRelations = relations(regions, ({ many }) => ({
   bakeries: many(bakeries),
+  itemPrices: many(regionItemPrices),
 }));

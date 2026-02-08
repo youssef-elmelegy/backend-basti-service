@@ -1,6 +1,6 @@
 import { pgTable, timestamp, uuid, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { users, cakes, addons } from '.';
+import { users, featuredCakes, addons, sweets } from '.';
 
 export const wishlistItems = pgTable(
   'wishlist_items',
@@ -11,14 +11,21 @@ export const wishlistItems = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    cakeId: uuid('cake_id').references(() => cakes.id, { onDelete: 'cascade' }),
+    featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id, {
+      onDelete: 'cascade',
+    }),
     addonId: uuid('addon_id').references(() => addons.id, { onDelete: 'cascade' }),
+    sweetId: uuid('sweet_id').references(() => sweets.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     userIdIdx: index('wishlist_items_user_id_idx').on(table.userId),
-    uniqueUserCake: index('wishlist_unique_user_cake_idx').on(table.userId, table.cakeId),
+    uniqueUserFeaturedCake: index('wishlist_unique_user_featured_cake_idx').on(
+      table.userId,
+      table.featuredCakeId,
+    ),
     uniqueUserAddon: index('wishlist_unique_user_addon_idx').on(table.userId, table.addonId),
+    uniqueUserSweet: index('wishlist_unique_user_sweet_idx').on(table.userId, table.sweetId),
   }),
 );
 
@@ -27,12 +34,16 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
     fields: [wishlistItems.userId],
     references: [users.id],
   }),
-  cake: one(cakes, {
-    fields: [wishlistItems.cakeId],
-    references: [cakes.id],
+  featuredCakes: one(featuredCakes, {
+    fields: [wishlistItems.featuredCakeId],
+    references: [featuredCakes.id],
   }),
   addon: one(addons, {
     fields: [wishlistItems.addonId],
     references: [addons.id],
+  }),
+  sweet: one(sweets, {
+    fields: [wishlistItems.sweetId],
+    references: [sweets.id],
   }),
 }));

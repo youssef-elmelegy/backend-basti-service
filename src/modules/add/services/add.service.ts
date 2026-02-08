@@ -6,8 +6,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { addons } from '@/db/schema';
-import { eq, desc, sql, asc, SQL, and } from 'drizzle-orm';
+import { addons, tags } from '@/db/schema';
+import { eq, desc, sql, asc } from 'drizzle-orm';
 import { CreateAddDto, UpdateAddDto, GetAddsQueryDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
 
@@ -16,7 +16,7 @@ export class AddService {
   private readonly logger = new Logger(AddService.name);
 
   async create(createAddDto: CreateAddDto) {
-    const { name, description, images, category, price, tags, isActive = true } = createAddDto;
+    const { name, description, images, category, tagId, isActive = true } = createAddDto;
 
     try {
       const [newAdd] = await db
@@ -26,16 +26,25 @@ export class AddService {
           description,
           images,
           category: category,
-          price: price.toString(),
-          tags,
+          tagId,
           isActive,
         })
         .returning();
 
       this.logger.log(`Add-on created: ${newAdd.id} (${name})`);
 
+      let tagName: string;
+      if (newAdd.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, newAdd.tagId))
+          .limit(1);
+        tagName = tagResult[0]?.name;
+      }
+
       return successResponse(
-        this.mapToAddResponse(newAdd),
+        this.mapToAddResponse(newAdd, tagName),
         'Add-on created successfully',
         HttpStatus.CREATED,
       );
@@ -53,30 +62,50 @@ export class AddService {
 
     try {
       const offset = (page - 1) * limit;
-
-      // Get total count
-      const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(addons);
-
       const sortOrder = order === 'desc' ? desc : asc;
 
-      const whereConditions: SQL[] = [];
+      let allAdds: Array<{ addon: typeof addons.$inferSelect; tagName: string }> = [];
+      let total = 0;
 
       if (tag) {
-        whereConditions.push(
-          sql`
-            ${addons.tags} @> ${JSON.stringify(tag)}::jsonb
-          `,
-        );
-      }
+        const tagResults = await db
+          .select({
+            addon: addons,
+            tagName: tags.name,
+          })
+          .from(addons)
+          .innerJoin(tags, eq(addons.tagId, tags.id))
+          .where(eq(tags.name, tag))
+          .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
+          .limit(limit)
+          .offset(offset);
 
-      // Get paginated add-ons
-      const allAdds = await db
-        .select()
-        .from(addons)
-        .where(and(...whereConditions))
-        .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-        .limit(limit)
-        .offset(offset);
+        allAdds = tagResults;
+
+        const [countResult] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
+          .from(addons)
+          .innerJoin(tags, eq(addons.tagId, tags.id))
+          .where(eq(tags.name, tag));
+
+        total = countResult.count;
+      } else {
+        const untaggedResults = await db
+          .select({
+            addon: addons,
+            tagName: tags.name,
+          })
+          .from(addons)
+          .leftJoin(tags, eq(addons.tagId, tags.id))
+          .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
+          .limit(limit)
+          .offset(offset);
+
+        allAdds = untaggedResults;
+
+        const [countResult] = await db.select({ count: sql<number>`COUNT(*)` }).from(addons);
+        total = countResult.count;
+      }
 
       const totalPages = Math.ceil(total / limit);
 
@@ -84,7 +113,7 @@ export class AddService {
 
       return successResponse(
         {
-          items: allAdds.map((add) => this.mapToAddResponse(add)),
+          items: allAdds.map((item) => this.mapToAddResponse(item.addon, item.tagName)),
           pagination: {
             total,
             limit,
@@ -105,17 +134,30 @@ export class AddService {
 
   async findOne(id: string) {
     try {
-      const [add] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
+      const addResult = await db
+        .select({
+          addon: addons,
+          tagName: tags.name,
+        })
+        .from(addons)
+        .leftJoin(tags, eq(addons.tagId, tags.id))
+        .where(eq(addons.id, id))
+        .limit(1);
 
-      if (!add) {
+      if (!addResult.length) {
         this.logger.warn(`Add-on not found: ${id}`);
         throw new NotFoundException(
           errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
+      const { addon, tagName } = addResult[0];
+
       this.logger.debug(`Retrieved add-on: ${id}`);
-      return successResponse(this.mapToAddResponse(add), 'Add-on retrieved successfully');
+      return successResponse(
+        this.mapToAddResponse(addon, tagName),
+        'Add-on retrieved successfully',
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -146,8 +188,7 @@ export class AddService {
       if (updateAddDto.description !== undefined) updateData.description = updateAddDto.description;
       if (updateAddDto.images !== undefined) updateData.images = updateAddDto.images;
       if (updateAddDto.category !== undefined) updateData.category = updateAddDto.category;
-      if (updateAddDto.price !== undefined) updateData.price = updateAddDto.price.toString();
-      if (updateAddDto.tags !== undefined) updateData.tags = updateAddDto.tags;
+      if (updateAddDto.tagId !== undefined) updateData.tagId = updateAddDto.tagId;
       if (updateAddDto.isActive !== undefined) updateData.isActive = updateAddDto.isActive;
       updateData.updatedAt = new Date();
 
@@ -159,7 +200,21 @@ export class AddService {
 
       this.logger.log(`Add-on updated: ${id}`);
 
-      return successResponse(this.mapToAddResponse(updatedAdd), 'Add-on updated successfully');
+      // Fetch tag name if tagId exists
+      let tagName: string;
+      if (updatedAdd.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, updatedAdd.tagId))
+          .limit(1);
+        tagName = tagResult[0]?.name;
+      }
+
+      return successResponse(
+        this.mapToAddResponse(updatedAdd, tagName),
+        'Add-on updated successfully',
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -206,7 +261,6 @@ export class AddService {
 
   async toggleStatus(id: string) {
     try {
-      // Check if add-on exists
       const [existingAdd] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
 
       if (!existingAdd) {
@@ -228,8 +282,18 @@ export class AddService {
       const statusText = updatedAdd.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Add-on status toggled (${statusText}): ${id}`);
 
+      let tagName: string;
+      if (updatedAdd.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, updatedAdd.tagId))
+          .limit(1);
+        tagName = tagResult[0]?.name;
+      }
+
       return successResponse(
-        this.mapToAddResponse(updatedAdd),
+        this.mapToAddResponse(updatedAdd, tagName),
         `Add-on ${statusText} successfully`,
       );
     } catch (error) {
@@ -244,15 +308,15 @@ export class AddService {
     }
   }
 
-  private mapToAddResponse(add: typeof addons.$inferSelect) {
+  private mapToAddResponse(add: typeof addons.$inferSelect, tagName?: string) {
     return {
       id: add.id,
       name: add.name,
       description: add.description,
       images: add.images,
       category: add.category,
-      price: parseFloat(add.price),
-      tags: add.tags,
+      tagId: add.tagId,
+      tagName: tagName || null,
       isActive: add.isActive,
       createdAt: add.createdAt,
       updatedAt: add.updatedAt,

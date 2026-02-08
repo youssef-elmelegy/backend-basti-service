@@ -8,6 +8,12 @@ export class SliderImageResponseDto {
   id: string;
 
   @ApiProperty({
+    description: 'Title of the slider image',
+    example: 'Summer Collection',
+  })
+  title: string;
+
+  @ApiProperty({
     description: 'URL of the slider image',
     example: 'https://api.example.com/images/sliders/summer-collection.jpg',
   })

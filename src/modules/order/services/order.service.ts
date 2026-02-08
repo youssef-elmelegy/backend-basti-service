@@ -13,10 +13,9 @@ import {
   orders,
   locations,
   paymentMethods,
-  cakes,
-  addons,
   orderItems,
   orderStatusEnum,
+  regionItemPrices,
 } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
@@ -46,6 +45,8 @@ export class OrderService {
       .from(locations)
       .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
       .limit(1);
+
+    // TODO: we can create the location recored
     if (!existingLocation) {
       this.logger.warn(
         `Order creation failed: Invalid location ID ${locationId} for user ${userId}`,
@@ -82,32 +83,48 @@ export class OrderService {
     let finalPrice = 0;
     const willDeliverAt = this.calculateTheExpectedDeliveryTime();
 
+    // TODO: we should handle the custom featured cakes and sweets
     // loop through items
     // calculate total price of each item
     try {
       for (const item of items) {
-        const [cake] = await db
-          .select({ cakePrice: cakes.mainPrice })
-          .from(cakes)
-          .where(eq(cakes.id, item.cakeId));
+        let featuredCakePrice = 0;
 
-        const [addon] = await db
-          .select({ addonPrice: addons.price })
-          .from(addons)
-          .where(eq(addons.id, item.addonId));
+        // Fetch featured cake price from regionItemPrices if provided
+        if (item.featuredCakeId) {
+          const [priceRecord] = await db
+            .select({ price: regionItemPrices.price })
+            .from(regionItemPrices)
+            .where(eq(regionItemPrices.featuredCakeId, item.featuredCakeId))
+            .limit(1);
+
+          featuredCakePrice = priceRecord?.price ? Number(priceRecord.price) : 0;
+        }
+
+        let addonPrice = 0;
+
+        // Fetch addon price from regionItemPrices if provided
+        if (item.addonId) {
+          const [priceRecord] = await db
+            .select({ price: regionItemPrices.price })
+            .from(regionItemPrices)
+            .where(eq(regionItemPrices.addonId, item.addonId))
+            .limit(1);
+
+          addonPrice = priceRecord?.price ? Number(priceRecord.price) : 0;
+        }
 
         const optionsPrice = item.selectedOptions.reduce(
           (acc, option) => acc + Number(option.value),
           0,
         );
 
-        const itemTotalPrice =
-          item.quantity * (Number(cake.cakePrice) + Number(addon.addonPrice) + optionsPrice);
+        const itemTotalPrice = item.quantity * (featuredCakePrice + addonPrice + optionsPrice);
 
         totalPrice += itemTotalPrice;
 
         orderItemsDetails.push({
-          cakeId: item.cakeId,
+          featuredCakeId: item.featuredCakeId,
           addonId: item.addonId,
           quantity: item.quantity,
           flavor: item.flavor,
@@ -143,7 +160,7 @@ export class OrderService {
             deliveryNote,
             keepAnonymous,
             cardQrCodeUrl,
-            totalPrice: totalPrice.toString(),
+            totalPrice: totalPrice.toString(), // TODO: we should handle the decimals properly
             finalPrice: finalPrice.toString(),
             discountAmount: discountAmount.toString(),
             willDeliverAt,
@@ -151,8 +168,13 @@ export class OrderService {
           .returning();
 
         const itemsToInsert = orderItemsDetails.map((item) => ({
-          ...item,
           orderId: createdOrder.id,
+          addonId: item.addonId,
+          quantity: item.quantity,
+          flavor: item.flavor,
+          size: item.size,
+          price: item.price,
+          selectedOptions: item.selectedOptions,
         }));
 
         const newItems = await tx.insert(orderItems).values(itemsToInsert).returning();
@@ -188,6 +210,7 @@ export class OrderService {
     }
   }
 
+  // TODO: we need to handle the big cakes time (it takes 2 days not one)
   private calculateTheExpectedDeliveryTime(): Date {
     const currentHour = new Date().getHours();
 

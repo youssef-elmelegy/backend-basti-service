@@ -1,10 +1,10 @@
-import { IsOptional } from 'class-validator';
+import { IsOptional, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { SORT_DEFAULTS } from '@/constants/global.constants';
 
-type SortType = 'created_at' | 'alpha';
-type SortOrder = 'asc' | 'desc';
+export type SortType = 'created_at' | 'alpha';
+export type SortOrder = 'asc' | 'desc';
 
 export class SortDto {
   @ApiProperty({
@@ -14,8 +14,9 @@ export class SortDto {
     required: false,
   })
   @IsOptional()
+  @IsEnum(['created_at', 'alpha'])
   @Type(() => String)
-  sort: SortType = SORT_DEFAULTS.SORT;
+  sort?: SortType;
 
   @ApiProperty({
     description: 'Sorting order',
@@ -24,6 +25,12 @@ export class SortDto {
     required: false,
   })
   @IsOptional()
+  @IsEnum(['asc', 'desc'])
   @Type(() => String)
-  order: SortOrder = SORT_DEFAULTS.ORDER;
+  order?: SortOrder;
+
+  constructor() {
+    this.sort = this.sort ?? SORT_DEFAULTS.SORT;
+    this.order = this.order ?? SORT_DEFAULTS.ORDER;
+  }
 }

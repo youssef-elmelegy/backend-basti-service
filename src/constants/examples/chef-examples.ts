@@ -3,9 +3,10 @@ import { MOCK_DATA } from '../global.constants';
 export const ChefExamples = {
   create: {
     request: {
-      name: MOCK_DATA.name.chef,
-      image: MOCK_DATA.image.chef,
-      bakeryId: MOCK_DATA.id.bakery,
+      name: 'John Anderson',
+      specialization: 'Pastry Chef',
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+      bakeryId: '770e8400-e29b-41d4-a716-446655440002',
     },
     response: {
       success: {
@@ -13,19 +14,46 @@ export const ChefExamples = {
         success: true,
         message: 'Chef created successfully',
         data: {
-          id: MOCK_DATA.id.chef,
-          name: MOCK_DATA.name.chef,
-          image: MOCK_DATA.image.chef,
+          id: 'bb0e8400-e29b-41d4-a716-446655440001',
+          fullName: 'John Anderson',
+          specialization: 'Pastry Chef',
+          image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
           bakery: {
-            id: MOCK_DATA.id.bakery,
-            name: MOCK_DATA.name.bakery,
+            id: '770e8400-e29b-41d4-a716-446655440002',
+            name: 'Sweet Dreams Bakery',
           },
-          rating: 0,
-          ratingCount: 0,
-          createdAt: MOCK_DATA.dates.default,
-          updatedAt: MOCK_DATA.dates.default,
+          createdAt: '2026-02-08T10:00:00Z',
+          updatedAt: '2026-02-08T10:00:00Z',
         },
-        timestamp: MOCK_DATA.dates.default,
+        timestamp: '2026-02-08T10:00:00Z',
+      },
+    },
+  },
+  update: {
+    request: {
+      name: 'Jane Smith',
+      specialization: 'Cake Designer',
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+      bakeryId: '770e8400-e29b-41d4-a716-446655440002',
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Chef updated successfully',
+        data: {
+          id: 'bb0e8400-e29b-41d4-a716-446655440001',
+          fullName: 'Jane Smith',
+          specialization: 'Cake Designer',
+          image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+          bakery: {
+            id: '770e8400-e29b-41d4-a716-446655440002',
+            name: 'Sweet Dreams Bakery',
+          },
+          createdAt: '2026-02-08T10:00:00Z',
+          updatedAt: '2026-02-08T10:00:00Z',
+        },
+        timestamp: '2026-02-08T10:00:00Z',
       },
     },
   },

@@ -1,15 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RegionService } from '../services/region.service';
 import { CreateRegionDto, UpdateRegionDto } from '../dto';
+import { SortDto } from '@/common/dto';
 import {
   CreateRegionDecorator,
   GetAllRegionsDecorator,
   GetRegionDecorator,
   UpdateRegionDecorator,
   DeleteRegionDecorator,
-  PaginationDecorator,
-  SortDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 
@@ -32,11 +31,9 @@ export class RegionController {
 
   @Get()
   @GetAllRegionsDecorator()
-  @PaginationDecorator()
-  @SortDecorator()
-  async findAll() {
+  async findAll(@Query() sortDto: SortDto) {
     this.logger.debug('Retrieving all regions');
-    return this.regionService.findAll();
+    return this.regionService.findAll(sortDto);
   }
 
   @Get(':id')

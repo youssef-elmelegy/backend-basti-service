@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { sliderImages } from '@/db/schema';
-import { SliderImageResponseDto } from '../dto';
+import { SliderImageResponseDto, SliderImageItemDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { eq } from 'drizzle-orm';
 
@@ -40,14 +40,15 @@ export class SliderImageService {
   /**
    * Update slider images - deletes all existing ones and creates new ones in bulk
    */
-  async update(data: { imageUrls: string[] }): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+  async update(images: SliderImageItemDto[]): Promise<SuccessResponse<SliderImageResponseDto[]>> {
     try {
       await db.delete(sliderImages);
 
       this.logger.log('Deleted all existing slider images');
 
-      const imagesToInsert = data.imageUrls.map((imageUrl) => ({
-        imageUrl,
+      const imagesToInsert = images.map((item) => ({
+        title: item.title,
+        imageUrl: item.imageUrl,
       }));
 
       const insertedImages = await db.insert(sliderImages).values(imagesToInsert).returning();

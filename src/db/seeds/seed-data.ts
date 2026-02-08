@@ -152,6 +152,72 @@ export function getSeedRegions(): SeedRegion[] {
       createdAt: new Date('2025-01-01'),
       updatedAt: new Date('2025-01-01'),
     },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440101',
+      name: 'Uptown District',
+      createdAt: new Date('2025-01-02'),
+      updatedAt: new Date('2025-01-02'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440102',
+      name: 'Riverside Zone',
+      createdAt: new Date('2025-01-03'),
+      updatedAt: new Date('2025-01-03'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440103',
+      name: 'Harbor District',
+      createdAt: new Date('2025-01-04'),
+      updatedAt: new Date('2025-01-04'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440104',
+      name: 'Central Park Area',
+      createdAt: new Date('2025-01-05'),
+      updatedAt: new Date('2025-01-05'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440105',
+      name: 'West End',
+      createdAt: new Date('2025-01-06'),
+      updatedAt: new Date('2025-01-06'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440106',
+      name: 'East Side',
+      createdAt: new Date('2025-01-07'),
+      updatedAt: new Date('2025-01-07'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440107',
+      name: 'North Quarter',
+      createdAt: new Date('2025-01-08'),
+      updatedAt: new Date('2025-01-08'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440108',
+      name: 'South Valley',
+      createdAt: new Date('2025-01-09'),
+      updatedAt: new Date('2025-01-09'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440109',
+      name: 'Industrial Zone',
+      createdAt: new Date('2025-01-10'),
+      updatedAt: new Date('2025-01-10'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-44665544010a',
+      name: 'Suburban Heights',
+      createdAt: new Date('2025-01-11'),
+      updatedAt: new Date('2025-01-11'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-44665544010b',
+      name: 'Lakeside Region',
+      createdAt: new Date('2025-01-12'),
+      updatedAt: new Date('2025-01-12'),
+    },
   ];
 
   return regions;

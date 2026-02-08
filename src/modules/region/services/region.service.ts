@@ -8,8 +8,9 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { regions } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, asc, desc, SQL } from 'drizzle-orm';
 import { CreateRegionDto, UpdateRegionDto, RegionResponse } from '../dto';
+import { SortDto } from '@/common/dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -59,9 +60,25 @@ export class RegionService {
     }
   }
 
-  async findAll(): Promise<SuccessResponse<RegionResponse[]>> {
+  async findAll(sortDto?: SortDto): Promise<SuccessResponse<RegionResponse[]>> {
     try {
-      const allRegions = await db.select().from(regions);
+      const orderByConditions: SQL[] = [];
+      if (sortDto?.sort) {
+        const sortFn = sortDto.order === 'desc' ? desc : asc;
+        if (sortDto.sort === 'created_at') {
+          orderByConditions.push(sortFn(regions.createdAt));
+        } else if (sortDto.sort === 'alpha') {
+          orderByConditions.push(sortFn(regions.name));
+        }
+      }
+
+      const allRegions =
+        orderByConditions.length > 0
+          ? await db
+              .select()
+              .from(regions)
+              .orderBy(...orderByConditions)
+          : await db.select().from(regions);
 
       this.logger.debug(`Retrieved ${allRegions.length} regions`);
 

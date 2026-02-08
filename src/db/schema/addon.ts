@@ -4,13 +4,12 @@ import {
   boolean,
   timestamp,
   uuid,
-  decimal,
   text,
   jsonb,
   index,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { addonCategoryEnum, addonInfoTypeEnum, orderItems, wishlistItems } from '.';
+import { addonCategoryEnum, addonInfoTypeEnum, orderItems, wishlistItems, tags } from '.';
 
 export const addons = pgTable(
   'addons',
@@ -21,9 +20,8 @@ export const addons = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description'),
     category: addonCategoryEnum('category').notNull(),
-    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     images: jsonb('images').notNull().$type<string[]>(),
-    tags: jsonb('tags').notNull().$type<string[]>(),
+    tagId: uuid('tag_id'),
     isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
@@ -35,7 +33,11 @@ export const addons = pgTable(
   }),
 );
 
-export const addonsRelations = relations(addons, ({ many }) => ({
+export const addonsRelations = relations(addons, ({ many, one }) => ({
+  tag: one(tags, {
+    fields: [addons.tagId],
+    references: [tags.id],
+  }),
   addonOptions: many(addonOptions),
   orderItems: many(orderItems),
   wishlistItems: many(wishlistItems),

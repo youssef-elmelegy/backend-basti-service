@@ -36,7 +36,7 @@ export class OrderItemDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
-  cakeId?: string;
+  featuredCakeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -130,8 +130,8 @@ export class CreateOrderDto {
     description: 'The items to be included in the order.',
     example: [
       {
-        cakeId: '123e4567-e89b-12d3-a456-426614174000',
-        addonId: '123e4567-e89b-12d3-a456-426614174000',
+        featuredCakeId: '123e4567-e89b-12d3-a456-426614174000',
+        addonId: '223e4567-e89b-12d3-a456-426614174000',
         quantity: 2,
         size: 'medium',
         flavor: 'vanilla',

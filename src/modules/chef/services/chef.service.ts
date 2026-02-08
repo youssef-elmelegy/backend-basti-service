@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { chefs, bakeries } from '@/db/schema';
-import { eq, sql, asc, desc } from 'drizzle-orm';
+import { eq, sql, asc, desc, and } from 'drizzle-orm';
 import {
   CreateChefDto,
   UpdateChefDto,
@@ -70,11 +70,18 @@ export class ChefService {
   async findAll(
     pagination: PaginationDto,
     sort: SortDto,
+    regionId?: string,
   ): Promise<SuccessResponse<PaginatedChefResponse>> {
     const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = pagination;
 
     try {
-      const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(chefs);
+      const conditions = regionId ? [eq(bakeries.regionId, regionId)] : [];
+
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(chefs)
+        .innerJoin(bakeries, eq(chefs.bakeryId, bakeries.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
 
       const totalCount = Number(count);
       const totalPages = Math.ceil(totalCount / limit);
@@ -82,18 +89,27 @@ export class ChefService {
 
       const sortOrder = sort.order === 'desc' ? desc : asc;
 
-      const allChefs = await db
-        .select()
+      const query = db
+        .select({ chef: chefs })
         .from(chefs)
+        .innerJoin(bakeries, eq(chefs.bakeryId, bakeries.id));
+
+      if (regionId) {
+        query.where(eq(bakeries.regionId, regionId));
+      }
+
+      const allChefs = await query
         .orderBy(sort.sort === 'alpha' ? sortOrder(chefs.fullName) : sortOrder(chefs.createdAt))
         .limit(limit)
         .offset(offset);
 
       const formattedChefs = await Promise.all(
-        allChefs.map((chef) => this.formatChefResponse(chef.id)),
+        allChefs.map((result) => this.formatChefResponse(result.chef.id)),
       );
 
-      this.logger.debug(`Retrieved ${allChefs.length} chefs (page ${page}/${totalPages})`);
+      this.logger.debug(
+        `Retrieved ${allChefs.length} chefs (page ${page}/${totalPages}) ${regionId ? `for region ${regionId}` : ''}`,
+      );
 
       return successResponse(
         {

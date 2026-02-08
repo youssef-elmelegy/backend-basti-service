@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { wishlistItems, users, cakes, addons } from '@/db/schema';
+import { wishlistItems, users, featuredCakes, addons } from '@/db/schema';
 import { eq, desc, asc, sql, and } from 'drizzle-orm';
 import { CreateWishlistItemDto, WishlistItemResponse, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
@@ -18,7 +18,7 @@ export class WishlistItemsService {
   private readonly logger = new Logger(WishlistItemsService.name);
 
   async create(createDto: CreateWishlistItemDto): Promise<SuccessResponse<WishlistItemResponse>> {
-    const { userId, cakeId, addonId } = createDto;
+    const { userId, featuredCakeId, addonId } = createDto;
 
     const userExists = await db
       .select({ id: users.id })
@@ -33,11 +33,11 @@ export class WishlistItemsService {
       );
     }
 
-    if (cakeId) {
+    if (featuredCakeId) {
       const cakeExists = await db
-        .select({ id: cakes.id })
-        .from(cakes)
-        .where(eq(cakes.id, cakeId))
+        .select({ id: featuredCakes.id })
+        .from(featuredCakes)
+        .where(eq(featuredCakes.id, featuredCakeId))
         .limit(1);
       if (cakeExists.length === 0) {
         throw new BadRequestException(
@@ -47,7 +47,9 @@ export class WishlistItemsService {
       const existing = await db
         .select()
         .from(wishlistItems)
-        .where(and(eq(wishlistItems.userId, userId), eq(wishlistItems.cakeId, cakeId)))
+        .where(
+          and(eq(wishlistItems.userId, userId), eq(wishlistItems.featuredCakeId, featuredCakeId)),
+        )
         .limit(1);
 
       if (existing.length > 0) {
@@ -87,7 +89,7 @@ export class WishlistItemsService {
         .insert(wishlistItems)
         .values({
           userId,
-          cakeId: cakeId || null,
+          featuredCakeId: featuredCakeId || null,
           addonId: addonId || null,
         })
         .returning();
@@ -130,11 +132,11 @@ export class WishlistItemsService {
       const allItems = await db
         .select({
           wishlist: wishlistItems,
-          cake: { name: cakes.name },
+          cake: { name: featuredCakes.name },
           addon: { name: addons.name },
         })
         .from(wishlistItems)
-        .leftJoin(cakes, eq(wishlistItems.cakeId, cakes.id))
+        .leftJoin(featuredCakes, eq(wishlistItems.featuredCakeId, featuredCakes.id))
         .leftJoin(addons, eq(wishlistItems.addonId, addons.id))
         .where(whereClause)
         .orderBy(sortOrder(wishlistItems.createdAt))
@@ -178,11 +180,11 @@ export class WishlistItemsService {
     const result = await db
       .select({
         wishlist: wishlistItems,
-        cake: { name: cakes.name },
+        cake: { name: featuredCakes.name },
         addon: { name: addons.name },
       })
       .from(wishlistItems)
-      .leftJoin(cakes, eq(wishlistItems.cakeId, cakes.id))
+      .leftJoin(featuredCakes, eq(wishlistItems.featuredCakeId, featuredCakes.id))
       .leftJoin(addons, eq(wishlistItems.addonId, addons.id))
       .where(eq(wishlistItems.id, id))
       .limit(1);
@@ -244,7 +246,7 @@ export class WishlistItemsService {
     return {
       id: item.id,
       userId: item.userId,
-      cakeId: item.cakeId,
+      featuredCakeId: item.featuredCakeId,
       addonId: item.addonId,
       createdAt: item.createdAt,
     };

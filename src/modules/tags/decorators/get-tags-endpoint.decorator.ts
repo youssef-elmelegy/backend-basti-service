@@ -7,9 +7,8 @@ export function GetTagsDecorator() {
   return applyDecorators(
     HttpCode(HttpStatus.OK),
     ApiOperation({
-      summary: 'Get all unique tags',
-      description:
-        'Retrieves all unique tags from cakes and addons. Tags are collected from both tables and returned as a deduplicated list.',
+      summary: 'Get all tags',
+      description: 'Retrieves all tags from the tags table, ordered by display_order.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

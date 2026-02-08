@@ -3,6 +3,7 @@ import {
   IsArray,
   IsNumber,
   IsBoolean,
+  IsUUID,
   Min,
   IsOptional,
   IsEnum,
@@ -72,13 +73,13 @@ export class CreateAddDto {
   price: number;
 
   @ApiProperty({
-    description: 'Array of tags for the add-on',
-    example: ['premium', 'chocolate', 'popular'],
-    type: [String],
+    description: 'Tag ID to assign to this add-on',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false,
   })
-  @IsArray()
-  @IsString({ each: true })
-  tags: string[];
+  @IsOptional()
+  @IsUUID()
+  tagId?: string;
 
   @ApiProperty({
     description: 'Whether the add-on is active and visible',

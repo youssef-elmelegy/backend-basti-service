@@ -9,13 +9,18 @@ import {
   Query,
   Logger,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ChefService } from '../services/chef.service';
 import { CreateChefDto, UpdateChefDto, PaginationDto, SortDto } from '../dto';
+import { SortType, SortOrder } from '@/common/dto';
 import {
   CreateChefDecorator,
   GetAllChefsDecorator,
+  GetOneChefDecorator,
+  UpdateChefDecorator,
+  DeleteChefDecorator,
   SortDecorator,
   PaginationDecorator,
   FilterDecorator,
@@ -49,14 +54,29 @@ export class ChefController {
   @PaginationDecorator()
   @SortDecorator()
   @FilterDecorator()
-  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+    @Query('region_id', new ParseUUIDPipe({ optional: true })) regionId?: string,
+  ) {
+    const pagination = new PaginationDto();
+    if (page) pagination.page = parseInt(page, 10);
+    if (limit) pagination.limit = parseInt(limit, 10);
+
+    const sortDto = new SortDto();
+    if (sort) sortDto.sort = sort as SortType;
+    if (order) sortDto.order = order as SortOrder;
+
     this.logger.debug(`
-      Retrieving chefs: page ${query.pagination.page}, limit ${query.pagination.limit}`);
-    return this.chefService.findAll(query.pagination, query.sort);
+      Retrieving chefs: page ${pagination.page}, limit ${pagination.limit}, region: ${regionId || 'all'}`);
+    return this.chefService.findAll(pagination, sortDto, regionId);
   }
 
   @Get(':id')
   @Public()
+  @GetOneChefDecorator()
   async findOne(@Param('id') id: string) {
     this.logger.debug(`Retrieving chef: ${id}`);
     return this.chefService.findOne(id);
@@ -65,6 +85,7 @@ export class ChefController {
   @Patch(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
+  @UpdateChefDecorator()
   async update(@Param('id') id: string, @Body() updateChefDto: UpdateChefDto) {
     this.logger.debug(`Updating chef: ${id}`);
     const result = await this.chefService.update(id, updateChefDto);
@@ -75,23 +96,11 @@ export class ChefController {
   @Delete(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
+  @DeleteChefDecorator()
   async remove(@Param('id') id: string) {
     this.logger.debug(`Deleting chef: ${id}`);
     const result = await this.chefService.remove(id);
     this.logger.log(`Chef deleted: ${id}`);
     return result;
   }
-
-  // @Post(':id/rate')
-  // @RateChefDecorator()
-  // async rateChef(
-  //   @Param('id') id: string,
-  //   @CurrentUser('sub') userId: string,
-  //   @Body() rateChefDto: RateChefDto,
-  // ) {
-  //   this.logger.debug(`Rating chef: ${id} by user: ${userId}`);
-  //   const result = await this.chefService.rateChef(id, userId, rateChefDto);
-  //   this.logger.log(`Chef rated: ${id} (rating: ${rateChefDto.rating})`);
-  //   return result;
-  // }
 }
