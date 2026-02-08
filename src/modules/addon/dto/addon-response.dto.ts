@@ -50,6 +50,22 @@ export class AddonDataDto {
   tagName: string;
 
   @ApiProperty({
+    description: 'Price for a specific region',
+    example: '50',
+    nullable: true,
+    required: false,
+  })
+  price?: string;
+
+  @ApiProperty({
+    description: 'Prices for different sizes in a specific region',
+    example: { small: '30', medium: '50', large: '70' },
+    nullable: true,
+    required: false,
+  })
+  sizesPrices?: Record<string, string>;
+
+  @ApiProperty({
     description: 'Whether the add-on is active and visible',
     example: true,
   })

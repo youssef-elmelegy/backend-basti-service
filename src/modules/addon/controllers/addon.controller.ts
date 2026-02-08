@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AddonService } from '../services/addon.service';
-import { CreateAddonDto, UpdateAddonDto, GetAddonsQueryDto } from '../dto';
+import {
+  CreateAddonDto,
+  UpdateAddonDto,
+  GetAddonsQueryDto,
+  CreateAddonRegionItemPriceDto,
+} from '../dto';
 import {
   CreateAddonDecorator,
   GetAllAddonsDecorator,
@@ -20,6 +25,7 @@ import {
   UpdateAddonDecorator,
   DeleteAddonDecorator,
   ToggleAddonStatusDecorator,
+  CreateAddonRegionItemPriceDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -91,6 +97,19 @@ export class AddonController {
     this.logger.debug(`Toggling add-on status: ${id}`);
     const result = await this.addonService.toggleStatus(id);
     this.logger.log(`Add-on status toggled: ${id}`);
+    return result;
+  }
+
+  @Post('region-pricing')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateAddonRegionItemPriceDecorator()
+  async createRegionItemPrice(
+    @Body() createAddonRegionItemPriceDto: CreateAddonRegionItemPriceDto,
+  ) {
+    const { addonId } = createAddonRegionItemPriceDto;
+    this.logger.debug(`Creating region pricing for addon: ${String(addonId)}`);
+    const result = await this.addonService.createRegionItemPrice(createAddonRegionItemPriceDto);
     return result;
   }
 }
