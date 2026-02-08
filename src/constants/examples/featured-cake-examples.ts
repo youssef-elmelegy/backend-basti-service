@@ -8,7 +8,6 @@ export const FeaturedCakeExamples = {
       images: [
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/featured-cakes/chocolate.jpg',
       ],
-      price: 250,
       capacity: 12,
       flavorList: ['dark chocolate', 'milk chocolate', 'white chocolate'],
       pipingPaletteList: ['rose gold', 'silver', 'gold'],
@@ -27,7 +26,6 @@ export const FeaturedCakeExamples = {
           images: [
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/featured-cakes/chocolate.jpg',
           ],
-          price: 250,
           capacity: 12,
           flavorList: ['dark chocolate', 'milk chocolate', 'white chocolate'],
           pipingPaletteList: ['rose gold', 'silver', 'gold'],
@@ -108,7 +106,7 @@ export const FeaturedCakeExamples = {
   update: {
     request: {
       name: 'Chocolate Dream Cake Updated',
-      price: 280,
+      capacity: 15,
     },
     response: {
       success: {
@@ -122,8 +120,7 @@ export const FeaturedCakeExamples = {
           images: [
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/featured-cakes/chocolate.jpg',
           ],
-          price: 280,
-          capacity: 12,
+          capacity: 15,
           flavorList: ['dark chocolate', 'milk chocolate', 'white chocolate'],
           pipingPaletteList: ['rose gold', 'silver', 'gold'],
           tagId: '550e8400-e29b-41d4-a716-446655440001',

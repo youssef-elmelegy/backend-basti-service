@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterDto {
@@ -7,7 +7,7 @@ export class FilterDto {
     required: false,
   })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   regionId?: string;
 
   @ApiPropertyOptional({

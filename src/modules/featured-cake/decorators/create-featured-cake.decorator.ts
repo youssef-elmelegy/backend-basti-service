@@ -14,7 +14,7 @@ export function CreateFeaturedCakeDecorator() {
     ApiBody({
       type: CreateFeaturedCakeDto,
       description:
-        'Required: name, description, images, price, capacity, flavorList, pipingPaletteList. Optional: tagId, isActive',
+        'Required: name, description, images, capacity, flavorList, pipingPaletteList. Optional: tagId, isActive',
       examples: {
         success: {
           summary: 'Valid featured cake creation request',

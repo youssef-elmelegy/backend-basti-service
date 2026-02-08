@@ -6,3 +6,9 @@ export {
   SuccessFeaturedCakesResponseDto,
   FeaturedCakeDataDto,
 } from './featured-cake-response.dto';
+export { CreateRegionItemPriceDto } from './create-region-item-price.dto';
+export {
+  SuccessRegionItemPriceResponseDto,
+  RegionItemPriceDataDto,
+} from './region-item-price-response.dto';
+export { FeaturedCakeErrorResponseDto } from './featured-cake-error-response.dto';

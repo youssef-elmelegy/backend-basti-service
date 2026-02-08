@@ -52,17 +52,6 @@ export class UpdateFeaturedCakeDto {
   images?: string[];
 
   @ApiProperty({
-    description: 'Price of the featured cake',
-    example: 280,
-    minimum: 0,
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0, { message: 'Price must be greater than or equal to 0' })
-  price?: number;
-
-  @ApiProperty({
     description: 'Featured cake capacity (number of servings)',
     example: 12,
     minimum: 1,

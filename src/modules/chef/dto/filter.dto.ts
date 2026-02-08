@@ -1,5 +1,4 @@
-import { IsOptional } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class FilterDto {
@@ -8,6 +7,6 @@ export class FilterDto {
     required: false,
   })
   @IsOptional()
-  @Type(() => String)
-  regionId: string;
+  @IsUUID()
+  regionId?: string;
 }

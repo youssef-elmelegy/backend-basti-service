@@ -30,12 +30,6 @@ export class FeaturedCakeDataDto {
   images: string[];
 
   @ApiProperty({
-    description: 'Price of the featured cake',
-    example: '250.00',
-  })
-  price: string;
-
-  @ApiProperty({
     description: 'Featured cake capacity (number of servings)',
     example: 12,
   })
@@ -54,6 +48,13 @@ export class FeaturedCakeDataDto {
     type: [String],
   })
   pipingPaletteList: string[];
+
+  @ApiProperty({
+    description: 'Price for the region (if filtered by region)',
+    example: 250,
+    required: false,
+  })
+  price?: string;
 
   @ApiProperty({
     description: 'Tag name associated with this featured cake',

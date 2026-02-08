@@ -9,12 +9,10 @@ import {
   Query,
   Logger,
   UseGuards,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ChefService } from '../services/chef.service';
-import { CreateChefDto, UpdateChefDto, PaginationDto, SortDto } from '../dto';
-import { SortType, SortOrder } from '@/common/dto';
+import { CreateChefDto, UpdateChefDto, GetChefsQueryDto } from '../dto';
 import {
   CreateChefDecorator,
   GetAllChefsDecorator,
@@ -54,24 +52,13 @@ export class ChefController {
   @PaginationDecorator()
   @SortDecorator()
   @FilterDecorator()
-  async findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('sort') sort?: string,
-    @Query('order') order?: string,
-    @Query('region_id', new ParseUUIDPipe({ optional: true })) regionId?: string,
-  ) {
-    const pagination = new PaginationDto();
-    if (page) pagination.page = parseInt(page, 10);
-    if (limit) pagination.limit = parseInt(limit, 10);
+  async findAll(@Query() query: GetChefsQueryDto) {
+    const { page = 1, limit = 10, sort = 'created_at', order = 'asc', regionId } = query;
 
-    const sortDto = new SortDto();
-    if (sort) sortDto.sort = sort as SortType;
-    if (order) sortDto.order = order as SortOrder;
-
-    this.logger.debug(`
-      Retrieving chefs: page ${pagination.page}, limit ${pagination.limit}, region: ${regionId || 'all'}`);
-    return this.chefService.findAll(pagination, sortDto, regionId);
+    this.logger.debug(
+      `Retrieving chefs: page ${page}, limit ${limit}, region: ${regionId || 'all'}`,
+    );
+    return this.chefService.findAll({ page, limit }, { sort, order }, regionId);
   }
 
   @Get(':id')

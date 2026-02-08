@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { FeaturedCakeService } from '../services/featured-cake.service';
-import { CreateFeaturedCakeDto, UpdateFeaturedCakeDto, GetFeaturedCakesQueryDto } from '../dto';
+import {
+  CreateFeaturedCakeDto,
+  UpdateFeaturedCakeDto,
+  GetFeaturedCakesQueryDto,
+  CreateRegionItemPriceDto,
+} from '../dto';
 import {
   CreateFeaturedCakeDecorator,
   GetAllFeaturedCakesDecorator,
@@ -20,6 +25,7 @@ import {
   UpdateFeaturedCakeDecorator,
   DeleteFeaturedCakeDecorator,
   ToggleFeaturedCakeStatusDecorator,
+  CreateRegionItemPriceDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -40,7 +46,7 @@ export class FeaturedCakeController {
   async create(@Body() createFeaturedCakeDto: CreateFeaturedCakeDto) {
     this.logger.debug(`Creating featured cake: ${createFeaturedCakeDto.name}`);
     const result = await this.featuredCakeService.create(createFeaturedCakeDto);
-    const cakeData = result.data as Record<string, unknown>;
+    const cakeData = result.data;
     this.logger.log(`Featured cake created: ${String(cakeData['id'] as string)}`);
     return result;
   }
@@ -92,6 +98,16 @@ export class FeaturedCakeController {
     this.logger.debug(`Toggling featured cake status: ${id}`);
     const result = await this.featuredCakeService.toggleStatus(id);
     this.logger.log(`Featured cake status toggled: ${id}`);
+    return result;
+  }
+
+  @Post('region-pricing')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateRegionItemPriceDecorator()
+  async createRegionItemPrice(@Body() createRegionItemPriceDto: CreateRegionItemPriceDto) {
+    const result = await this.featuredCakeService.createRegionItemPrice(createRegionItemPriceDto);
+
     return result;
   }
 }
