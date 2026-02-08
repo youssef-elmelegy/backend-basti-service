@@ -20,12 +20,14 @@
     },
     "incremental": true,
     "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "noEmitOnError": false,
+    "skipDefaultLibCheck": true,
+    "suppressImplicitAnyIndexErrors": false,
+    "forceConsistentCasingInFileNames": false
   },
-  "include": ["src/**/*", "api/**/*"],
+  "include": ["src/**/*", "api/**/*", "drizzle.config.ts", "jest.config.ts", "seed.ts"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

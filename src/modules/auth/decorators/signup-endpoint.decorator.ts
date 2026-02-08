@@ -1,14 +1,14 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { SuccessAuthResponseDto, ErrorResponseDto, SignupDto } from '../dto';
+import { ErrorResponseDto, SignupDto, SignupResponseWrapperDto } from '../dto';
 import { AuthExamples } from '@/constants/examples';
 
 export function AuthSignupDecorator() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Register a new user',
+      summary: 'Register a new user and send OTP',
       description:
-        'Creates a new user account with email, password, and name. Password must be at least 8 characters with uppercase, lowercase, and numeric characters.',
+        'Creates a new user account and sends an OTP to their email for verification. Password must be at least 8 characters with uppercase, lowercase, and numeric characters.',
     }),
     ApiBody({
       type: SignupDto,
@@ -22,25 +22,25 @@ export function AuthSignupDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.CREATED,
-      description: 'User successfully registered',
-      type: SuccessAuthResponseDto,
+      description: 'User registered successfully, OTP sent to email',
+      type: SignupResponseWrapperDto,
       example: AuthExamples.signup.response.success,
     }),
     ApiResponse({
-      status: HttpStatus.BAD_REQUEST,
-      description: 'Invalid input data (validation failed)',
-      type: ErrorResponseDto,
-      example: AuthExamples.signup.response.validationError,
-    }),
-    ApiResponse({
       status: HttpStatus.CONFLICT,
-      description: 'User with this email already exists',
+      description: 'Email already exists',
       type: ErrorResponseDto,
       example: AuthExamples.signup.response.conflict,
     }),
     ApiResponse({
+      status: HttpStatus.BAD_REQUEST,
+      description: 'Validation error',
+      type: ErrorResponseDto,
+      example: AuthExamples.signup.response.validationError,
+    }),
+    ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      description: 'Failed to create user due to server error',
+      description: 'Server error',
       type: ErrorResponseDto,
       example: AuthExamples.signup.response.internalServerError,
     }),

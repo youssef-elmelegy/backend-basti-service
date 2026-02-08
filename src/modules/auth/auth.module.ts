@@ -5,9 +5,17 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
 import { AccessTokenStrategy, RefreshTokenStrategy, JwtAuthGuard } from '@/common';
+import { EmailService } from '@/common/services/email.service';
+import { env } from '@/env';
 
 @Module({
-  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({})],
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({
+      secret: env.JWT_ACCESS_SECRET,
+      signOptions: { expiresIn: env.JWT_ACCESS_EXPIRES_IN },
+    }),
+  ],
   controllers: [AuthController],
   providers: [
     {
@@ -17,6 +25,7 @@ import { AccessTokenStrategy, RefreshTokenStrategy, JwtAuthGuard } from '@/commo
     AccessTokenStrategy,
     RefreshTokenStrategy,
     AuthService,
+    EmailService,
   ],
   exports: [AuthService],
 })

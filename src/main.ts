@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { env } from './env';
 
@@ -21,6 +22,9 @@ async function bootstrap() {
   app.useLogger(logLevelMap[env.LOG_LEVEL] || logLevelMap.info);
 
   app.setGlobalPrefix('api');
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -43,7 +47,16 @@ async function bootstrap() {
     .setTitle('Basti API')
     .setDescription('API documentation for Basti application')
     .setVersion('0.0.1')
+    .addTag('App', 'Application health and status')
     .addTag('auth', 'Authentication endpoints')
+    .addTag('admin-auth', 'Admin authentication endpoints')
+    .addTag('region', 'Region management endpoints')
+    .addTag('bakery', 'Bakery management endpoints')
+    .addTag('chef', 'Chef management endpoints')
+    .addTag('featured-cakes', 'Featured cake management endpoints')
+    .addTag('sweets', 'Sweet management endpoints')
+    .addTag('addon', 'Addon management endpoints')
+    .addTag('upload', 'File upload endpoints')
     .addBearerAuth()
     .build();
 
