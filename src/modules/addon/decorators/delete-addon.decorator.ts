@@ -1,27 +1,24 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { CreateAddDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { AddExamples } from '@/constants/examples';
 
-export function ToggleAddStatusDecorator() {
+export function DeleteAddonDecorator() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Toggle add-on active status',
-      description:
-        'Toggle the active/inactive status of an add-on. Active add-ons are visible, inactive add-ons are hidden.',
+      summary: 'Delete an add-on',
+      description: 'Permanently delete an add-on by its ID',
     }),
     ApiParam({
       name: 'id',
       type: 'string',
-      description: 'The UUID of the add-on to toggle',
+      description: 'The UUID of the add-on to delete',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
     ApiResponse({
       status: HttpStatus.OK,
-      description: 'Add-on status toggled successfully',
-      type: CreateAddDto,
-      example: AddExamples.toggleStatus.response.success,
+      description: 'Add-on deleted successfully',
+      example: AddExamples.delete.response.success,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,
@@ -40,7 +37,7 @@ export function ToggleAddStatusDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      description: 'Failed to toggle add-on status',
+      description: 'Failed to delete add-on',
       type: ErrorResponseDto,
     }),
   );

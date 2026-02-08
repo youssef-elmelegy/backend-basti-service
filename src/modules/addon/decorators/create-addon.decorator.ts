@@ -1,10 +1,10 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { CreateAddDto } from '../dto';
+import { CreateAddonDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { AddExamples } from '@/constants/examples';
 
-export function CreateAddDecorator() {
+export function CreateAddonDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Create a new add-on',
@@ -12,7 +12,7 @@ export function CreateAddDecorator() {
         'Creates a new add-on product with images, category, price, and tags information.',
     }),
     ApiBody({
-      type: CreateAddDto,
+      type: CreateAddonDto,
       description: 'Required: name, description, images, category, price, tags. Optional: isActive',
       examples: {
         success: {
@@ -24,7 +24,7 @@ export function CreateAddDecorator() {
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Add-on successfully created',
-      type: CreateAddDto,
+      type: CreateAddonDto,
       example: AddExamples.create.response.success,
     }),
     ApiResponse({

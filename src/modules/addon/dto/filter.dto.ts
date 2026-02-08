@@ -1,6 +1,6 @@
 import { IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { AddonCategory } from '../dto/create-add.dto';
+import { AddonCategory } from '../dto/create-addon.dto';
 
 export class FilterDto {
   @ApiPropertyOptional({

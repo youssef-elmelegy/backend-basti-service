@@ -11,15 +11,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { AddService } from '../services/add.service';
-import { CreateAddDto, UpdateAddDto, GetAddsQueryDto } from '../dto';
+import { AddonService } from '../services/addon.service';
+import { CreateAddonDto, UpdateAddonDto, GetAddonsQueryDto } from '../dto';
 import {
-  CreateAddDecorator,
-  GetAllAddsDecorator,
-  GetAddByIdDecorator,
-  UpdateAddDecorator,
-  DeleteAddDecorator,
-  ToggleAddStatusDecorator,
+  CreateAddonDecorator,
+  GetAllAddonsDecorator,
+  GetAddonByIdDecorator,
+  UpdateAddonDecorator,
+  DeleteAddonDecorator,
+  ToggleAddonStatusDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -27,47 +27,47 @@ import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { Public } from '@/common';
 
 @ApiTags('addon')
-@Controller('adds')
-export class AddController {
-  private readonly logger = new Logger(AddController.name);
+@Controller('addons')
+export class AddonController {
+  private readonly logger = new Logger(AddonController.name);
 
-  constructor(private readonly addService: AddService) {}
+  constructor(private readonly addonService: AddonService) {}
 
   @Post()
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
-  @CreateAddDecorator()
-  async create(@Body() createAddDto: CreateAddDto) {
-    this.logger.debug(`Creating add-on: ${createAddDto.name}`);
-    const result = await this.addService.create(createAddDto);
-    const addData = result.data as Record<string, unknown>;
-    this.logger.log(`Add-on created: ${String(addData['id'] as string)}`);
+  @CreateAddonDecorator()
+  async create(@Body() createAddonDto: CreateAddonDto) {
+    this.logger.debug(`Creating add-on: ${createAddonDto.name}`);
+    const result = await this.addonService.create(createAddonDto);
+    const addonData = result.data as Record<string, unknown>;
+    this.logger.log(`Add-on created: ${String(addonData['id'] as string)}`);
     return result;
   }
 
   @Get()
   @Public()
-  @GetAllAddsDecorator()
-  async findAll(@Query() query: GetAddsQueryDto) {
+  @GetAllAddonsDecorator()
+  async findAll(@Query() query: GetAddonsQueryDto) {
     this.logger.debug(`Retrieving add-ons: page ${query.page}, limit ${query.limit}`);
-    return this.addService.findAll(query);
+    return this.addonService.findAll(query);
   }
 
   @Get(':id')
   @Public()
-  @GetAddByIdDecorator()
+  @GetAddonByIdDecorator()
   async findOne(@Param('id') id: string) {
     this.logger.debug(`Retrieving add-on: ${id}`);
-    return this.addService.findOne(id);
+    return this.addonService.findOne(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
-  @UpdateAddDecorator()
-  async update(@Param('id') id: string, @Body() updateAddDto: UpdateAddDto) {
+  @UpdateAddonDecorator()
+  async update(@Param('id') id: string, @Body() updateAddonDto: UpdateAddonDto) {
     this.logger.debug(`Updating add-on: ${id}`);
-    const result = await this.addService.update(id, updateAddDto);
+    const result = await this.addonService.update(id, updateAddonDto);
     this.logger.log(`Add-on updated: ${id}`);
     return result;
   }
@@ -75,10 +75,10 @@ export class AddController {
   @Delete(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
-  @DeleteAddDecorator()
+  @DeleteAddonDecorator()
   async remove(@Param('id') id: string) {
     this.logger.debug(`Deleting add-on: ${id}`);
-    const result = await this.addService.remove(id);
+    const result = await this.addonService.remove(id);
     this.logger.log(`Add-on deleted: ${id}`);
     return result;
   }
@@ -86,10 +86,10 @@ export class AddController {
   @Patch(':id/toggle-status')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
-  @ToggleAddStatusDecorator()
+  @ToggleAddonStatusDecorator()
   async toggleStatus(@Param('id') id: string) {
     this.logger.debug(`Toggling add-on status: ${id}`);
-    const result = await this.addService.toggleStatus(id);
+    const result = await this.addonService.toggleStatus(id);
     this.logger.log(`Add-on status toggled: ${id}`);
     return result;
   }

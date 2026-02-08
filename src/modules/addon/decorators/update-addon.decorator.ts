@@ -1,10 +1,10 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
-import { UpdateAddDto, CreateAddDto } from '../dto';
+import { UpdateAddonDto, CreateAddonDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { AddExamples } from '@/constants/examples';
 
-export function UpdateAddDecorator() {
+export function UpdateAddonDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Update an add-on',
@@ -18,7 +18,7 @@ export function UpdateAddDecorator() {
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
     ApiBody({
-      type: UpdateAddDto,
+      type: UpdateAddonDto,
       description:
         'Partial update - all fields are optional. Provide only the fields you want to update.',
       examples: {
@@ -31,7 +31,7 @@ export function UpdateAddDecorator() {
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Add-on updated successfully',
-      type: CreateAddDto,
+      type: CreateAddonDto,
       example: AddExamples.update.response.success,
     }),
     ApiResponse({

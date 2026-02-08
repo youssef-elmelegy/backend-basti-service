@@ -8,18 +8,18 @@ import {
 import { db } from '@/db';
 import { addons, tags } from '@/db/schema';
 import { eq, desc, sql, asc } from 'drizzle-orm';
-import { CreateAddDto, UpdateAddDto, GetAddsQueryDto } from '../dto';
+import { CreateAddonDto, UpdateAddonDto, GetAddonsQueryDto } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
 
 @Injectable()
-export class AddService {
-  private readonly logger = new Logger(AddService.name);
+export class AddonService {
+  private readonly logger = new Logger(AddonService.name);
 
-  async create(createAddDto: CreateAddDto) {
-    const { name, description, images, category, tagId, isActive = true } = createAddDto;
+  async create(createAddonDto: CreateAddonDto) {
+    const { name, description, images, category, tagId, isActive = true } = createAddonDto;
 
     try {
-      const [newAdd] = await db
+      const [newAddon] = await db
         .insert(addons)
         .values({
           name,
@@ -31,20 +31,20 @@ export class AddService {
         })
         .returning();
 
-      this.logger.log(`Add-on created: ${newAdd.id} (${name})`);
+      this.logger.log(`Add-on created: ${newAddon.id} (${name})`);
 
       let tagName: string;
-      if (newAdd.tagId) {
+      if (newAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
           .from(tags)
-          .where(eq(tags.id, newAdd.tagId))
+          .where(eq(tags.id, newAddon.tagId))
           .limit(1);
         tagName = tagResult[0]?.name;
       }
 
       return successResponse(
-        this.mapToAddResponse(newAdd, tagName),
+        this.mapToAddonResponse(newAddon, tagName),
         'Add-on created successfully',
         HttpStatus.CREATED,
       );
@@ -57,14 +57,14 @@ export class AddService {
     }
   }
 
-  async findAll(query: GetAddsQueryDto) {
+  async findAll(query: GetAddonsQueryDto) {
     const { page, limit, tag, order, sort } = query;
 
     try {
       const offset = (page - 1) * limit;
       const sortOrder = order === 'desc' ? desc : asc;
 
-      let allAdds: Array<{ addon: typeof addons.$inferSelect; tagName: string }> = [];
+      let allAddons: Array<{ addon: typeof addons.$inferSelect; tagName: string }> = [];
       let total = 0;
 
       if (tag) {
@@ -80,7 +80,7 @@ export class AddService {
           .limit(limit)
           .offset(offset);
 
-        allAdds = tagResults;
+        allAddons = tagResults;
 
         const [countResult] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
@@ -101,7 +101,7 @@ export class AddService {
           .limit(limit)
           .offset(offset);
 
-        allAdds = untaggedResults;
+        allAddons = untaggedResults;
 
         const [countResult] = await db.select({ count: sql<number>`COUNT(*)` }).from(addons);
         total = countResult.count;
@@ -113,7 +113,7 @@ export class AddService {
 
       return successResponse(
         {
-          items: allAdds.map((item) => this.mapToAddResponse(item.addon, item.tagName)),
+          items: allAddons.map((item) => this.mapToAddonResponse(item.addon, item.tagName)),
           pagination: {
             total,
             limit,
@@ -134,7 +134,7 @@ export class AddService {
 
   async findOne(id: string) {
     try {
-      const addResult = await db
+      const addonResult = await db
         .select({
           addon: addons,
           tagName: tags.name,
@@ -144,18 +144,18 @@ export class AddService {
         .where(eq(addons.id, id))
         .limit(1);
 
-      if (!addResult.length) {
+      if (!addonResult.length) {
         this.logger.warn(`Add-on not found: ${id}`);
         throw new NotFoundException(
           errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
-      const { addon, tagName } = addResult[0];
+      const { addon, tagName } = addonResult[0];
 
       this.logger.debug(`Retrieved add-on: ${id}`);
       return successResponse(
-        this.mapToAddResponse(addon, tagName),
+        this.mapToAddonResponse(addon, tagName),
         'Add-on retrieved successfully',
       );
     } catch (error) {
@@ -170,12 +170,12 @@ export class AddService {
     }
   }
 
-  async update(id: string, updateAddDto: UpdateAddDto) {
+  async update(id: string, updateAddonDto: UpdateAddonDto) {
     try {
       // Check if add-on exists
-      const [existingAdd] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
+      const [existingAddon] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
 
-      if (!existingAdd) {
+      if (!existingAddon) {
         this.logger.warn(`Add-on not found for update: ${id}`);
         throw new NotFoundException(
           errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
@@ -184,15 +184,16 @@ export class AddService {
 
       // Build update object with only provided fields
       const updateData: Record<string, any> = {};
-      if (updateAddDto.name !== undefined) updateData.name = updateAddDto.name;
-      if (updateAddDto.description !== undefined) updateData.description = updateAddDto.description;
-      if (updateAddDto.images !== undefined) updateData.images = updateAddDto.images;
-      if (updateAddDto.category !== undefined) updateData.category = updateAddDto.category;
-      if (updateAddDto.tagId !== undefined) updateData.tagId = updateAddDto.tagId;
-      if (updateAddDto.isActive !== undefined) updateData.isActive = updateAddDto.isActive;
+      if (updateAddonDto.name !== undefined) updateData.name = updateAddonDto.name;
+      if (updateAddonDto.description !== undefined)
+        updateData.description = updateAddonDto.description;
+      if (updateAddonDto.images !== undefined) updateData.images = updateAddonDto.images;
+      if (updateAddonDto.category !== undefined) updateData.category = updateAddonDto.category;
+      if (updateAddonDto.tagId !== undefined) updateData.tagId = updateAddonDto.tagId;
+      if (updateAddonDto.isActive !== undefined) updateData.isActive = updateAddonDto.isActive;
       updateData.updatedAt = new Date();
 
-      const [updatedAdd] = await db
+      const [updatedAddon] = await db
         .update(addons)
         .set(updateData)
         .where(eq(addons.id, id))
@@ -202,17 +203,17 @@ export class AddService {
 
       // Fetch tag name if tagId exists
       let tagName: string;
-      if (updatedAdd.tagId) {
+      if (updatedAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
           .from(tags)
-          .where(eq(tags.id, updatedAdd.tagId))
+          .where(eq(tags.id, updatedAddon.tagId))
           .limit(1);
         tagName = tagResult[0]?.name;
       }
 
       return successResponse(
-        this.mapToAddResponse(updatedAdd, tagName),
+        this.mapToAddonResponse(updatedAddon, tagName),
         'Add-on updated successfully',
       );
     } catch (error) {
@@ -230,9 +231,9 @@ export class AddService {
   async remove(id: string) {
     try {
       // Check if add-on exists
-      const [add] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
+      const [addon] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
 
-      if (!add) {
+      if (!addon) {
         this.logger.warn(`Add-on not found for deletion: ${id}`);
         throw new NotFoundException(
           errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
@@ -261,39 +262,39 @@ export class AddService {
 
   async toggleStatus(id: string) {
     try {
-      const [existingAdd] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
+      const [existingAddon] = await db.select().from(addons).where(eq(addons.id, id)).limit(1);
 
-      if (!existingAdd) {
+      if (!existingAddon) {
         this.logger.warn(`Add-on not found for status toggle: ${id}`);
         throw new NotFoundException(
           errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
-      const [updatedAdd] = await db
+      const [updatedAddon] = await db
         .update(addons)
         .set({
-          isActive: !existingAdd.isActive,
+          isActive: !existingAddon.isActive,
           updatedAt: new Date(),
         })
         .where(eq(addons.id, id))
         .returning();
 
-      const statusText = updatedAdd.isActive ? 'activated' : 'deactivated';
+      const statusText = updatedAddon.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Add-on status toggled (${statusText}): ${id}`);
 
       let tagName: string;
-      if (updatedAdd.tagId) {
+      if (updatedAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
           .from(tags)
-          .where(eq(tags.id, updatedAdd.tagId))
+          .where(eq(tags.id, updatedAddon.tagId))
           .limit(1);
         tagName = tagResult[0]?.name;
       }
 
       return successResponse(
-        this.mapToAddResponse(updatedAdd, tagName),
+        this.mapToAddonResponse(updatedAddon, tagName),
         `Add-on ${statusText} successfully`,
       );
     } catch (error) {
@@ -308,18 +309,18 @@ export class AddService {
     }
   }
 
-  private mapToAddResponse(add: typeof addons.$inferSelect, tagName?: string) {
+  private mapToAddonResponse(addon: typeof addons.$inferSelect, tagName?: string) {
     return {
-      id: add.id,
-      name: add.name,
-      description: add.description,
-      images: add.images,
-      category: add.category,
-      tagId: add.tagId,
+      id: addon.id,
+      name: addon.name,
+      description: addon.description,
+      images: addon.images,
+      category: addon.category,
+      tagId: addon.tagId,
       tagName: tagName || null,
-      isActive: add.isActive,
-      createdAt: add.createdAt,
-      updatedAt: add.updatedAt,
+      isActive: addon.isActive,
+      createdAt: addon.createdAt,
+      updatedAt: addon.updatedAt,
     };
   }
 }
