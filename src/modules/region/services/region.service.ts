@@ -8,9 +8,8 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { regions } from '@/db/schema';
-import { eq, asc, desc, SQL } from 'drizzle-orm';
-import { CreateRegionDto, UpdateRegionDto, RegionResponse } from '../dto';
-import { SortDto } from '@/common/dto';
+import { eq, asc, desc, SQL, and } from 'drizzle-orm';
+import { CreateRegionDto, UpdateRegionDto, RegionResponse, GetRegionsQueryDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -18,7 +17,7 @@ export class RegionService {
   private readonly logger = new Logger(RegionService.name);
 
   async create(createRegionDto: CreateRegionDto): Promise<SuccessResponse<RegionResponse>> {
-    const { name } = createRegionDto;
+    const { name, image, isAvailable } = createRegionDto;
 
     const existingRegion = await db.select().from(regions).where(eq(regions.name, name)).limit(1);
 
@@ -34,7 +33,7 @@ export class RegionService {
     }
 
     try {
-      const [newRegion] = await db.insert(regions).values({ name }).returning();
+      const [newRegion] = await db.insert(regions).values({ name, image, isAvailable }).returning();
 
       this.logger.log(`Region created: ${newRegion.id} (${name})`);
 
@@ -42,6 +41,8 @@ export class RegionService {
         {
           id: newRegion.id,
           name: newRegion.name,
+          image: newRegion.image,
+          isAvailable: newRegion.isAvailable,
           createdAt: newRegion.createdAt,
           updatedAt: newRegion.updatedAt,
         },
@@ -60,16 +61,21 @@ export class RegionService {
     }
   }
 
-  async findAll(sortDto?: SortDto): Promise<SuccessResponse<RegionResponse[]>> {
+  async findAll(query?: GetRegionsQueryDto): Promise<SuccessResponse<RegionResponse[]>> {
     try {
       const orderByConditions: SQL[] = [];
-      if (sortDto?.sort) {
-        const sortFn = sortDto.order === 'desc' ? desc : asc;
-        if (sortDto.sort === 'created_at') {
+      if (query?.sort) {
+        const sortFn = query.order === 'desc' ? desc : asc;
+        if (query.sort === 'created_at') {
           orderByConditions.push(sortFn(regions.createdAt));
-        } else if (sortDto.sort === 'alpha') {
+        } else if (query.sort === 'alpha') {
           orderByConditions.push(sortFn(regions.name));
         }
+      }
+
+      const filter: SQL[] = [];
+      if (query.isAvailable !== undefined && query.isAvailable !== null) {
+        filter.push(eq(regions.isAvailable, query.isAvailable));
       }
 
       const allRegions =
@@ -77,6 +83,7 @@ export class RegionService {
           ? await db
               .select()
               .from(regions)
+              .where(and(...filter))
               .orderBy(...orderByConditions)
           : await db.select().from(regions);
 
@@ -86,6 +93,8 @@ export class RegionService {
         allRegions.map((region) => ({
           id: region.id,
           name: region.name,
+          image: region.image,
+          isAvailable: region.isAvailable,
           createdAt: region.createdAt,
           updatedAt: region.updatedAt,
         })),
@@ -120,6 +129,8 @@ export class RegionService {
       {
         id: region.id,
         name: region.name,
+        image: region.image,
+        isAvailable: region.isAvailable,
         createdAt: region.createdAt,
         updatedAt: region.updatedAt,
       },
@@ -132,7 +143,7 @@ export class RegionService {
     id: string,
     updateRegionDto: UpdateRegionDto,
   ): Promise<SuccessResponse<RegionResponse>> {
-    const { name } = updateRegionDto;
+    const { name, image, isAvailable } = updateRegionDto;
 
     const [existingRegion] = await db.select().from(regions).where(eq(regions.id, id)).limit(1);
 
@@ -167,6 +178,8 @@ export class RegionService {
         .update(regions)
         .set({
           ...(name && { name }),
+          ...(image && { image }),
+          ...(isAvailable !== undefined && { isAvailable }),
           updatedAt: new Date(),
         })
         .where(eq(regions.id, id))
@@ -178,6 +191,8 @@ export class RegionService {
         {
           id: updatedRegion.id,
           name: updatedRegion.name,
+          image: updatedRegion.image,
+          isAvailable: updatedRegion.isAvailable,
           createdAt: updatedRegion.createdAt,
           updatedAt: updatedRegion.updatedAt,
         },

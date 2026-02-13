@@ -1,6 +1,6 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { WishlistItemResponse } from '../dto';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { WishlistResponseDto } from '../dto';
 
 export function CreateWishlistItemDecorator() {
   return applyDecorators(
@@ -8,7 +8,7 @@ export function CreateWishlistItemDecorator() {
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Item added to wishlist successfully',
-      type: WishlistItemResponse,
+      type: WishlistResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -18,29 +18,29 @@ export function CreateWishlistItemDecorator() {
   );
 }
 
-export function GetAllWishlistItemsDecorator() {
-  return applyDecorators(
-    ApiOperation({ summary: 'Get all wishlist items' }),
-    ApiQuery({ name: 'userId', required: false, description: 'Filter by specific user' }),
-    ApiResponse({
-      status: HttpStatus.OK,
-      description: 'Wishlist items retrieved successfully',
-      type: [WishlistItemResponse],
-    }),
-  );
-}
+// export function GetAllWishlistItemsDecorator() {
+//   return applyDecorators(
+//     ApiOperation({ summary: 'Get all wishlist items' }),
+//     ApiQuery({ name: 'userId', required: false, description: 'Filter by specific user' }),
+//     ApiResponse({
+//       status: HttpStatus.OK,
+//       description: 'Wishlist items retrieved successfully',
+//       type: [WishlistItemResponse],
+//     }),
+//   );
+// }
 
-export function GetWishlistItemDecorator() {
-  return applyDecorators(
-    ApiOperation({ summary: 'Get a wishlist item by ID' }),
-    ApiResponse({
-      status: HttpStatus.OK,
-      description: 'Wishlist item retrieved successfully',
-      type: WishlistItemResponse,
-    }),
-    ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Wishlist item not found' }),
-  );
-}
+// export function GetWishlistItemDecorator() {
+//   return applyDecorators(
+//     ApiOperation({ summary: 'Get a wishlist item by ID' }),
+//     ApiResponse({
+//       status: HttpStatus.OK,
+//       description: 'Wishlist item retrieved successfully',
+//       type: WishlistItemResponse,
+//     }),
+//     ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Wishlist item not found' }),
+//   );
+// }
 
 export function DeleteWishlistItemDecorator() {
   return applyDecorators(

@@ -1,27 +1,16 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Delete,
-  Logger,
-  UseGuards,
-  Query,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Post, Body, Param, Logger, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { CurrentUser } from '@/common';
 import { ApiTags } from '@nestjs/swagger';
 import { WishlistItemsService } from '../services/wishlist.service';
-import { CreateWishlistItemDto, PaginationDto, SortDto } from '../dto';
-import {
-  CreateWishlistItemDecorator,
-  GetAllWishlistItemsDecorator,
-  GetWishlistItemDecorator,
-  DeleteWishlistItemDecorator,
-} from '../decorators/wishlist.decorator';
-import { PaginationDecorator, SortDecorator } from '../decorators';
+// import {  } from '../dto';
+// import {
+//   CreateWishlistItemDecorator,
+//   GetAllWishlistItemsDecorator,
+//   GetWishlistItemDecorator,
+//   DeleteWishlistItemDecorator,
+// } from '../decorators/wishlist.decorator';
+// import { PaginationDecorator, SortDecorator } from '../decorators';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { SuccessResponse } from '@/utils';
 
 @ApiTags('wishlist')
 @Controller('wishlist')
@@ -31,40 +20,58 @@ export class WishlistItemsController {
 
   constructor(private readonly wishlistService: WishlistItemsService) {}
 
-  @Post()
-  @CreateWishlistItemDecorator()
-  async create(@Body() createDto: CreateWishlistItemDto) {
-    this.logger.debug(`Adding to wishlist for user: ${createDto.userId}`);
-    const result = await this.wishlistService.create(createDto);
-    this.logger.log(`Wishlist item created`);
-    return result;
-  }
+  // @Post()
+  // @CreateWishlistItemDecorator()
+  // async create(@Body() createDto: CreateWishlistItemDto) {
+  //   this.logger.debug(`Adding to wishlist for user: ${createDto.userId}`);
+  //   const result = await this.wishlistService.create(createDto);
+  //   this.logger.log(`Wishlist item created`);
+  //   return result;
+  // }
 
-  @Get()
-  @GetAllWishlistItemsDecorator()
-  @PaginationDecorator()
-  @SortDecorator()
-  async findAll(
-    @Query() query: { pagination: PaginationDto; sort: SortDto },
-    @Query('userId') userId?: string,
+  // @Get()
+  // @GetAllWishlistItemsDecorator()
+  // @PaginationDecorator()
+  // @SortDecorator()
+  // async findAll(
+  //   @Query() query: { pagination: PaginationDto; sort: SortDto },
+  //   @Query('userId') userId?: string,
+  // ) {
+  //   this.logger.debug('Retrieving wishlist items');
+  //   return this.wishlistService.findAll(query.pagination, query.sort, userId);
+  // }
+
+  @Post('featured-cake/:id')
+  @UseGuards(JwtAuthGuard)
+  addFeaturedCakeToWishlist(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) featuredCakeId: string,
   ) {
-    this.logger.debug('Retrieving wishlist items');
-    return this.wishlistService.findAll(query.pagination, query.sort, userId);
+    return this.wishlistService.addFeaturedCakeToWishlist(userId, featuredCakeId);
   }
 
-  @Get(':id')
-  @GetWishlistItemDecorator()
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    this.logger.debug(`Retrieving wishlist item: ${id}`);
-    return this.wishlistService.findOne(id);
+  @Post('sweet/:id')
+  @UseGuards(JwtAuthGuard)
+  addSweetToWishlist(
+    @CurrentUser('sub') userId: string,
+    @Param('id', ParseUUIDPipe) sweetId: string,
+  ) {
+    return this.wishlistService.addSweetToWishlist(userId, sweetId);
   }
 
-  @Delete(':id')
-  @DeleteWishlistItemDecorator()
-  async remove(@Param('id') id: string): Promise<SuccessResponse<{ message: string }>> {
-    this.logger.debug(`Deleting wishlist item: ${id}`);
-    const result = await this.wishlistService.remove(id);
-    this.logger.log(`Wishlist item deleted: ${id}`);
-    return result;
-  }
+  // @Get(':id')
+  // @GetWishlistItemDecorator()
+  // async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  //   this.logger.debug(`Retrieving wishlist item: ${id}`);
+  //   return this.wishlistService.findOne(id);
+  // }
+
+  // @Delete(':id')
+  // @DeleteWishlistItemDecorator()
+  // async remove(@Param('id') id: string): Promise<SuccessResponse<{ message: string }>> {
+  //   this.logger.debug(`Deleting wishlist item: ${id}`);
+  //   const result = await this.wishlistService.remove(id);
+  //   this.logger.log(`Wishlist item deleted: ${id}`);
+  //   return result;
+  // }
 }

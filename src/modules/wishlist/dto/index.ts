@@ -1,2 +1,3 @@
 export { PaginationDto, SortDto } from '@/common/dto';
-export * from './wishlist.dto';
+export * from './create-wishlist-item.dto';
+export * from './wishlist-response.dto';

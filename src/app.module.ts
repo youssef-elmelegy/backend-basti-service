@@ -14,7 +14,7 @@ import { SliderImageModule } from './modules/slider-image/slider-image.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
-import { WishlistModule } from './modules/wishlist/wishlist.module';
+// import { WishlistModule } from './modules/wishlist/wishlist.module';
 // import { ReviewModule } from './modules/review/review.module';
 
 @Module({
@@ -29,7 +29,7 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     AdminAuthModule,
     UploadModule,
     OrderModule,
-    WishlistModule,
+    // WishlistModule,
     // ReviewModule,
     SliderImageModule,
     TagsModule,

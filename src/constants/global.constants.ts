@@ -26,6 +26,7 @@ export const MOCK_DATA = {
   },
   image: {
     chef: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+    region: 'https://www.qmul.ac.uk/geog/media/qmul/ihss/City-Centre-banner.jpg',
     sliderImages: [
       'https://api.example.com/images/sliders/summer-collection.jpg',
       'https://api.example.com/images/sliders/winter-special.jpg',
