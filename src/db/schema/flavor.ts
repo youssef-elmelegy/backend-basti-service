@@ -1,5 +1,6 @@
-import { pgTable, uuid, varchar, text, decimal, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
+import { designedCakeConfigs } from '.';
 
 export const flavors = pgTable(
   'flavors',
@@ -8,8 +9,8 @@ export const flavors = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     title: varchar('title', { length: 255 }).notNull(),
+    description: text('description').notNull(),
     flavorUrl: text('flavor_url').notNull(),
-    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
@@ -21,5 +22,3 @@ export const flavors = pgTable(
 export const flavorsRelations = relations(flavors, ({ many }) => ({
   designedCakeConfigs: many(designedCakeConfigs),
 }));
-
-import { designedCakeConfigs } from './designed-cake-config';

@@ -6,6 +6,8 @@ import {
   AdminResetPasswordResponseDto,
   AdminChangePasswordResponseDto,
   AdminLogoutResponseDto,
+  CheckAuthResponseDto,
+  AdminRefreshTokenResponseDto,
 } from './admin-response.dto';
 
 export class SuccessAdminLoginResponseDto {
@@ -186,6 +188,70 @@ export class AdminErrorResponseDto {
     description: 'Error type',
   })
   error: string;
+
+  @ApiProperty({
+    example: '2025-01-11T10:00:00.000Z',
+    description: 'Response timestamp',
+  })
+  timestamp: string;
+}
+
+export class SuccessAdminCheckAuthResponseDto {
+  @ApiProperty({
+    example: 200,
+    description: 'HTTP status code',
+  })
+  code: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Success flag',
+  })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Authentication check completed',
+    description: 'Success message',
+  })
+  message: string;
+
+  @ApiProperty({
+    type: CheckAuthResponseDto,
+    description: 'Authentication check response data',
+  })
+  data: CheckAuthResponseDto;
+
+  @ApiProperty({
+    example: '2025-01-11T10:00:00.000Z',
+    description: 'Response timestamp',
+  })
+  timestamp: string;
+}
+
+export class SuccessAdminRefreshTokenResponseDto {
+  @ApiProperty({
+    example: 200,
+    description: 'HTTP status code',
+  })
+  code: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Success flag',
+  })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Tokens refreshed successfully',
+    description: 'Success message',
+  })
+  message: string;
+
+  @ApiProperty({
+    type: AdminRefreshTokenResponseDto,
+    description: 'Token refresh response data containing new tokens and admin info',
+  })
+  data: AdminRefreshTokenResponseDto;
 
   @ApiProperty({
     example: '2025-01-11T10:00:00.000Z',

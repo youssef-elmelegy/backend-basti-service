@@ -13,6 +13,8 @@ export const RegionExamples = {
         data: {
           id: MOCK_DATA.id.region,
           name: MOCK_DATA.name.region,
+          image: MOCK_DATA.image.region,
+          isAvailable: true,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
@@ -37,6 +39,8 @@ export const RegionExamples = {
           {
             id: MOCK_DATA.id.region,
             name: MOCK_DATA.name.region,
+            image: MOCK_DATA.image.region,
+            isAvailable: true,
             createdAt: MOCK_DATA.dates.default,
             updatedAt: MOCK_DATA.dates.default,
           },
@@ -54,6 +58,8 @@ export const RegionExamples = {
         data: {
           id: MOCK_DATA.id.region,
           name: MOCK_DATA.name.region,
+          image: MOCK_DATA.image.region,
+          isAvailable: true,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
@@ -80,6 +86,8 @@ export const RegionExamples = {
         data: {
           id: MOCK_DATA.id.region,
           name: 'Alexandria',
+          image: MOCK_DATA.image.region,
+          isAvailable: true,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },

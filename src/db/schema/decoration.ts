@@ -1,5 +1,6 @@
-import { pgTable, uuid, varchar, text, decimal, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
+import { designedCakeConfigs, tags } from '.';
 
 export const decorations = pgTable(
   'decorations',
@@ -8,8 +9,9 @@ export const decorations = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     title: varchar('title', { length: 255 }).notNull(),
+    description: text('description').notNull(),
+    tagId: uuid('tag_id'),
     decorationUrl: text('decoration_url').notNull(),
-    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
@@ -18,8 +20,10 @@ export const decorations = pgTable(
   }),
 );
 
-export const decorationsRelations = relations(decorations, ({ many }) => ({
+export const decorationsRelations = relations(decorations, ({ many, one }) => ({
+  tag: one(tags, {
+    fields: [decorations.tagId],
+    references: [tags.id],
+  }),
   designedCakeConfigs: many(designedCakeConfigs),
 }));
-
-import { designedCakeConfigs } from './designed-cake-config';

@@ -30,6 +30,8 @@ export interface SeedAdmin {
 export interface SeedRegion {
   id: string;
   name: string;
+  image: string;
+  isAvailable: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -147,76 +149,112 @@ export async function getAllSeedData() {
 export function getSeedRegions(): SeedRegion[] {
   const regions: SeedRegion[] = [
     {
-      id: '550e8400-e29b-41d4-a716-446655440100',
-      name: 'Downtown Area',
-      createdAt: new Date('2025-01-01'),
-      updatedAt: new Date('2025-01-01'),
+      id: '23e2da5b-50a1-4f0e-b051-ce99a8fe620a',
+      name: 'Sirte',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038898/basti/general/1771038895856-sirte.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440101',
-      name: 'Uptown District',
-      createdAt: new Date('2025-01-02'),
-      updatedAt: new Date('2025-01-02'),
+      id: '5e94f2f4-d65e-45e4-99a9-ed3d4d10c2ff',
+      name: 'Tobruk',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038923/basti/general/1771038922064-tobruk.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440102',
-      name: 'Riverside Zone',
-      createdAt: new Date('2025-01-03'),
-      updatedAt: new Date('2025-01-03'),
+      id: '868046c7-bffc-4927-b504-f5c5eb7c5a24',
+      name: 'Tripoli',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038949/basti/general/1771038947054-tripoli.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440103',
-      name: 'Harbor District',
-      createdAt: new Date('2025-01-04'),
-      updatedAt: new Date('2025-01-04'),
+      id: '92c9f70c-8980-4d21-a517-0f14a8056bb8',
+      name: 'Zawiya',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038986/basti/general/1771038984241-zawiya.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440104',
-      name: 'Central Park Area',
-      createdAt: new Date('2025-01-05'),
-      updatedAt: new Date('2025-01-05'),
+      id: '0c062498-fc5d-4b9a-8759-c7880f6d80aa',
+      name: 'zliten',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771039011/basti/general/1771039007741-zliten.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440105',
-      name: 'West End',
-      createdAt: new Date('2025-01-06'),
-      updatedAt: new Date('2025-01-06'),
+      id: '42433844-585a-44f2-ab3a-0e172366c1a7',
+      name: 'Misrata',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038842/basti/general/1771038840893-misrata.png',
+      isAvailable: false,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440106',
-      name: 'East Side',
-      createdAt: new Date('2025-01-07'),
-      updatedAt: new Date('2025-01-07'),
+      id: 'c4569a6d-fffb-48e9-9952-63d99e4ef9dd',
+      name: 'Al Khums',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038752/basti/general/1771038750497-al_khums.png',
+      isAvailable: false,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440107',
-      name: 'North Quarter',
-      createdAt: new Date('2025-01-08'),
-      updatedAt: new Date('2025-01-08'),
+      id: '0c062498-fc5d-4b9a-8759-c7880f6d80ff',
+      name: 'Ajdabiya',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038664/basti/general/1771038660147-ajdabiya.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440108',
-      name: 'South Valley',
-      createdAt: new Date('2025-01-09'),
-      updatedAt: new Date('2025-01-09'),
+      id: '71fefdb6-f253-4d10-ac61-27bc01486c1d',
+      name: 'Al Bayda',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038726/basti/general/1771038724571-al_bayda.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440109',
-      name: 'Industrial Zone',
-      createdAt: new Date('2025-01-10'),
-      updatedAt: new Date('2025-01-10'),
+      id: '677b65f1-bb4f-4689-bcb8-9a006c763ef1',
+      name: 'Benghazi',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038771/basti/general/1771038769396-benghazi.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-44665544010a',
-      name: 'Suburban Heights',
-      createdAt: new Date('2025-01-11'),
-      updatedAt: new Date('2025-01-11'),
+      id: 'c684c9c4-2148-4ebd-baaa-44cc3310a51e',
+      name: 'Derna',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038809/basti/general/1771038806822-derna.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
     {
-      id: '550e8400-e29b-41d4-a716-44665544010b',
-      name: 'Lakeside Region',
-      createdAt: new Date('2025-01-12'),
-      updatedAt: new Date('2025-01-12'),
+      id: 'a8582f4e-c290-4dee-94b0-ab408096b66e',
+      name: 'Sabha',
+      image:
+        'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038871/basti/general/1771038869481-sabha.png',
+      isAvailable: true,
+      createdAt: new Date('2026-02-13T09:54:17.554Z'),
+      updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
   ];
 
