@@ -1,6 +1,15 @@
 import { pgTable, uuid, decimal, jsonb, index, timestamp, check } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { regions, addons, featuredCakes, sweets, decorations, flavors, shapes } from '.';
+import {
+  regions,
+  addons,
+  featuredCakes,
+  sweets,
+  decorations,
+  flavors,
+  shapes,
+  predesignedCakes,
+} from '.';
 
 export const regionItemPrices = pgTable(
   'region_item_prices',
@@ -19,6 +28,9 @@ export const regionItemPrices = pgTable(
     decorationId: uuid('decoration_id').references(() => decorations.id, { onDelete: 'cascade' }),
     flavorId: uuid('flavor_id').references(() => flavors.id, { onDelete: 'cascade' }),
     shapeId: uuid('shape_id').references(() => shapes.id, { onDelete: 'cascade' }),
+    predesignedCakeId: uuid('predesigned_cake_id').references(() => predesignedCakes.id, {
+      onDelete: 'cascade',
+    }),
     price: decimal('price', { precision: 10, scale: 2 }).notNull(),
     sizesPrices: jsonb('sizes_prices').$type<Record<string, string>>(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
@@ -32,6 +44,9 @@ export const regionItemPrices = pgTable(
     decorationIdIdx: index('region_item_prices_decoration_id_idx').on(table.decorationId),
     flavorIdIdx: index('region_item_prices_flavor_id_idx').on(table.flavorId),
     shapeIdIdx: index('region_item_prices_shape_id_idx').on(table.shapeId),
+    predesignedCakeIdIdx: index('region_item_prices_predesigned_cake_id_idx').on(
+      table.predesignedCakeId,
+    ),
     onlyOneProductCheck: check(
       'only_one_product',
       sql`(CASE WHEN addon_id IS NOT NULL THEN 1 ELSE 0 END +
@@ -39,7 +54,8 @@ export const regionItemPrices = pgTable(
            CASE WHEN sweet_id IS NOT NULL THEN 1 ELSE 0 END +
            CASE WHEN decoration_id IS NOT NULL THEN 1 ELSE 0 END +
            CASE WHEN flavor_id IS NOT NULL THEN 1 ELSE 0 END +
-           CASE WHEN shape_id IS NOT NULL THEN 1 ELSE 0 END) = 1`,
+           CASE WHEN shape_id IS NOT NULL THEN 1 ELSE 0 END +
+           CASE WHEN predesigned_cake_id IS NOT NULL THEN 1 ELSE 0 END) = 1`,
     ),
   }),
 );
@@ -72,5 +88,9 @@ export const regionItemPricesRelations = relations(regionItemPrices, ({ one }) =
   shape: one(shapes, {
     fields: [regionItemPrices.shapeId],
     references: [shapes.id],
+  }),
+  predesignedCake: one(predesignedCakes, {
+    fields: [regionItemPrices.predesignedCakeId],
+    references: [predesignedCakes.id],
   }),
 }));

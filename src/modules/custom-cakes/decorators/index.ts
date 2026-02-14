@@ -18,3 +18,11 @@ export * from './get-decoration-by-id.decorator';
 export * from './update-decoration.decorator';
 export * from './delete-decoration.decorator';
 export * from './create-decoration-region-item-price.decorator';
+
+export * from './create-predesigned-cake.decorator';
+export * from './get-all-predesigned-cakes.decorator';
+export * from './get-predesigned-cake-by-id.decorator';
+export * from './update-predesigned-cake.decorator';
+export * from './delete-predesigned-cake.decorator';
+export * from './check-entity-region-availability.decorator';
+export * from './create-predesigned-cake-region-item-price.decorator';

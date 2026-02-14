@@ -11,3 +11,4 @@ export * from './tags-examples';
 export * from './flavor.examples';
 export * from './shape.examples';
 export * from './decoration.examples';
+export * from './predesigned-cakes.examples';
