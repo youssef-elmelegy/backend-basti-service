@@ -12,6 +12,7 @@ import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { SliderImageModule } from './modules/slider-image/slider-image.module';
 import { TagsModule } from './modules/tags/tags.module';
+import { CustomCakesModule } from './modules/custom-cakes/custom-cakes.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
 // import { WishlistModule } from './modules/wishlist/wishlist.module';
@@ -29,6 +30,7 @@ import { OrderModule } from './modules/order/order.module';
     AdminAuthModule,
     UploadModule,
     OrderModule,
+    CustomCakesModule,
     // WishlistModule,
     // ReviewModule,
     SliderImageModule,
