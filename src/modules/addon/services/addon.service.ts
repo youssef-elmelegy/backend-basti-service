@@ -123,7 +123,7 @@ export class AddonService {
   }
 
   async findAll(query: GetAddonsQueryDto) {
-    const { page, limit, tag, order, sort, isActive, category, regionId } = query;
+    const { page, limit, tag, order, sort, isActive, category, regionId, search } = query;
 
     try {
       const offset = (page - 1) * limit;
@@ -156,6 +156,10 @@ export class AddonService {
         if (tag) {
           regionWhereConditions.push(eq(tags.name, tag));
         }
+        if (search) {
+          const searchPattern = `%${search}%`;
+          regionWhereConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
+        }
 
         const [{ count: regionCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
@@ -181,6 +185,12 @@ export class AddonService {
           .limit(limit)
           .offset(offset);
       } else if (tag) {
+        const tagConditions: SQL[] = [eq(tags.name, tag), ...whereConditions];
+        if (search) {
+          const searchPattern = `%${search}%`;
+          tagConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
+        }
+
         const tagResults = await db
           .select({
             addon: addons,
@@ -188,11 +198,7 @@ export class AddonService {
           })
           .from(addons)
           .innerJoin(tags, eq(addons.tagId, tags.id))
-          .where(
-            whereConditions.length > 0
-              ? and(eq(tags.name, tag), ...whereConditions)
-              : eq(tags.name, tag),
-          )
+          .where(and(...tagConditions))
           .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
           .limit(limit)
           .offset(offset);
@@ -203,13 +209,36 @@ export class AddonService {
           .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
           .from(addons)
           .innerJoin(tags, eq(addons.tagId, tags.id))
-          .where(
-            whereConditions.length > 0
-              ? and(eq(tags.name, tag), ...whereConditions)
-              : eq(tags.name, tag),
-          );
+          .where(and(...tagConditions));
 
         total = Number(countResult.count);
+      } else if (search) {
+        const searchPattern = `%${search}%`;
+        const searchConditions: SQL[] = [
+          sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`,
+          ...whereConditions,
+        ];
+
+        const [countResult] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(addons)
+          .where(and(...searchConditions));
+
+        total = Number(countResult.count);
+
+        const untaggedResults = await db
+          .select({
+            addon: addons,
+            tagName: tags.name,
+          })
+          .from(addons)
+          .leftJoin(tags, eq(addons.tagId, tags.id))
+          .where(and(...searchConditions))
+          .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
+          .limit(limit)
+          .offset(offset);
+
+        allAddons = untaggedResults;
       } else {
         const untaggedResults = await db
           .select({

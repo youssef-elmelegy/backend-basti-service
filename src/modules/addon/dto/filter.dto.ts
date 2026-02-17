@@ -49,4 +49,12 @@ export class FilterDto {
   })
   @IsBoolean()
   isActive: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Search by name',
+    example: 'candles',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

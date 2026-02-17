@@ -1,5 +1,6 @@
-import { IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { ShapeSize } from './create-shape.dto';
 
 export class UpdateShapeDto {
   @ApiProperty({
@@ -35,4 +36,15 @@ export class UpdateShapeDto {
   @IsOptional()
   @IsString()
   shapeUrl?: string;
+
+  @ApiProperty({
+    description: 'Shape size category',
+    example: 'medium',
+    enum: ShapeSize,
+    enumName: 'ShapeSize',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(ShapeSize, { message: 'Size must be one of: small, medium, large' })
+  size?: ShapeSize;
 }

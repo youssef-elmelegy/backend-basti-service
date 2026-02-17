@@ -16,6 +16,9 @@ export class ShapeDataDto {
   })
   shapeUrl: string;
 
+  @ApiProperty({ example: 'medium', enum: ['small', 'medium', 'large'] })
+  size: string;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 

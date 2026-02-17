@@ -5,6 +5,7 @@ export const ShapeExamples = {
       description: 'Classic round cake shape perfect for most cake designs',
       shapeUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+      size: 'medium',
     },
     response: {
       success: {
@@ -17,8 +18,7 @@ export const ShapeExamples = {
           description: 'Classic round cake shape perfect for most cake designs',
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
-          tagId: '550e8400-e29b-41d4-a716-446655440000',
-          tagName: 'Shapes',
+          size: 'medium',
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -40,8 +40,7 @@ export const ShapeExamples = {
               description: 'Classic round cake shape perfect for most cake designs',
               shapeUrl:
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
-              tagId: '550e8400-e29b-41d4-a716-446655440000',
-              tagName: 'Shapes',
+              size: 'medium',
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
             },
@@ -51,8 +50,7 @@ export const ShapeExamples = {
               description: 'Modern square cake shape great for geometric designs',
               shapeUrl:
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/square.jpg',
-              tagId: '550e8400-e29b-41d4-a716-446655440000',
-              tagName: 'Shapes',
+              size: 'large',
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
             },
@@ -80,8 +78,7 @@ export const ShapeExamples = {
           description: 'Classic round cake shape perfect for most cake designs',
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
-          tagId: '550e8400-e29b-41d4-a716-446655440000',
-          tagName: 'Shapes',
+          size: 'medium',
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -93,6 +90,7 @@ export const ShapeExamples = {
     request: {
       title: 'Heart',
       description: 'Romantic heart-shaped cake perfect for special occasions',
+      size: 'small',
     },
     response: {
       success: {
@@ -105,8 +103,7 @@ export const ShapeExamples = {
           description: 'Romantic heart-shaped cake perfect for special occasions',
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
-          tagId: '550e8400-e29b-41d4-a716-446655440000',
-          tagName: 'Shapes',
+          size: 'small',
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T11:00:00Z',
         },

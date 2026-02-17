@@ -12,7 +12,7 @@ export function CreateShapeDecorator() {
     }),
     ApiBody({
       type: CreateShapeDto,
-      description: 'Required: title, description, shapeUrl',
+      description: 'Required: title, description, shapeUrl, size',
       examples: {
         success: {
           summary: 'Valid shape creation request',

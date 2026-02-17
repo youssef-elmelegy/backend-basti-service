@@ -13,6 +13,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { BakeryService } from '../services/bakery.service';
 import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
+import { SortType, SortOrder } from '@/common/dto';
 import {
   CreateBakeryDecorator,
   GetAllBakeriesDecorator,
@@ -53,9 +54,22 @@ export class BakeryController {
   @PaginationDecorator()
   @SortDecorator()
   @FilterDecorator()
-  async findAll(@Query() query: { pagination: PaginationDto; sort: SortDto }) {
+  async findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('sort') sort: string = 'created_at',
+    @Query('order') order: string = 'desc',
+  ) {
     this.logger.debug('Retrieving all bakeries');
-    return this.bakeryService.findAll(query.pagination, query.sort);
+    const pagination: PaginationDto = {
+      page: Math.max(1, parseInt(page, 10) || 1),
+      limit: Math.max(1, parseInt(limit, 10) || 10),
+    };
+    const sortDto: SortDto = {
+      sort: (sort === 'alpha' || sort === 'created_at' ? sort : 'created_at') as SortType,
+      order: (order === 'asc' || order === 'desc' ? order : 'desc') as SortOrder,
+    };
+    return this.bakeryService.findAll(pagination, sortDto);
   }
 
   @Get(':id')

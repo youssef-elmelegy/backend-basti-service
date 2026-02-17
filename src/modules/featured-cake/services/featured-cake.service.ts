@@ -116,7 +116,15 @@ export class FeaturedCakeService {
   }
 
   async findAll(query: GetFeaturedCakesQueryDto) {
-    const { page: queryPage = 1, limit: queryLimit = 10, tag, order, sort, regionId } = query;
+    const {
+      page: queryPage = 1,
+      limit: queryLimit = 10,
+      tag,
+      order,
+      sort,
+      regionId,
+      search,
+    } = query;
 
     const page = Number(queryPage) || 1;
     const limit = Number(queryLimit) || 10;
@@ -139,9 +147,13 @@ export class FeaturedCakeService {
           eq(regionItemPrices.regionId, regionId),
         ] as const;
 
-        const whereConditions: ReturnType<typeof eq>[] = [];
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [];
         if (tag) {
           whereConditions.push(eq(tags.name, tag));
+        }
+        if (search) {
+          const searchPattern = `%${search}%`;
+          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: regionCount }] = await db
@@ -167,11 +179,17 @@ export class FeaturedCakeService {
           .limit(limit)
           .offset(offset);
       } else if (tag) {
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(tags.name, tag)];
+        if (search) {
+          const searchPattern = `%${search}%`;
+          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+        }
+
         const [{ count: tagCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${featuredCakes.id})` })
           .from(featuredCakes)
           .innerJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .where(eq(tags.name, tag));
+          .where(and(...whereConditions));
 
         total = Number(tagCount);
 
@@ -182,7 +200,27 @@ export class FeaturedCakeService {
           })
           .from(featuredCakes)
           .innerJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .where(eq(tags.name, tag))
+          .where(and(...whereConditions))
+          .orderBy(sortOrder(sortColumn))
+          .limit(limit)
+          .offset(offset);
+      } else if (search) {
+        const searchPattern = `%${search}%`;
+        const [{ count: searchCount }] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${featuredCakes.id})` })
+          .from(featuredCakes)
+          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+
+        total = Number(searchCount);
+
+        allCakesResult = await db
+          .select({
+            cake: featuredCakes,
+            tagName: tags.name,
+          })
+          .from(featuredCakes)
+          .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
+          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
           .offset(offset);

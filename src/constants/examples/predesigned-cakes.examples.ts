@@ -52,6 +52,7 @@ export const PredesignedCakesExamples = {
                 description: 'Classic round cake shape',
                 shapeUrl:
                   'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+                size: 'medium',
                 createdAt: '2024-01-10T08:00:00Z',
                 updatedAt: '2024-01-10T08:00:00Z',
               },
@@ -111,6 +112,7 @@ export const PredesignedCakesExamples = {
                     description: 'Classic round cake shape',
                     shapeUrl:
                       'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+                    size: 'medium',
                     createdAt: '2024-01-10T08:00:00Z',
                     updatedAt: '2024-01-10T08:00:00Z',
                   },
@@ -157,6 +159,7 @@ export const PredesignedCakesExamples = {
                     description: 'Modern square cake shape',
                     shapeUrl:
                       'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/square.jpg',
+                    size: 'large',
                     createdAt: '2024-01-10T08:00:00Z',
                     updatedAt: '2024-01-10T08:00:00Z',
                   },
@@ -221,6 +224,7 @@ export const PredesignedCakesExamples = {
                 description: 'Classic round cake shape',
                 shapeUrl:
                   'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+                size: 'medium',
                 createdAt: '2024-01-10T08:00:00Z',
                 updatedAt: '2024-01-10T08:00:00Z',
               },
@@ -289,6 +293,7 @@ export const PredesignedCakesExamples = {
                 description: 'Classic round cake shape',
                 shapeUrl:
                   'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+                size: 'medium',
                 createdAt: '2024-01-10T08:00:00Z',
                 updatedAt: '2024-01-10T08:00:00Z',
               },

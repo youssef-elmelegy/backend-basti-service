@@ -32,6 +32,7 @@ export class ShapeService {
       title: shape.title,
       description: shape.description,
       shapeUrl: shape.shapeUrl,
+      size: shape.size,
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
@@ -45,6 +46,7 @@ export class ShapeService {
           title: createDto.title,
           description: createDto.description,
           shapeUrl: createDto.shapeUrl,
+          size: createDto.size,
         })
         .returning();
 

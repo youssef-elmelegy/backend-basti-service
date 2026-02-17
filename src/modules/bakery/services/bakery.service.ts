@@ -72,7 +72,8 @@ export class BakeryService {
       const offset = (pagination.page - 1) * pagination.limit;
 
       // Get total count
-      const [{ count: total }] = await db.select({ count: sql<number>`COUNT(*)` }).from(bakeries);
+      const [{ count }] = await db.select({ count: sql<string>`COUNT(*)` }).from(bakeries);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       const sortOrder = sort.order === 'desc' ? desc : asc;
 
@@ -104,8 +105,9 @@ export class BakeryService {
         'Bakeries retrieved successfully',
         HttpStatus.OK,
       );
-    } catch {
-      this.logger.error('Failed to retrieve bakeries');
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve bakeries: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve bakeries',

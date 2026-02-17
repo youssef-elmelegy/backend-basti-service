@@ -117,9 +117,13 @@ export class SweetService {
           eq(regionItemPrices.regionId, query.regionId),
         ] as const;
 
-        const whereConditions: ReturnType<typeof eq>[] = [];
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [];
         if (query.tag) {
           whereConditions.push(eq(tags.name, query.tag));
+        }
+        if (query.search) {
+          const searchPattern = `%${query.search}%`;
+          whereConditions.push(sql`LOWER(${sweets.name}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: regionCount }] = await db
@@ -146,11 +150,17 @@ export class SweetService {
           .limit(query.limit)
           .offset(offset);
       } else if (query.tag) {
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(tags.name, query.tag)];
+        if (query.search) {
+          const searchPattern = `%${query.search}%`;
+          whereConditions.push(sql`LOWER(${sweets.name}) LIKE LOWER(${searchPattern})`);
+        }
+
         const [{ count: tagCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
           .from(sweets)
           .innerJoin(tags, eq(sweets.tagId, tags.id))
-          .where(eq(tags.name, query.tag));
+          .where(and(...whereConditions));
 
         total = Number(tagCount);
 
@@ -161,7 +171,27 @@ export class SweetService {
           })
           .from(sweets)
           .innerJoin(tags, eq(sweets.tagId, tags.id))
-          .where(eq(tags.name, query.tag))
+          .where(and(...whereConditions))
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
+      } else if (query.search) {
+        const searchPattern = `%${query.search}%`;
+        const [{ count: searchCount }] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
+          .from(sweets)
+          .where(sql`LOWER(${sweets.name}) LIKE LOWER(${searchPattern})`);
+
+        total = Number(searchCount);
+
+        allSweetsResult = await db
+          .select({
+            sweet: sweets,
+            tagName: tags.name,
+          })
+          .from(sweets)
+          .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .where(sql`LOWER(${sweets.name}) LIKE LOWER(${searchPattern})`)
           .orderBy(sortOrder(sortColumn))
           .limit(query.limit)
           .offset(offset);
