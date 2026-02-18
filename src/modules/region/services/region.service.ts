@@ -9,12 +9,44 @@ import {
 import { db } from '@/db';
 import { regions } from '@/db/schema';
 import { eq, asc, desc, SQL, and } from 'drizzle-orm';
-import { CreateRegionDto, UpdateRegionDto, RegionResponse, GetRegionsQueryDto } from '../dto';
+import {
+  CreateRegionDto,
+  UpdateRegionDto,
+  RegionResponse,
+  GetRegionsQueryDto,
+  GetRegionalProductsQueryDto,
+  ProductTypeFilter,
+} from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { FeaturedCakeService } from '@/modules/featured-cake/services/featured-cake.service';
+import { AddonService } from '@/modules/addon/services/addon.service';
+import { SweetService } from '@/modules/sweet/services/sweet.service';
+import { FlavorService } from '@/modules/custom-cakes/services/flavor.service';
+import { ShapeService } from '@/modules/custom-cakes/services/shape.service';
+import { DecorationService } from '@/modules/custom-cakes/services/decoration.service';
+import { PredesignedCakesService } from '@/modules/custom-cakes/services/predesigned-cakes.service';
+import { SortBy } from '@/modules/sweet/dto';
+import { FlavorSortBy } from '@/modules/custom-cakes/dto';
+import { ShapeSortBy } from '@/modules/custom-cakes/dto';
+import { DecorationSortBy } from '@/modules/custom-cakes/dto';
+
+interface RegionalProduct {
+  [key: string]: unknown;
+}
 
 @Injectable()
 export class RegionService {
   private readonly logger = new Logger(RegionService.name);
+
+  constructor(
+    private readonly featuredCakeService: FeaturedCakeService,
+    private readonly addonService: AddonService,
+    private readonly sweetService: SweetService,
+    private readonly flavorService: FlavorService,
+    private readonly shapeService: ShapeService,
+    private readonly decorationService: DecorationService,
+    private readonly predesignedCakesService: PredesignedCakesService,
+  ) {}
 
   async create(createRegionDto: CreateRegionDto): Promise<SuccessResponse<RegionResponse>> {
     const { name, image, isAvailable } = createRegionDto;
@@ -236,6 +268,242 @@ export class RegionService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete region',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+  async getRegionalProducts(
+    regionId: string,
+    query: GetRegionalProductsQueryDto,
+  ): Promise<
+    SuccessResponse<{
+      items: RegionalProduct[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>
+  > {
+    const { page: queryPage = 1, limit: queryLimit = 10, types } = query;
+
+    const page = Number(queryPage) || 1;
+    const limit = Number(queryLimit) || 10;
+
+    try {
+      const region = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+
+      if (!region.length) {
+        this.logger.warn(`Region not found: ${regionId}`);
+        throw new NotFoundException(
+          errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Get all product types if none specified, otherwise use filtered types
+      const productTypesToFetch: ProductTypeFilter[] =
+        types && types.length > 0 ? types : Object.values(ProductTypeFilter);
+
+      const allProducts: RegionalProduct[] = [];
+
+      // Fetch products from each service based on type
+      for (const type of productTypesToFetch) {
+        try {
+          let products: RegionalProduct[] = [];
+
+          switch (type) {
+            case ProductTypeFilter.FEATURED_CAKE: {
+              const featuredCakesResponse = await this.featuredCakeService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+              });
+              if (featuredCakesResponse.data && 'items' in featuredCakesResponse.data) {
+                const cakes = (
+                  featuredCakesResponse.data as {
+                    items: Record<string, unknown>[];
+                  }
+                ).items;
+                products = cakes.map((cake) => ({
+                  ...cake,
+                  type: ProductTypeFilter.FEATURED_CAKE,
+                })) as unknown as RegionalProduct[];
+              }
+              break;
+            }
+
+            case ProductTypeFilter.ADDON: {
+              const addonsResponse = await this.addonService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+                tag: undefined,
+                category: undefined,
+                isActive: undefined,
+              });
+              if (addonsResponse.data && 'items' in addonsResponse.data) {
+                const addonItems = (
+                  addonsResponse.data as {
+                    items: Record<string, unknown>[];
+                  }
+                ).items;
+                products = addonItems.map((addon) => ({
+                  ...addon,
+                  type: ProductTypeFilter.ADDON,
+                })) as unknown as RegionalProduct[];
+              }
+              break;
+            }
+
+            case ProductTypeFilter.SWEET: {
+              const sweetsResponse = await this.sweetService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+                sortBy: SortBy.CREATED_AT,
+                order: 'desc',
+              });
+              if (sweetsResponse.data) {
+                const sweetData = sweetsResponse.data as unknown as {
+                  items: Record<string, unknown>[];
+                };
+                if ('items' in sweetData) {
+                  const sweetItems = sweetData.items;
+                  products = sweetItems.map((sweet) => ({
+                    ...sweet,
+                    type: ProductTypeFilter.SWEET,
+                  })) as unknown as RegionalProduct[];
+                }
+              }
+              break;
+            }
+
+            case ProductTypeFilter.FLAVOR: {
+              const flavorsResponse = await this.flavorService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+                sortBy: FlavorSortBy.CREATED_AT,
+                order: 'desc',
+              });
+              if (flavorsResponse.data) {
+                const flavorData = flavorsResponse.data as unknown as {
+                  items: Record<string, unknown>[];
+                };
+                if ('items' in flavorData) {
+                  const flavorItems = flavorData.items;
+                  products = flavorItems.map((flavor) => ({
+                    ...flavor,
+                    type: ProductTypeFilter.FLAVOR,
+                  })) as unknown as RegionalProduct[];
+                }
+              }
+              break;
+            }
+
+            case ProductTypeFilter.SHAPE: {
+              const shapesResponse = await this.shapeService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+                sortBy: ShapeSortBy.CREATED_AT,
+                order: 'desc',
+              });
+              if (shapesResponse.data) {
+                const shapeData = shapesResponse.data as unknown as {
+                  items: Record<string, unknown>[];
+                };
+                if ('items' in shapeData) {
+                  const shapeItems = shapeData.items;
+                  products = shapeItems.map((shape) => ({
+                    ...shape,
+                    type: ProductTypeFilter.SHAPE,
+                  })) as unknown as RegionalProduct[];
+                }
+              }
+              break;
+            }
+
+            case ProductTypeFilter.DECORATION: {
+              const decorationsResponse = await this.decorationService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+                sortBy: DecorationSortBy.CREATED_AT,
+                order: 'desc',
+              });
+              if (decorationsResponse.data) {
+                const decorationData = decorationsResponse.data as unknown as {
+                  items: Record<string, unknown>[];
+                };
+                if ('items' in decorationData) {
+                  const decorationItems = decorationData.items;
+                  products = decorationItems.map((decoration) => ({
+                    ...decoration,
+                    type: ProductTypeFilter.DECORATION,
+                  })) as unknown as RegionalProduct[];
+                }
+              }
+              break;
+            }
+
+            case ProductTypeFilter.PREDESIGNED_CAKE: {
+              const predesignedResponse = await this.predesignedCakesService.findAll({
+                page: 1,
+                limit: 1000,
+                regionId,
+              });
+              if (predesignedResponse.data && 'items' in predesignedResponse.data) {
+                const predesignedItems = (
+                  predesignedResponse.data as {
+                    items: Record<string, unknown>[];
+                  }
+                ).items;
+                products = predesignedItems.map((cake) => ({
+                  ...cake,
+                  type: ProductTypeFilter.PREDESIGNED_CAKE,
+                })) as unknown as RegionalProduct[];
+              }
+              break;
+            }
+          }
+
+          allProducts.push(...products);
+        } catch (err) {
+          this.logger.warn(`Failed to fetch products for type ${type}:`, err);
+        }
+      }
+
+      // Sort by creation date descending
+      allProducts.sort(
+        (a, b) =>
+          new Date(b.createdAt as string | number).getTime() -
+          new Date(a.createdAt as string | number).getTime(),
+      );
+
+      const totalCount = allProducts.length;
+      const offset = (page - 1) * limit;
+      const paginatedProducts = allProducts.slice(offset, offset + limit);
+
+      return successResponse(
+        {
+          items: paginatedProducts,
+          pagination: {
+            page,
+            limit,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+          },
+        },
+        'Regional products retrieved successfully',
+        HttpStatus.OK,
+      );
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        throw err;
+      }
+      this.logger.error(`Error fetching regional products for region ${regionId}:`, err);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve regional products',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

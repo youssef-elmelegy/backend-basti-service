@@ -4,3 +4,4 @@ export * from './region-response.dto';
 export * from './region-response.interface';
 // export { SortDto } from '@/common/dto';
 export { GetRegionsQueryDto } from './get-regions-query.dto';
+export { GetRegionalProductsQueryDto, ProductTypeFilter } from './get-regional-products-query.dto';

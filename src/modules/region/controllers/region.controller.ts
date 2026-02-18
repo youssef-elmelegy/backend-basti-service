@@ -1,13 +1,19 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RegionService } from '../services/region.service';
-import { CreateRegionDto, UpdateRegionDto, GetRegionsQueryDto } from '../dto';
+import {
+  CreateRegionDto,
+  UpdateRegionDto,
+  GetRegionsQueryDto,
+  GetRegionalProductsQueryDto,
+} from '../dto';
 import {
   CreateRegionDecorator,
   GetAllRegionsDecorator,
   GetRegionDecorator,
   UpdateRegionDecorator,
   DeleteRegionDecorator,
+  GetRegionalProductsDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 
@@ -57,6 +63,18 @@ export class RegionController {
     this.logger.debug(`Deleting region: ${id}`);
     const result = await this.regionService.remove(id);
     this.logger.log(`Region deleted: ${id}`);
+    return result;
+  }
+
+  @Get(':id/products')
+  @GetRegionalProductsDecorator()
+  async getRegionalProducts(
+    @Param('id') regionId: string,
+    @Query() query: GetRegionalProductsQueryDto,
+  ): Promise<any> {
+    this.logger.debug(`Retrieving products for region: ${regionId}`);
+    const result = await this.regionService.getRegionalProducts(regionId, query);
+    this.logger.log(`Regional products retrieved for region: ${regionId}`);
     return result;
   }
 }
