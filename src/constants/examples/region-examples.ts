@@ -155,4 +155,24 @@ export const RegionExamples = {
       },
     },
   },
+  deleteRegionalItemPrice: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Regional item price removed',
+        data: {
+          message: 'Regional item price removed successfully',
+        },
+        timestamp: MOCK_DATA.dates.default,
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'Regional item price not found',
+        error: 'NotFoundException',
+        timestamp: MOCK_DATA.dates.default,
+      },
+    },
+  },
 } as const;

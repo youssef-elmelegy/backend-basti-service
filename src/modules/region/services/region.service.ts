@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { regions } from '@/db/schema';
+import { regions, regionItemPrices } from '@/db/schema';
 import { eq, asc, desc, SQL, and } from 'drizzle-orm';
 import {
   CreateRegionDto,
@@ -325,7 +325,7 @@ export class RegionService {
                 products = cakes.map((cake) => ({
                   ...cake,
                   type: ProductTypeFilter.FEATURED_CAKE,
-                })) as unknown as RegionalProduct[];
+                })) as RegionalProduct[];
               }
               break;
             }
@@ -348,7 +348,7 @@ export class RegionService {
                 products = addonItems.map((addon) => ({
                   ...addon,
                   type: ProductTypeFilter.ADDON,
-                })) as unknown as RegionalProduct[];
+                })) as RegionalProduct[];
               }
               break;
             }
@@ -370,7 +370,7 @@ export class RegionService {
                   products = sweetItems.map((sweet) => ({
                     ...sweet,
                     type: ProductTypeFilter.SWEET,
-                  })) as unknown as RegionalProduct[];
+                  })) as RegionalProduct[];
                 }
               }
               break;
@@ -393,7 +393,7 @@ export class RegionService {
                   products = flavorItems.map((flavor) => ({
                     ...flavor,
                     type: ProductTypeFilter.FLAVOR,
-                  })) as unknown as RegionalProduct[];
+                  })) as RegionalProduct[];
                 }
               }
               break;
@@ -416,7 +416,7 @@ export class RegionService {
                   products = shapeItems.map((shape) => ({
                     ...shape,
                     type: ProductTypeFilter.SHAPE,
-                  })) as unknown as RegionalProduct[];
+                  })) as RegionalProduct[];
                 }
               }
               break;
@@ -439,7 +439,7 @@ export class RegionService {
                   products = decorationItems.map((decoration) => ({
                     ...decoration,
                     type: ProductTypeFilter.DECORATION,
-                  })) as unknown as RegionalProduct[];
+                  })) as RegionalProduct[];
                 }
               }
               break;
@@ -460,7 +460,7 @@ export class RegionService {
                 products = predesignedItems.map((cake) => ({
                   ...cake,
                   type: ProductTypeFilter.PREDESIGNED_CAKE,
-                })) as unknown as RegionalProduct[];
+                })) as RegionalProduct[];
               }
               break;
             }
@@ -472,16 +472,97 @@ export class RegionService {
         }
       }
 
-      // Sort by creation date descending
-      allProducts.sort(
+      // Fetch regional prices for products that have pricing
+      const enrichedProducts = await Promise.all(
+        allProducts.map(async (product) => {
+          const productType = product.type as ProductTypeFilter;
+          const productId = product.id as string;
+
+          try {
+            let pricing: typeof regionItemPrices.$inferSelect | undefined;
+
+            // Handle each product type's regional pricing query
+            switch (productType) {
+              case ProductTypeFilter.ADDON:
+                [pricing] = await db
+                  .select()
+                  .from(regionItemPrices)
+                  .where(
+                    and(
+                      eq(regionItemPrices.regionId, regionId),
+                      eq(regionItemPrices.addonId, productId),
+                    ),
+                  )
+                  .limit(1);
+                break;
+              case ProductTypeFilter.FLAVOR:
+                [pricing] = await db
+                  .select()
+                  .from(regionItemPrices)
+                  .where(
+                    and(
+                      eq(regionItemPrices.regionId, regionId),
+                      eq(regionItemPrices.flavorId, productId),
+                    ),
+                  )
+                  .limit(1);
+                break;
+              case ProductTypeFilter.SHAPE:
+                [pricing] = await db
+                  .select()
+                  .from(regionItemPrices)
+                  .where(
+                    and(
+                      eq(regionItemPrices.regionId, regionId),
+                      eq(regionItemPrices.shapeId, productId),
+                    ),
+                  )
+                  .limit(1);
+                break;
+              case ProductTypeFilter.DECORATION:
+                [pricing] = await db
+                  .select()
+                  .from(regionItemPrices)
+                  .where(
+                    and(
+                      eq(regionItemPrices.regionId, regionId),
+                      eq(regionItemPrices.decorationId, productId),
+                    ),
+                  )
+                  .limit(1);
+                break;
+            }
+
+            if (pricing) {
+              this.logger.debug(
+                `Found regional pricing for ${productType} ${productId}: price=${pricing.price}`,
+              );
+              return {
+                ...product,
+                price: pricing.price,
+                sizesPrices: pricing.sizesPrices,
+              };
+            }
+          } catch (err) {
+            this.logger.warn(
+              `Failed to fetch regional pricing for ${productType} ${productId}:`,
+              err,
+            );
+          }
+
+          return product;
+        }),
+      );
+
+      enrichedProducts.sort(
         (a, b) =>
           new Date(b.createdAt as string | number).getTime() -
           new Date(a.createdAt as string | number).getTime(),
       );
 
-      const totalCount = allProducts.length;
+      const totalCount = enrichedProducts.length;
       const offset = (page - 1) * limit;
-      const paginatedProducts = allProducts.slice(offset, offset + limit);
+      const paginatedProducts = enrichedProducts.slice(offset, offset + limit);
 
       return successResponse(
         {
@@ -504,6 +585,90 @@ export class RegionService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve regional products',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async removeRegionalItemPrice(
+    regionId: string,
+    productType: string,
+    productId: string,
+  ): Promise<SuccessResponse<{ message: string }>> {
+    // Verify region exists
+    const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+
+    if (!region) {
+      this.logger.warn(`Regional item price deletion failed: Region not found - ${regionId}`);
+      throw new NotFoundException(
+        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Map product type to the corresponding ID field in regionItemPrices table
+    const productFieldMap: Record<string, keyof typeof regionItemPrices.$inferSelect> = {
+      'featured-cakes': 'featuredCakeId',
+      addons: 'addonId',
+      sweets: 'sweetId',
+      flavors: 'flavorId',
+      shapes: 'shapeId',
+      decorations: 'decorationId',
+      'predesigned-cakes': 'predesignedCakeId',
+    };
+
+    const productField = productFieldMap[productType];
+
+    if (!productField) {
+      this.logger.warn(`Invalid product type: ${productType}`);
+      throw new NotFoundException(
+        errorResponse('Invalid product type', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Find and delete the regional item price based on region and product
+    const [regionalItemPrice] = await db
+      .select()
+      .from(regionItemPrices)
+      .where(
+        and(eq(regionItemPrices.regionId, regionId), eq(regionItemPrices[productField], productId)),
+      )
+      .limit(1);
+
+    if (!regionalItemPrice) {
+      this.logger.warn(
+        `Regional item price deletion failed: Product ${productType} (${productId}) not found in region ${regionId}`,
+      );
+      throw new NotFoundException(
+        errorResponse(
+          'Product pricing not found for this region',
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+        ),
+      );
+    }
+
+    try {
+      await db.delete(regionItemPrices).where(eq(regionItemPrices.id, regionalItemPrice.id));
+
+      this.logger.log(
+        `Regional item price deleted: ${productType} (${productId}) from region: ${regionId}`,
+      );
+
+      return successResponse(
+        { message: 'Regional item price removed successfully' },
+        'Regional item price removed',
+        HttpStatus.OK,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Regional item price deletion error for product ${productType} (${productId}):`,
+        err,
+      );
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to delete regional item price',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

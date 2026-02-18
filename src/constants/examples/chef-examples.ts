@@ -6,6 +6,7 @@ export const ChefExamples = {
       name: 'John Anderson',
       specialization: 'Pastry Chef',
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+      bio: 'Experienced pastry chef with 10 years of culinary expertise. Specializes in French pastries and cake decorations.',
       bakeryId: '770e8400-e29b-41d4-a716-446655440002',
     },
     response: {
@@ -18,6 +19,7 @@ export const ChefExamples = {
           fullName: 'John Anderson',
           specialization: 'Pastry Chef',
           image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+          bio: 'Experienced pastry chef with 10 years of culinary expertise. Specializes in French pastries and cake decorations.',
           bakery: {
             id: '770e8400-e29b-41d4-a716-446655440002',
             name: 'Sweet Dreams Bakery',
@@ -34,6 +36,7 @@ export const ChefExamples = {
       name: 'Jane Smith',
       specialization: 'Cake Designer',
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+      bio: 'Creative cake designer with expertise in 3D cake art and fondant work. Specializes in custom wedding cakes.',
       bakeryId: '770e8400-e29b-41d4-a716-446655440002',
     },
     response: {
@@ -46,6 +49,7 @@ export const ChefExamples = {
           fullName: 'Jane Smith',
           specialization: 'Cake Designer',
           image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+          bio: 'Creative cake designer with expertise in 3D cake art and fondant work. Specializes in custom wedding cakes.',
           bakery: {
             id: '770e8400-e29b-41d4-a716-446655440002',
             name: 'Sweet Dreams Bakery',
@@ -69,6 +73,7 @@ export const ChefExamples = {
               id: MOCK_DATA.id.chef,
               name: MOCK_DATA.name.chef,
               image: MOCK_DATA.image.chef,
+              bio: 'Experienced pastry chef with 10 years of culinary expertise. Specializes in French pastries and cake decorations.',
               bakery: {
                 id: MOCK_DATA.id.bakery,
                 name: MOCK_DATA.name.bakery,

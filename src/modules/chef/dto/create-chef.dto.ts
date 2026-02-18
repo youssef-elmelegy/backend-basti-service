@@ -34,6 +34,20 @@ export class CreateChefDto {
   image?: string;
 
   @ApiProperty({
+    description: 'Chef biography',
+    example:
+      'Experienced pastry chef with 10 years of culinary expertise. Specializes in French pastries and cake decorations.',
+    required: false,
+    minLength: 10,
+    maxLength: 1000,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(10, { message: 'Bio must be at least 10 characters long' })
+  @MaxLength(1000, { message: 'Bio must not exceed 1000 characters' })
+  bio?: string;
+
+  @ApiProperty({
     description: 'Bakery ID where the chef works',
     example: '770e8400-e29b-41d4-a716-446655440002',
   })

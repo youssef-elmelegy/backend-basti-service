@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Logger,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RegionService } from '../services/region.service';
 import {
@@ -14,10 +25,12 @@ import {
   UpdateRegionDecorator,
   DeleteRegionDecorator,
   GetRegionalProductsDecorator,
+  DeleteRegionalItemPriceDecorator,
 } from '../decorators';
-import { Public } from '@/common';
+import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
+import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
+import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 
-@Public()
 @ApiTags('region')
 @Controller('regions')
 export class RegionController {
@@ -26,6 +39,8 @@ export class RegionController {
   constructor(private readonly regionService: RegionService) {}
 
   @Post()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @CreateRegionDecorator()
   async create(@Body() createRegionDto: CreateRegionDto) {
     this.logger.debug(`Creating region: ${createRegionDto.name}`);
@@ -49,6 +64,8 @@ export class RegionController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @UpdateRegionDecorator()
   async update(@Param('id') id: string, @Body() updateRegionDto: UpdateRegionDto) {
     this.logger.debug(`Updating region: ${id}`);
@@ -58,6 +75,8 @@ export class RegionController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @DeleteRegionDecorator()
   async remove(@Param('id') id: string) {
     this.logger.debug(`Deleting region: ${id}`);
@@ -75,6 +94,27 @@ export class RegionController {
     this.logger.debug(`Retrieving products for region: ${regionId}`);
     const result = await this.regionService.getRegionalProducts(regionId, query);
     this.logger.log(`Regional products retrieved for region: ${regionId}`);
+    return result;
+  }
+
+  @Delete(':regionId/products/:productType/:productId')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @DeleteRegionalItemPriceDecorator()
+  async removeRegionalItemPrice(
+    @Param('regionId') regionId: string,
+    @Param('productType') productType: string,
+    @Param('productId') productId: string,
+  ) {
+    this.logger.debug(
+      `Deleting regional item price: ${productType} (${productId}) from region: ${regionId}`,
+    );
+    const result = await this.regionService.removeRegionalItemPrice(
+      regionId,
+      productType,
+      productId,
+    );
+    this.logger.log(`Regional item price deleted: ${productType} (${productId})`);
     return result;
   }
 }

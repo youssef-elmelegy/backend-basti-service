@@ -3,6 +3,7 @@ export interface ChefResponse {
   name: string;
   specialization: string;
   image?: string;
+  bio?: string;
   bakeryId: string;
   createdAt: Date;
   updatedAt: Date;
