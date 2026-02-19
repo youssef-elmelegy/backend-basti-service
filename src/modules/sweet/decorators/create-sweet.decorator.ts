@@ -4,7 +4,17 @@ import { CreateSweetDto, SuccessSweetResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { SweetExamples } from '@/constants/examples';
 
-const examples = SweetExamples as unknown as any;
+type ExamplesStructure = {
+  create: {
+    request: object;
+    response: {
+      success: object;
+    };
+  };
+  [key: string]: unknown;
+};
+
+const examples = SweetExamples as ExamplesStructure;
 
 export function CreateSweetDecorator() {
   return applyDecorators(
@@ -18,7 +28,6 @@ export function CreateSweetDecorator() {
       examples: {
         success: {
           summary: 'Valid sweet creation request',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           value: examples.create.request,
         },
       },
@@ -27,7 +36,6 @@ export function CreateSweetDecorator() {
       status: HttpStatus.CREATED,
       description: 'Sweet successfully created',
       type: SuccessSweetResponseDto,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       example: examples.create.response.success,
     }),
     ApiResponse({

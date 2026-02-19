@@ -30,6 +30,7 @@ import {
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
+import { Public } from '@/common';
 
 @ApiTags('region')
 @Controller('regions')
@@ -49,6 +50,7 @@ export class RegionController {
     return result;
   }
 
+  @Public()
   @Get()
   @GetAllRegionsDecorator()
   async findAll(@Query() query: GetRegionsQueryDto) {
@@ -56,6 +58,7 @@ export class RegionController {
     return this.regionService.findAll(query);
   }
 
+  @Public()
   @Get(':id')
   @GetRegionDecorator()
   async findOne(@Param('id') id: string) {
