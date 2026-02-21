@@ -1,6 +1,7 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { tags } from './tag';
+import { cartItems } from './cart-item';
 
 export const predesignedCakes = pgTable(
   'predesigned_cakes',
@@ -27,6 +28,7 @@ export const predesignedCakesRelations = relations(predesignedCakes, ({ one, man
     references: [tags.id],
   }),
   configs: many(designedCakeConfigs),
+  CartItems: many(cartItems),
 }));
 
 import { designedCakeConfigs } from './designed-cake-config';

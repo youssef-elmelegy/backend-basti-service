@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { addonCategoryEnum, addonInfoTypeEnum, orderItems, wishlistItems, tags } from '.';
+import { addonCategoryEnum, addonInfoTypeEnum, orderItems, cartItems, tags } from '.';
 
 export const addons = pgTable(
   'addons',
@@ -40,7 +40,7 @@ export const addonsRelations = relations(addons, ({ many, one }) => ({
   }),
   addonOptions: many(addonOptions),
   orderItems: many(orderItems),
-  wishlistItems: many(wishlistItems),
+  CartItems: many(cartItems),
 }));
 
 // Addon Options (for colors, numbers, letters, etc.)

@@ -8,6 +8,7 @@ export const MOCK_DATA = {
     add: 'aa0e8400-e29b-41d4-a716-446655440006',
     admin: '990e8400-e29b-41d4-a716-446655440004',
     sliderImage: 'bb0e8400-e29b-41d4-a716-446655440007',
+    cartItem: 'cc0e8400-e29b-41d4-a716-446655440008',
   },
   email: {
     user: 'ahmed@example.com',
