@@ -32,36 +32,28 @@ export const ShapeExamples = {
         code: 200,
         success: true,
         message: 'Shapes retrieved successfully',
-        data: {
-          items: [
-            {
-              id: '123e4567-e89b-12d3-a456-426614174000',
-              title: 'Round',
-              description: 'Classic round cake shape perfect for most cake designs',
-              shapeUrl:
-                'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
-              size: 'medium',
-              createdAt: '2024-02-07T10:00:00Z',
-              updatedAt: '2024-02-07T10:00:00Z',
-            },
-            {
-              id: '123e4567-e89b-12d3-a456-426614174001',
-              title: 'Square',
-              description: 'Modern square cake shape great for geometric designs',
-              shapeUrl:
-                'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/square.jpg',
-              size: 'large',
-              createdAt: '2024-02-07T09:00:00Z',
-              updatedAt: '2024-02-07T09:00:00Z',
-            },
-          ],
-          pagination: {
-            total: 2,
-            totalPages: 1,
-            page: 1,
-            limit: 10,
+        data: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Round',
+            description: 'Classic round cake shape perfect for most cake designs',
+            shapeUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
+            size: 'medium',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
           },
-        },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174001',
+            title: 'Square',
+            description: 'Modern square cake shape great for geometric designs',
+            shapeUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/square.jpg',
+            size: 'large',
+            createdAt: '2024-02-07T09:00:00Z',
+            updatedAt: '2024-02-07T09:00:00Z',
+          },
+        ],
         timestamp: '2024-02-07T10:00:00Z',
       },
     },

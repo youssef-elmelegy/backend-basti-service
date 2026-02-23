@@ -8,7 +8,8 @@ export function GetAllDecorationsDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get all decorations',
-      description: 'Retrieves all available decorations with pagination and sorting options.',
+      description:
+        'Retrieves all available decorations with pagination, sorting, and optional filtering by shape (with variant images) or region (with regional pricing). When shapeId and regionId are both provided, returns decorations with variant images and regional pricing.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

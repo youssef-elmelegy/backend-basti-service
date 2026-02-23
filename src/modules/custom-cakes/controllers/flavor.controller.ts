@@ -54,7 +54,7 @@ export class FlavorController {
   @Public()
   @GetAllFlavorsDecorator()
   async findAll(@Query() query: GetFlavorsQueryDto) {
-    this.logger.debug(`Retrieving flavors: page ${query.page}, limit ${query.limit}`);
+    this.logger.debug(`Retrieving flavors with filters`);
     return this.flavorService.findAll(query);
   }
 

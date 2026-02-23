@@ -52,7 +52,7 @@ export class ShapeController {
   @Public()
   @GetAllShapesDecorator()
   async findAll(@Query() query: GetShapesQueryDto) {
-    this.logger.debug(`Retrieving shapes: page ${query.page}, limit ${query.limit}`);
+    this.logger.debug(`Retrieving shapes with filters`);
     return this.shapeService.findAll(query);
   }
 

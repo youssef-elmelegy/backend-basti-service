@@ -58,8 +58,9 @@ export class DecorationService {
   private mapToDecorationResponse(
     decoration: typeof decorations.$inferSelect,
     tagName?: string,
+    price?: string,
   ): DecorationDataDto {
-    return {
+    const dto: DecorationDataDto = {
       id: decoration.id,
       title: decoration.title,
       description: decoration.description,
@@ -69,6 +70,10 @@ export class DecorationService {
       createdAt: decoration.createdAt,
       updatedAt: decoration.updatedAt,
     };
+    if (price != null) {
+      dto.price = price;
+    }
+    return dto;
   }
 
   async create(createDto: CreateDecorationDto): Promise<SuccessResponse<DecorationDataDto>> {
@@ -120,6 +125,480 @@ export class DecorationService {
     }
   }
 
+  /**
+   * Find decorations by both shapeId and regionId (returns variant images and pricing)
+   */
+  private async findDecorationsByShapeAndRegion(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    // Validate shape exists
+    const shapeExists = await db
+      .select({ id: shapes.id })
+      .from(shapes)
+      .where(eq(shapes.id, query.shapeId))
+      .limit(1);
+
+    if (!shapeExists.length) {
+      throw new BadRequestException(
+        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+      );
+    }
+
+    // Validate region exists
+    const regionExists = await db
+      .select({ id: regions.id })
+      .from(regions)
+      .where(eq(regions.id, query.regionId))
+      .limit(1);
+
+    if (!regionExists.length) {
+      throw new BadRequestException(
+        errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+      );
+    }
+
+    const shapeJoinConditions = [
+      eq(shapeVariantImages.decorationId, decorations.id),
+      eq(shapeVariantImages.shapeId, query.shapeId),
+    ] as const;
+
+    const regionJoinConditions = [
+      eq(regionItemPrices.decorationId, decorations.id),
+      eq(regionItemPrices.regionId, query.regionId),
+    ] as const;
+
+    let allDecorationsResult: Array<{
+      decoration: typeof decorations.$inferSelect;
+      image: typeof shapeVariantImages.$inferSelect;
+      pricing: typeof regionItemPrices.$inferSelect;
+      tagName: string;
+    }> = [];
+    let total = 0;
+
+    if (query.search) {
+      const searchPattern = `%${query.search}%`;
+      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          image: shapeVariantImages,
+          pricing: regionItemPrices,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
+        .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .where(whereCondition)
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+
+      const [{ count: searchCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
+        .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .where(whereCondition);
+      total = Number(searchCount);
+    } else {
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          image: shapeVariantImages,
+          pricing: regionItemPrices,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
+        .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+
+      const [{ count: combinedCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
+        .innerJoin(regionItemPrices, and(...regionJoinConditions));
+      total = Number(combinedCount);
+    }
+
+    // Group by decoration and include images and pricing
+    const groupedDecorations = new Map<string, DecorationDataDto>();
+    allDecorationsResult.forEach((row) => {
+      const decorationId = row.decoration.id;
+      if (!groupedDecorations.has(decorationId)) {
+        groupedDecorations.set(decorationId, {
+          ...this.mapToDecorationResponse(row.decoration, row.tagName),
+          variantImages: [],
+          price: row.pricing.price,
+        });
+      }
+      const decorationEntry = groupedDecorations.get(decorationId);
+      if (decorationEntry && decorationEntry.variantImages) {
+        decorationEntry.variantImages.push({
+          id: row.image.id,
+          sideViewUrl: row.image.sideViewUrl,
+          frontViewUrl: row.image.frontViewUrl,
+          topViewUrl: row.image.topViewUrl,
+          createdAt: row.image.createdAt,
+          updatedAt: row.image.updatedAt,
+        });
+      }
+    });
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: Array.from(groupedDecorations.values()),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Find decorations by shapeId (returns variant images)
+   */
+  private async findDecorationsByShape(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    // Validate shape exists
+    const shapeExists = await db
+      .select({ id: shapes.id })
+      .from(shapes)
+      .where(eq(shapes.id, query.shapeId))
+      .limit(1);
+
+    if (!shapeExists.length) {
+      throw new BadRequestException(
+        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+      );
+    }
+
+    const joinConditions = [
+      eq(shapeVariantImages.decorationId, decorations.id),
+      eq(shapeVariantImages.shapeId, query.shapeId),
+    ] as const;
+
+    let allDecorationsResult: Array<{
+      decoration: typeof decorations.$inferSelect;
+      image: typeof shapeVariantImages.$inferSelect;
+      tagName: string;
+    }> = [];
+    let total = 0;
+
+    if (query.search) {
+      const searchPattern = `%${query.search}%`;
+      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          image: shapeVariantImages,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...joinConditions))
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .where(whereCondition)
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+
+      const [{ count: searchCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...joinConditions))
+        .where(whereCondition);
+      total = Number(searchCount);
+    } else {
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          image: shapeVariantImages,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...joinConditions))
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+
+      const [{ count: shapeCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(shapeVariantImages, and(...joinConditions));
+      total = Number(shapeCount);
+    }
+
+    // Group by decoration and include images
+    const groupedDecorations = new Map<string, DecorationDataDto>();
+    allDecorationsResult.forEach((row) => {
+      const decorationId = row.decoration.id;
+      if (!groupedDecorations.has(decorationId)) {
+        groupedDecorations.set(decorationId, {
+          ...this.mapToDecorationResponse(row.decoration, row.tagName),
+          variantImages: [],
+        });
+      }
+      const decorationEntry = groupedDecorations.get(decorationId);
+      if (decorationEntry && decorationEntry.variantImages) {
+        decorationEntry.variantImages.push({
+          id: row.image.id,
+          sideViewUrl: row.image.sideViewUrl,
+          frontViewUrl: row.image.frontViewUrl,
+          topViewUrl: row.image.topViewUrl,
+          createdAt: row.image.createdAt,
+          updatedAt: row.image.updatedAt,
+        });
+      }
+    });
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: Array.from(groupedDecorations.values()),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Find decorations by regionId (returns pricing)
+   */
+  private async findDecorationsByRegion(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    const joinConditions = [
+      eq(regionItemPrices.decorationId, decorations.id),
+      eq(regionItemPrices.regionId, query.regionId),
+    ] as const;
+
+    let allDecorationsResult: Array<{
+      decoration: typeof decorations.$inferSelect;
+      pricing: typeof regionItemPrices.$inferSelect;
+      tagName: string;
+    }> = [];
+    let total = 0;
+
+    // If search is also provided, combine both filters
+    if (query.search) {
+      const searchPattern = `%${query.search}%`;
+      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+
+      const [{ count: combinedCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereCondition);
+
+      total = Number(combinedCount);
+
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          pricing: regionItemPrices,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereCondition)
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+    } else {
+      // Only regionId, no search
+      const [{ count: regionCount }] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+        .from(decorations)
+        .innerJoin(regionItemPrices, and(...joinConditions));
+
+      total = Number(regionCount);
+
+      allDecorationsResult = await db
+        .select({
+          decoration: decorations,
+          pricing: regionItemPrices,
+          tagName: tags.name,
+        })
+        .from(decorations)
+        .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .innerJoin(regionItemPrices, and(...joinConditions))
+        .orderBy(sortOrder(sortColumn))
+        .limit(query.limit)
+        .offset(offset);
+    }
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: allDecorationsResult.map((row) =>
+        this.mapToDecorationResponse(row.decoration, row.tagName, row.pricing?.price),
+      ),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Find decorations by tag
+   */
+  private async findDecorationsByTag(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    const [{ count: tagCount }] = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+      .from(decorations)
+      .where(eq(decorations.tagId, query.tagId));
+
+    const total = Number(tagCount);
+
+    const allDecorationsResult = await db
+      .select({
+        decoration: decorations,
+        tagName: tags.name,
+      })
+      .from(decorations)
+      .leftJoin(tags, eq(decorations.tagId, tags.id))
+      .where(eq(decorations.tagId, query.tagId))
+      .orderBy(sortOrder(sortColumn))
+      .limit(query.limit)
+      .offset(offset);
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: allDecorationsResult.map((row) =>
+        this.mapToDecorationResponse(row.decoration, row.tagName),
+      ),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Find decorations by search
+   */
+  private async findDecorationsBySearch(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    const searchPattern = `%${query.search}%`;
+    const [{ count: searchCount }] = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
+      .from(decorations)
+      .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+
+    const total = Number(searchCount);
+
+    const allDecorationsResult = await db
+      .select({
+        decoration: decorations,
+        tagName: tags.name,
+      })
+      .from(decorations)
+      .leftJoin(tags, eq(decorations.tagId, tags.id))
+      .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`)
+      .orderBy(sortOrder(sortColumn))
+      .limit(query.limit)
+      .offset(offset);
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: allDecorationsResult.map((row) =>
+        this.mapToDecorationResponse(row.decoration, row.tagName),
+      ),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Get all decorations with pagination
+   */
+  private async getAllDecorations(
+    query: GetDecorationsQueryDto,
+    offset: number,
+    sortOrder: any,
+    sortColumn: any,
+  ): Promise<{
+    items: DecorationDataDto[];
+    total: number;
+    totalPages: number;
+  }> {
+    const [{ count: allCount }] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(decorations);
+
+    const total = Number(allCount);
+
+    const allDecorationsResult = await db
+      .select({
+        decoration: decorations,
+        tagName: tags.name,
+      })
+      .from(decorations)
+      .leftJoin(tags, eq(decorations.tagId, tags.id))
+      .orderBy(sortOrder(sortColumn))
+      .limit(query.limit)
+      .offset(offset);
+
+    const totalPages = Math.ceil(total / query.limit);
+
+    return {
+      items: allDecorationsResult.map((row) =>
+        this.mapToDecorationResponse(row.decoration, row.tagName),
+      ),
+      total,
+      totalPages,
+    };
+  }
+
+  /**
+   * Get all decorations with optional filtering and pagination
+   *
+   * Note: Search can be combined with any filter
+   */
   async findAll(query: GetDecorationsQueryDto): Promise<
     SuccessResponse<{
       items: DecorationDataDto[];
@@ -132,162 +611,29 @@ export class DecorationService {
       const sortColumn =
         query.sortBy === DecorationSortBy.TITLE ? decorations.title : decorations.createdAt;
 
-      let allDecorationsResult: Array<{
-        decoration: typeof decorations.$inferSelect;
-        tagName: string;
-      }> = [];
-      let total = 0;
+      let result: { items: DecorationDataDto[]; total: number; totalPages: number };
 
-      // Filter by regionId first
-      if (query.regionId) {
-        const joinConditions = [
-          eq(regionItemPrices.decorationId, decorations.id),
-          eq(regionItemPrices.regionId, query.regionId),
-        ] as const;
-
-        // If tagId is also provided, combine both filters
-        if (query.tagId) {
-          const [{ count: combinedCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
-            .from(decorations)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(eq(decorations.tagId, query.tagId));
-
-          total = Number(combinedCount);
-
-          allDecorationsResult = await db
-            .select({
-              decoration: decorations,
-              tagName: tags.name,
-            })
-            .from(decorations)
-            .leftJoin(tags, eq(decorations.tagId, tags.id))
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(eq(decorations.tagId, query.tagId))
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        }
-        // If search is also provided, combine both filters
-        else if (query.search) {
-          const searchPattern = `%${query.search}%`;
-          const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
-
-          const [{ count: combinedCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
-            .from(decorations)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition);
-
-          total = Number(combinedCount);
-
-          allDecorationsResult = await db
-            .select({
-              decoration: decorations,
-              tagName: tags.name,
-            })
-            .from(decorations)
-            .leftJoin(tags, eq(decorations.tagId, tags.id))
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition)
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        } else {
-          // Only regionId, no tagId or search
-          const [{ count: regionCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
-            .from(decorations)
-            .innerJoin(regionItemPrices, and(...joinConditions));
-
-          total = Number(regionCount);
-
-          allDecorationsResult = await db
-            .select({
-              decoration: decorations,
-              tagName: tags.name,
-            })
-            .from(decorations)
-            .leftJoin(tags, eq(decorations.tagId, tags.id))
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        }
+      // Route to appropriate filter handler - each handler already supports search
+      if (query.shapeId && query.regionId) {
+        result = await this.findDecorationsByShapeAndRegion(query, offset, sortOrder, sortColumn);
+      } else if (query.shapeId) {
+        result = await this.findDecorationsByShape(query, offset, sortOrder, sortColumn);
+      } else if (query.regionId) {
+        result = await this.findDecorationsByRegion(query, offset, sortOrder, sortColumn);
+      } else if (query.tagId) {
+        result = await this.findDecorationsByTag(query, offset, sortOrder, sortColumn);
+      } else if (query.search) {
+        result = await this.findDecorationsBySearch(query, offset, sortOrder, sortColumn);
+      } else {
+        result = await this.getAllDecorations(query, offset, sortOrder, sortColumn);
       }
-      // Filter by tag if provided (without regionId)
-      else if (query.tagId) {
-        const [{ count: tagCount }] = await db
-          .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
-          .from(decorations)
-          .where(eq(decorations.tagId, query.tagId));
-
-        total = Number(tagCount);
-
-        allDecorationsResult = await db
-          .select({
-            decoration: decorations,
-            tagName: tags.name,
-          })
-          .from(decorations)
-          .leftJoin(tags, eq(decorations.tagId, tags.id))
-          .where(eq(decorations.tagId, query.tagId))
-          .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
-          .offset(offset);
-      }
-      // Search by title if provided (without regionId or tagId)
-      else if (query.search) {
-        const searchPattern = `%${query.search}%`;
-        const [{ count: searchCount }] = await db
-          .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
-          .from(decorations)
-          .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
-
-        total = Number(searchCount);
-
-        allDecorationsResult = await db
-          .select({
-            decoration: decorations,
-            tagName: tags.name,
-          })
-          .from(decorations)
-          .leftJoin(tags, eq(decorations.tagId, tags.id))
-          .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`)
-          .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
-          .offset(offset);
-      }
-      // Get all decorations
-      else {
-        const [{ count: allCount }] = await db
-          .select({ count: sql<number>`COUNT(*)` })
-          .from(decorations);
-
-        total = Number(allCount);
-
-        allDecorationsResult = await db
-          .select({
-            decoration: decorations,
-            tagName: tags.name,
-          })
-          .from(decorations)
-          .leftJoin(tags, eq(decorations.tagId, tags.id))
-          .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
-          .offset(offset);
-      }
-
-      const totalPages = Math.ceil(total / query.limit);
 
       return successResponse(
         {
-          items: allDecorationsResult.map((row) =>
-            this.mapToDecorationResponse(row.decoration, row.tagName),
-          ),
+          items: result.items,
           pagination: {
-            total,
-            totalPages,
+            total: result.total,
+            totalPages: result.totalPages,
             page: query.page,
             limit: query.limit,
           },
@@ -296,6 +642,9 @@ export class DecorationService {
         HttpStatus.OK,
       );
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve decorations: ${errMsg}`);
       throw new InternalServerErrorException(

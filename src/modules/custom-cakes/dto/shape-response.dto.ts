@@ -1,5 +1,4 @@
 import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
-import { PaginationDto } from './flavor-response.dto';
 
 export class ShapeDataDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -54,10 +53,7 @@ export class GetAllShapesResponseDto {
   code: number;
 
   @ApiHideProperty()
-  data: {
-    items: ShapeDataDto[];
-    pagination: PaginationDto;
-  };
+  data: ShapeDataDto[];
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   timestamp: string;

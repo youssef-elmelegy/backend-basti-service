@@ -45,6 +45,20 @@ export const DecorationExamples = {
               tagName: 'Decorations',
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
+              price: '300',
+              variantImages: [
+                {
+                  id: '223e4567-e89b-12d3-a456-426614174000',
+                  sideViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-side.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-top.jpg',
+                  createdAt: '2024-02-07T10:00:00Z',
+                  updatedAt: '2024-02-07T10:00:00Z',
+                },
+              ],
             },
             {
               id: '123e4567-e89b-12d3-a456-426614174001',
@@ -56,6 +70,20 @@ export const DecorationExamples = {
               tagName: 'Decorations',
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
+              price: '250',
+              variantImages: [
+                {
+                  id: '323e4567-e89b-12d3-a456-426614174001',
+                  sideViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-side.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-top.jpg',
+                  createdAt: '2024-02-07T09:00:00Z',
+                  updatedAt: '2024-02-07T09:00:00Z',
+                },
+              ],
             },
           ],
           pagination: {

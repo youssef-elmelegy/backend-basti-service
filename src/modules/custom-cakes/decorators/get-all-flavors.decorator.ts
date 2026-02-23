@@ -8,7 +8,8 @@ export function GetAllFlavorsDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get all flavors',
-      description: 'Retrieves all available flavors with pagination and sorting options.',
+      description:
+        'Retrieves all available flavors with optional filtering by shape (with variant images), region (with regional pricing), and search. When shapeId is provided, only flavors with variant images for that shape are returned. When regionId is provided, regional pricing is included in the response.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

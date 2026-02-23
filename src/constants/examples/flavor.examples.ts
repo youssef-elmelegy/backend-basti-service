@@ -40,6 +40,20 @@ export const FlavorExamples = {
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
+              price: '500',
+              variantImages: [
+                {
+                  id: '223e4567-e89b-12d3-a456-426614174000',
+                  sideViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-side.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-top.jpg',
+                  createdAt: '2024-02-07T10:00:00Z',
+                  updatedAt: '2024-02-07T10:00:00Z',
+                },
+              ],
             },
             {
               id: '123e4567-e89b-12d3-a456-426614174001',
@@ -49,6 +63,20 @@ export const FlavorExamples = {
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/vanilla.jpg',
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
+              price: '450',
+              variantImages: [
+                {
+                  id: '323e4567-e89b-12d3-a456-426614174001',
+                  sideViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-side.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-top.jpg',
+                  createdAt: '2024-02-07T09:00:00Z',
+                  updatedAt: '2024-02-07T09:00:00Z',
+                },
+              ],
             },
           ],
           pagination: {
