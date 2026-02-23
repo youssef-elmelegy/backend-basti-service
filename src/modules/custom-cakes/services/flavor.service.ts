@@ -13,10 +13,11 @@ import {
   FlavorDataDto,
   CreateFlavorRegionItemPriceDto,
   FlavorSortBy,
+  CreateFlavorWithVariantImagesDto,
 } from '../dto';
 import { db } from '@/db';
-import { flavors, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, asc, sql, and } from 'drizzle-orm';
+import { flavors, regionItemPrices, regions, shapeVariantImages, shapes } from '@/db/schema';
+import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -404,6 +405,77 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to create flavor region price',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async createWithVariantImages(
+    createDto: CreateFlavorWithVariantImagesDto,
+  ): Promise<SuccessResponse<FlavorDataDto>> {
+    try {
+      if (createDto.variantImages && createDto.variantImages.length > 0) {
+        const shapeIds = createDto.variantImages.map((variant) => variant.shapeId);
+        const existingShapes = await db
+          .select({ id: shapes.id })
+          .from(shapes)
+          .where(inArray(shapes.id, shapeIds));
+
+        if (existingShapes.length !== shapeIds.length) {
+          const existingShapeIds = existingShapes.map((s) => s.id);
+          const missingShapeIds = shapeIds.filter((id) => !existingShapeIds.includes(id));
+          throw new BadRequestException(
+            errorResponse(
+              `Shape(s) not found: ${missingShapeIds.join(', ')}`,
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      // Create flavor
+      const [newFlavor] = await db
+        .insert(flavors)
+        .values({
+          title: createDto.title,
+          description: createDto.description,
+          flavorUrl: createDto.flavorUrl,
+        })
+        .returning();
+
+      if (createDto.variantImages && createDto.variantImages.length > 0) {
+        await db.insert(shapeVariantImages).values(
+          createDto.variantImages.map((variant) => ({
+            shapeId: variant.shapeId,
+            flavorId: newFlavor.id,
+            decorationId: null,
+            sideViewUrl: variant.sideViewUrl,
+            frontViewUrl: variant.frontViewUrl,
+            topViewUrl: variant.topViewUrl,
+          })),
+        );
+      }
+
+      this.logger.log(
+        `Flavor with variant images created: ${newFlavor.id} with ${createDto.variantImages?.length || 0} variants`,
+      );
+      return successResponse(
+        this.mapToFlavorResponse(newFlavor),
+        'Flavor and variant images created successfully',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Flavor creation with variant images error: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to create flavor with variant images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

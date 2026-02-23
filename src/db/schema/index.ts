@@ -32,3 +32,4 @@ export * from './designed-cake-config';
 export * from './shape';
 export * from './flavor';
 export * from './decoration';
+export * from './shape-variant-images';

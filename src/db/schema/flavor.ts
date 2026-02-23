@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { designedCakeConfigs } from '.';
+import { designedCakeConfigs, shapeVariantImages } from '.';
 
 export const flavors = pgTable(
   'flavors',
@@ -21,4 +21,5 @@ export const flavors = pgTable(
 
 export const flavorsRelations = relations(flavors, ({ many }) => ({
   designedCakeConfigs: many(designedCakeConfigs),
+  shapeVariantImages: many(shapeVariantImages),
 }));

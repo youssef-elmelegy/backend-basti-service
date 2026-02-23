@@ -18,6 +18,7 @@ import {
   UpdateDecorationDto,
   GetDecorationsQueryDto,
   CreateDecorationRegionItemPriceDto,
+  CreateDecorationWithVariantImagesDto,
 } from '../dto';
 import {
   CreateDecorationDecorator,
@@ -26,6 +27,7 @@ import {
   UpdateDecorationDecorator,
   DeleteDecorationDecorator,
   CreateDecorationRegionItemPriceDecorator,
+  CreateDecorationWithVariantImagesDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -93,5 +95,18 @@ export class DecorationController {
     @Body() createDecorationRegionItemPriceDto: CreateDecorationRegionItemPriceDto,
   ) {
     return this.decorationService.createRegionItemPrice(createDecorationRegionItemPriceDto);
+  }
+
+  @Post('with-variant-images')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateDecorationWithVariantImagesDecorator()
+  async createWithVariantImages(
+    @Body() createDecorationWithVariantImagesDto: CreateDecorationWithVariantImagesDto,
+  ) {
+    this.logger.debug(
+      `Creating decoration with variant images: ${createDecorationWithVariantImagesDto.title}`,
+    );
+    return this.decorationService.createWithVariantImages(createDecorationWithVariantImagesDto);
   }
 }

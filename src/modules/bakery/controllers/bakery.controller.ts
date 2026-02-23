@@ -27,10 +27,8 @@ import {
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
-import { Public } from '@/common';
 import { SuccessResponse } from '@/utils';
 
-@Public()
 @ApiTags('bakery')
 @Controller('bakeries')
 export class BakeryController {

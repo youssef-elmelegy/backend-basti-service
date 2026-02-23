@@ -13,10 +13,18 @@ import {
   DecorationDataDto,
   CreateDecorationRegionItemPriceDto,
   DecorationSortBy,
+  CreateDecorationWithVariantImagesDto,
 } from '../dto';
 import { db } from '@/db';
-import { decorations, tags, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, asc, sql, and } from 'drizzle-orm';
+import {
+  decorations,
+  tags,
+  regionItemPrices,
+  regions,
+  shapeVariantImages,
+  shapes,
+} from '@/db/schema';
+import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -485,7 +493,7 @@ export class DecorationService {
         )
         .limit(1);
 
-      let result: any;
+      let result: typeof regionItemPrices.$inferSelect;
       if (existingPrice.length) {
         // Update existing pricing
         const updateResult = await db
@@ -497,7 +505,6 @@ export class DecorationService {
           .returning();
 
         result = updateResult[0];
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         this.logger.log(`Decoration region price updated: ${result.id}`);
         return successResponse(
           result,
@@ -521,7 +528,7 @@ export class DecorationService {
           .returning();
 
         result = insertResult[0];
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         this.logger.log(`Decoration region price created: ${result.id}`);
         return successResponse(
           result,
@@ -538,6 +545,83 @@ export class DecorationService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to create decoration region price',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async createWithVariantImages(
+    createDto: CreateDecorationWithVariantImagesDto,
+  ): Promise<SuccessResponse<DecorationDataDto>> {
+    try {
+      if (createDto.tagId) {
+        await this.validateTagExists(createDto.tagId);
+      }
+
+      if (createDto.variantImages && createDto.variantImages.length > 0) {
+        const shapeIds = createDto.variantImages.map((variant) => variant.shapeId);
+        const existingShapes = await db
+          .select({ id: shapes.id })
+          .from(shapes)
+          .where(inArray(shapes.id, shapeIds));
+
+        if (existingShapes.length !== shapeIds.length) {
+          const existingShapeIds = existingShapes.map((s) => s.id);
+          const missingShapeIds = shapeIds.filter((id) => !existingShapeIds.includes(id));
+          throw new BadRequestException(
+            errorResponse(
+              `Shape(s) not found: ${missingShapeIds.join(', ')}`,
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      // Create decoration
+      const [newDecoration] = await db
+        .insert(decorations)
+        .values({
+          title: createDto.title,
+          description: createDto.description,
+          decorationUrl: createDto.decorationUrl,
+          tagId: createDto.tagId || null,
+        })
+        .returning();
+
+      // Create variant images
+      if (createDto.variantImages && createDto.variantImages.length > 0) {
+        await db.insert(shapeVariantImages).values(
+          createDto.variantImages.map((variant) => ({
+            shapeId: variant.shapeId,
+            flavorId: null,
+            decorationId: newDecoration.id,
+            sideViewUrl: variant.sideViewUrl,
+            frontViewUrl: variant.frontViewUrl,
+            topViewUrl: variant.topViewUrl,
+          })),
+        );
+      }
+
+      this.logger.log(
+        `Decoration with variant images created: ${newDecoration.id} with ${createDto.variantImages?.length || 0} variants`,
+      );
+      return successResponse(
+        this.mapToDecorationResponse(newDecoration),
+        'Decoration and variant images created successfully',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Decoration creation with variant images error: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to create decoration with variant images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { db } from '../index';
-import { users, admins, regions, bakeries } from '../schema';
+import { users, admins, regions, bakeries, chefs } from '../schema';
 import { getAllSeedData } from './seed-data';
 
 const logger = new Logger('DatabaseSeeder');
@@ -20,6 +20,9 @@ export async function seed(): Promise<void> {
     logger.log('Clearing existing bakeries...');
     await db.delete(bakeries);
 
+    logger.log('Clearing existing chefs...');
+    await db.delete(chefs);
+
     logger.log('Clearing existing regions...');
     await db.delete(regions);
 
@@ -33,6 +36,9 @@ export async function seed(): Promise<void> {
 
     logger.log(`Inserting ${seedData.bakeries.length} bakeries...`);
     await db.insert(bakeries).values(seedData.bakeries);
+
+    logger.log(`Inserting ${seedData.chefs.length} chefs...`);
+    await db.insert(chefs).values(seedData.chefs);
 
     logger.log(`Inserting ${seedData.users.length} users...`);
     await db.insert(users).values(seedData.users);
