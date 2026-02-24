@@ -23,6 +23,9 @@ export class ShapeDataDto {
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   updatedAt: Date;
+
+  @ApiProperty({ example: '50.00', required: false })
+  price?: string;
 }
 
 export class SuccessShapeResponseDto {

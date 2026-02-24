@@ -605,13 +605,14 @@ export class FlavorService {
         );
       }
 
-      const updateData = Object.fromEntries(
-        Object.entries(updateDto).filter(([, value]) => value !== undefined),
-      );
+      const updateFields: Record<string, string> = {};
+      if (updateDto.title !== undefined) updateFields.title = updateDto.title;
+      if (updateDto.description !== undefined) updateFields.description = updateDto.description;
+      if (updateDto.flavorUrl !== undefined) updateFields.flavorUrl = updateDto.flavorUrl;
 
       const [updatedFlavor] = await db
         .update(flavors)
-        .set(updateData)
+        .set(updateFields)
         .where(eq(flavors.id, id))
         .returning();
 

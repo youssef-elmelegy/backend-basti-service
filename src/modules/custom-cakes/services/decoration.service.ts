@@ -724,13 +724,16 @@ export class DecorationService {
       }
 
       // Update only provided fields
-      const updateData = Object.fromEntries(
-        Object.entries(updateDto).filter(([, value]) => value !== undefined),
-      );
+      const updateFields: Record<string, string> = {};
+      if (updateDto.title !== undefined) updateFields.title = updateDto.title;
+      if (updateDto.description !== undefined) updateFields.description = updateDto.description;
+      if (updateDto.decorationUrl !== undefined)
+        updateFields.decorationUrl = updateDto.decorationUrl;
+      if (updateDto.tagId !== undefined) updateFields.tagId = updateDto.tagId;
 
       const [updatedDecoration] = await db
         .update(decorations)
-        .set(updateData)
+        .set(updateFields)
         .where(eq(decorations.id, id))
         .returning();
 

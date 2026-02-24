@@ -26,8 +26,8 @@ export class ShapeService {
   /**
    * Map shape data to response DTO
    */
-  private mapToShapeResponse(shape: typeof shapes.$inferSelect): ShapeDataDto {
-    return {
+  private mapToShapeResponse(shape: typeof shapes.$inferSelect, price?: string): ShapeDataDto {
+    const response: ShapeDataDto = {
       id: shape.id,
       title: shape.title,
       description: shape.description,
@@ -36,6 +36,12 @@ export class ShapeService {
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
+
+    if (price) {
+      response.price = price;
+    }
+
+    return response;
   }
 
   async create(createDto: CreateShapeDto): Promise<SuccessResponse<ShapeDataDto>> {
@@ -79,6 +85,7 @@ export class ShapeService {
 
       let allShapesResult: Array<{
         shape: typeof shapes.$inferSelect;
+        price?: string;
       }> = [];
 
       // Filter by regionId
@@ -96,6 +103,7 @@ export class ShapeService {
           allShapesResult = await db
             .select({
               shape: shapes,
+              price: regionItemPrices.price,
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
@@ -106,6 +114,7 @@ export class ShapeService {
           allShapesResult = await db
             .select({
               shape: shapes,
+              price: regionItemPrices.price,
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
@@ -135,7 +144,7 @@ export class ShapeService {
       }
 
       return successResponse(
-        allShapesResult.map((row) => this.mapToShapeResponse(row.shape)),
+        allShapesResult.map((row) => this.mapToShapeResponse(row.shape, row.price || undefined)),
         'Shapes retrieved successfully',
         HttpStatus.OK,
       );
