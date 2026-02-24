@@ -15,6 +15,7 @@ export const chefs = pgTable(
     fullName: varchar('full_name', { length: 255 }).notNull(),
     image: text('image'),
     specialization: varchar('specialization', { length: 255 }).notNull(),
+    bio: text('bio'),
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

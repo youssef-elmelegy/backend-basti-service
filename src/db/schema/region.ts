@@ -1,4 +1,4 @@
-import { pgTable, varchar, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, timestamp, uuid, boolean } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { bakeries, regionItemPrices } from '.';
 
@@ -7,6 +7,8 @@ export const regions = pgTable('regions', {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   name: varchar('name', { length: 255 }).unique().notNull(),
+  image: varchar('image'),
+  isAvailable: boolean('is_available').default(true).notNull(),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

@@ -285,4 +285,55 @@ export class AdminAuthService {
 
     return admin;
   }
+
+  async refreshTokens(adminId: string) {
+    const admin = await this.getAdminById(adminId);
+
+    const accessToken = this.jwtService.sign(
+      {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role,
+      },
+      { expiresIn: env.JWT_ACCESS_EXPIRES_IN },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role,
+      },
+      { expiresIn: env.JWT_REFRESH_EXPIRES_IN },
+    );
+
+    return successResponse(
+      {
+        accessToken,
+        refreshToken,
+        admin: {
+          id: admin.id,
+          email: admin.email,
+          role: admin.role,
+          profileImage: admin.profileImage,
+          bakeryId: admin.bakeryId || undefined,
+          createdAt: admin.createdAt,
+          updatedAt: admin.updatedAt,
+        },
+      },
+      'Tokens refreshed successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  verifyRefreshToken(token: string) {
+    try {
+      const decoded = this.jwtService.verify(token);
+      return {
+        id: (decoded as Record<string, unknown>).id as string,
+      };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
 }

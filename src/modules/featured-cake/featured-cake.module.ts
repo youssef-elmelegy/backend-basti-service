@@ -5,5 +5,6 @@ import { FeaturedCakeController } from './controllers/featured-cake.controller';
 @Module({
   controllers: [FeaturedCakeController],
   providers: [FeaturedCakeService],
+  exports: [FeaturedCakeService],
 })
 export class FeaturedCakeModule {}

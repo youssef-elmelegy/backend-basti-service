@@ -4,6 +4,7 @@ import * as schema from './src/db/schema';
 import {
   getSeedAdmins,
   getSeedBakeries,
+  getSeedChefs,
   getSeedRegions,
   getSeedUsers,
 } from './src/db/seeds/seed-data';
@@ -26,6 +27,7 @@ async function seed(): Promise<void> {
     const users = await getSeedUsers();
     const admins = await getSeedAdmins();
     const bakeries = getSeedBakeries(regions, admins);
+    const chefs = getSeedChefs(bakeries);
 
     // Insert regions
     if (regions.length > 0) {
@@ -49,6 +51,12 @@ async function seed(): Promise<void> {
     if (bakeries.length > 0) {
       console.log(`🥐 Seeding ${bakeries.length} bakery(ies)...`);
       await db.insert(schema.bakeries).values(bakeries).onConflictDoNothing();
+    }
+
+    // Insert chefs
+    if (chefs.length > 0) {
+      console.log(`👨‍🍳 Seeding ${chefs.length} chef(s)...`);
+      await db.insert(schema.chefs).values(chefs).onConflictDoNothing();
     }
 
     console.log('✅ Database seeding completed successfully!');

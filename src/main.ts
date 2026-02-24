@@ -57,6 +57,7 @@ async function bootstrap() {
     .addTag('sweets', 'Sweet management endpoints')
     .addTag('addon', 'Addon management endpoints')
     .addTag('upload', 'File upload endpoints')
+    .addTag('custom-cakes', 'Custom cake management endpoints')
     .addBearerAuth()
     .build();
 

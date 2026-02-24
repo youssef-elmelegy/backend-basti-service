@@ -10,7 +10,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { wishlistItems, tags } from '.';
+import { cartItems, tags } from '.';
 
 export const featuredCakes = pgTable(
   'featured_cakes',
@@ -40,5 +40,5 @@ export const featuredCakesRelations = relations(featuredCakes, ({ many, one }) =
     fields: [featuredCakes.tagId],
     references: [tags.id],
   }),
-  wishlistItems: many(wishlistItems),
+  CartItems: many(cartItems),
 }));

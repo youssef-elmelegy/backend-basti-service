@@ -9,7 +9,8 @@ export function AdminLoginEndpoint() {
     HttpCode(HttpStatus.OK),
     ApiOperation({
       summary: 'Admin Login',
-      description: 'Authenticate admin with email and password. Returns access and refresh tokens.',
+      description:
+        'Authenticate admin with email and password. Tokens are stored in HTTP-only cookies.',
     }),
     ApiBody({
       type: AdminLoginDto,

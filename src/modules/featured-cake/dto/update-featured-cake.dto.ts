@@ -63,6 +63,28 @@ export class UpdateFeaturedCakeDto {
   capacity?: number;
 
   @ApiProperty({
+    description: 'List of available flavors for this featured cake',
+    example: ['Chocolate', 'Vanilla', 'Strawberry'],
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  flavorList?: string[];
+
+  @ApiProperty({
+    description: 'List of available piping palettes for this featured cake',
+    example: ['Gold', 'Silver', 'Rose Gold'],
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  pipingPaletteList?: string[];
+
+  @ApiProperty({
     description: 'Tag ID to assign to this featured cake',
     example: '550e8400-e29b-41d4-a716-446655440000',
     required: false,

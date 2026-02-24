@@ -15,6 +15,18 @@ export class RegionDataDto {
   name: string;
 
   @ApiProperty({
+    example: MOCK_DATA.image.region,
+    description: 'Region image URL',
+  })
+  image: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Region availability status',
+  })
+  isAvailable: boolean;
+
+  @ApiProperty({
     example: MOCK_DATA.dates.default,
     description: 'Region creation timestamp',
   })

@@ -8,3 +8,8 @@ export * from './sweet.examples';
 export * from './add-examples';
 export * from './slider-image-examples';
 export * from './tags-examples';
+export * from './flavor.examples';
+export * from './shape.examples';
+export * from './decoration.examples';
+export * from './predesigned-cakes.examples';
+export * from './cart-examples';

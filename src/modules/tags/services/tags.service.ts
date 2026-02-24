@@ -10,7 +10,7 @@ import { db } from '@/db';
 import { tags } from '@/db/schema';
 import { asc, eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { TagDto, CreateTagDto } from '../dto';
+import { TagDto, CreateTagDto, UpdateTagDto } from '../dto';
 
 @Injectable()
 export class TagsService {
@@ -100,6 +100,105 @@ export class TagsService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to create tag',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Update a new tag
+   */
+  async update(editTagDto: UpdateTagDto, id: string): Promise<SuccessResponse<TagDto>> {
+    try {
+      if (!editTagDto.name && editTagDto.displayOrder === undefined) {
+        throw new BadRequestException(
+          errorResponse(
+            'At least one field (name or displayOrder) must be provided for update',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      const [selectedTag] = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+
+      if (!selectedTag) {
+        throw new NotFoundException(
+          errorResponse('Tag not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      if (editTagDto.name && selectedTag.name === editTagDto.name.toLowerCase()) {
+        throw new BadRequestException(
+          errorResponse(
+            'No changes detected. Please provide a different name to update.',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      if (editTagDto.displayOrder && selectedTag.displayOrder === editTagDto.displayOrder) {
+        throw new BadRequestException(
+          errorResponse(
+            'No changes detected. Please provide a different display order to update.',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      const [existingTagName] = await db
+        .select()
+        .from(tags)
+        .where(eq(tags.name, editTagDto.name))
+        .limit(1);
+
+      if (existingTagName) {
+        throw new BadRequestException(
+          errorResponse('Tag name already exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
+
+      const [existingDisplayOrder] = await db
+        .select()
+        .from(tags)
+        .where(eq(tags.displayOrder, editTagDto.displayOrder))
+        .limit(1);
+
+      if (existingDisplayOrder) {
+        throw new BadRequestException(
+          errorResponse(
+            'Display order already exists',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      const [updatedTag] = await db
+        .update(tags)
+        .set({
+          ...(editTagDto.name && { name: editTagDto.name.toLowerCase() }),
+          ...(editTagDto.displayOrder !== undefined && { displayOrder: editTagDto.displayOrder }),
+          updatedAt: new Date(),
+        })
+        .where(eq(tags.id, id))
+        .returning();
+
+      this.logger.log(`Tag updated: ${updatedTag.id} (${updatedTag.name})`);
+
+      return successResponse(updatedTag, 'Tag updated successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`Tag update error: ${this.getErrorMessage(error)}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to update tag',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

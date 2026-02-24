@@ -3,4 +3,6 @@ export * from './get-all-regions-endpoint.decorator';
 export * from './get-region-endpoint.decorator';
 export * from './update-region-endpoint.decorator';
 export * from './delete-region-endpoint.decorator';
+export * from './get-regional-products-endpoint.decorator';
+export * from './delete-regional-item-price-endpoint.decorator';
 export { SortDecorator, PaginationDecorator } from '@/common/decorators';

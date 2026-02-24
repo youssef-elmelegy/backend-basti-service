@@ -45,20 +45,22 @@ export class AdminDataDto {
 export class AdminLoginResponseDto {
   @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT access token for API authentication',
+    description: 'JWT access token (stored in HTTP-only cookie, not exposed in response)',
+    required: false,
   })
-  accessToken: string;
+  accessToken?: string;
 
   @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT refresh token for obtaining new access tokens',
+    description: 'JWT refresh token (stored in HTTP-only cookie, not exposed in response)',
+    required: false,
   })
-  refreshToken: string;
+  refreshToken?: string;
 
   @Type(() => AdminDataDto)
   @ApiProperty({
     type: AdminDataDto,
-    description: 'Authenticated admin information',
+    description: 'Authenticated admin information. Tokens are stored in HTTP-only cookies.',
   })
   admin: AdminDataDto;
 }
@@ -108,4 +110,43 @@ export class AdminLogoutResponseDto {
     description: 'Logout confirmation message',
   })
   message: string;
+}
+
+export class CheckAuthResponseDto {
+  @ApiProperty({
+    example: true,
+    description: 'Whether the admin is authenticated',
+  })
+  isAuthenticated: boolean;
+
+  @Type(() => AdminDataDto)
+  @ApiProperty({
+    type: AdminDataDto,
+    description: 'Authenticated admin information (only present if authenticated)',
+    required: false,
+  })
+  admin?: AdminDataDto;
+}
+
+export class AdminRefreshTokenResponseDto {
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'JWT access token (stored in HTTP-only cookie, not exposed in response)',
+    required: false,
+  })
+  accessToken?: string;
+
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'JWT refresh token (stored in HTTP-only cookie, not exposed in response)',
+    required: false,
+  })
+  refreshToken?: string;
+
+  @Type(() => AdminDataDto)
+  @ApiProperty({
+    type: AdminDataDto,
+    description: 'Authenticated admin information',
+  })
+  admin: AdminDataDto;
 }

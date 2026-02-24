@@ -152,7 +152,7 @@ export class UploadController {
 
                   this.logger.log(`Image uploaded to ${folder}: ${result.public_id}`);
                   return resolve(successResponse(result, 'Image uploaded successfully', 201));
-                } catch (error) {
+                } catch (error: unknown) {
                   this.logger.error(`Upload failed: ${this.getErrorMessage(error)}`);
                   return resolve(
                     successResponse(
@@ -179,7 +179,7 @@ export class UploadController {
         };
 
         req.on('data', dataHandler);
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMsg =
           error instanceof Error ? error.message : typeof error === 'string' ? error : 'unknown';
         this.logger.error(`Setup error: ${errorMsg}`);

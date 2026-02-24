@@ -12,10 +12,10 @@ import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { SliderImageModule } from './modules/slider-image/slider-image.module';
 import { TagsModule } from './modules/tags/tags.module';
+import { CustomCakesModule } from './modules/custom-cakes/custom-cakes.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
-import { WishlistModule } from './modules/wishlist/wishlist.module';
-// import { ReviewModule } from './modules/review/review.module';
+import { CartModule } from './modules/cart/cart.module';
 
 @Module({
   imports: [
@@ -29,7 +29,8 @@ import { WishlistModule } from './modules/wishlist/wishlist.module';
     AdminAuthModule,
     UploadModule,
     OrderModule,
-    WishlistModule,
+    CustomCakesModule,
+    CartModule,
     // ReviewModule,
     SliderImageModule,
     TagsModule,

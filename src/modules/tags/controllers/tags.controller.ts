@@ -1,8 +1,23 @@
-import { Controller, Get, Post, Delete, Body, Param, Logger, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Logger,
+  UseGuards,
+  Patch,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TagsService } from '../services/tags.service';
-import { GetTagsDecorator, CreateTagDecorator, DeleteTagDecorator } from '../decorators';
-import { CreateTagDto, TagDto } from '../dto';
+import {
+  GetTagsDecorator,
+  CreateTagDecorator,
+  DeleteTagDecorator,
+  UpdateTagDecorator,
+} from '../decorators';
+import { CreateTagDto, TagDto, UpdateTagDto } from '../dto';
 import { Public } from '@/common';
 import { SuccessResponse } from '@/utils';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -30,6 +45,18 @@ export class TagsController {
   @CreateTagDecorator()
   async create(@Body() createTagDto: CreateTagDto): Promise<SuccessResponse<TagDto>> {
     return this.tagsService.create(createTagDto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @UpdateTagDecorator()
+  async update(
+    @Param('id') id: string,
+    @Body() editTagDto: UpdateTagDto,
+  ): Promise<SuccessResponse<TagDto>> {
+    this.logger.debug(`Updating tag: ${id}`);
+    return this.tagsService.update(editTagDto, id);
   }
 
   @Delete(':id')

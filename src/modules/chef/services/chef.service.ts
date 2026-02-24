@@ -25,7 +25,7 @@ export class ChefService {
   private readonly logger = new Logger(ChefService.name);
 
   async create(createChefDto: CreateChefDto): Promise<SuccessResponse<ChefResponse>> {
-    const { name, specialization, image, bakeryId } = createChefDto;
+    const { name, specialization, image, bio, bakeryId } = createChefDto;
 
     const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
 
@@ -43,6 +43,7 @@ export class ChefService {
           fullName: name,
           specialization,
           image,
+          bio,
           bakeryId,
         })
         .returning();
@@ -157,7 +158,7 @@ export class ChefService {
   }
 
   async update(id: string, updateChefDto: UpdateChefDto): Promise<SuccessResponse<ChefResponse>> {
-    const { name, specialization, image, bakeryId } = updateChefDto;
+    const { name, specialization, image, bio, bakeryId } = updateChefDto;
 
     const [existingChef] = await db.select().from(chefs).where(eq(chefs.id, id)).limit(1);
 
@@ -186,6 +187,7 @@ export class ChefService {
           ...(name && { fullName: name }),
           ...(specialization && { specialization }),
           ...(image !== undefined && { image }),
+          ...(bio !== undefined && { bio }),
           ...(bakeryId && { bakeryId }),
           updatedAt: new Date(),
         })
@@ -343,6 +345,7 @@ export class ChefService {
       name: chef.fullName,
       specialization: chef.specialization,
       image: chef.image ?? null,
+      bio: chef.bio ?? null,
       bakeryId: chef.bakeryId,
       createdAt: chef.createdAt,
       updatedAt: chef.updatedAt,

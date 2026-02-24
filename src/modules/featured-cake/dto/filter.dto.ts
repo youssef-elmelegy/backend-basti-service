@@ -18,4 +18,12 @@ export class FilterDto {
   @IsOptional()
   @IsString()
   tag?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by name',
+    example: 'vanilla',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

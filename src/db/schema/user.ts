@@ -1,6 +1,6 @@
 import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { locations, orders, wishlistItems, paymentMethods, reviews } from '.';
+import { locations, orders, cartItems, paymentMethods, reviews } from '.';
 
 export const users = pgTable(
   'users',
@@ -29,7 +29,7 @@ export const users = pgTable(
 export const userRelations = relations(users, ({ many }) => ({
   locations: many(locations),
   orders: many(orders),
-  wishlistItems: many(wishlistItems),
+  CartItems: many(cartItems),
   paymentMethods: many(paymentMethods),
   reviews: many(reviews),
 }));

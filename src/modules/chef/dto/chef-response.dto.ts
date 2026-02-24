@@ -19,6 +19,12 @@ export class ChefDataDto {
   @ApiProperty({ example: MOCK_DATA.image.chef })
   image: string;
 
+  @ApiProperty({
+    example:
+      'Experienced pastry chef with 10 years of culinary expertise. Specializes in French pastries and cake decorations.',
+  })
+  bio: string;
+
   @ApiProperty({ type: ChefBakeryDto })
   bakery: ChefBakeryDto;
 

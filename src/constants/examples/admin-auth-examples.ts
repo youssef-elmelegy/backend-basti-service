@@ -10,10 +10,6 @@ export const AdminAuthExamples = {
         success: true,
         message: 'Admin logged in successfully',
         data: {
-          accessToken:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJyb2xlIjoibWFpbl9hZG1pbiIsImlhdCI6MTczMTU3MjAwMCwiZXhwIjoxNzMxNTc1NjAwfQ.signature',
-          refreshToken:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJyb2xlIjoibWFpbl9hZG1pbiIsImlhdCI6MTczMTU3MjAwMCwiZXhwIjoxNzMxNjU4NDAwfQ.signature',
           admin: {
             id: '990e8400-e29b-41d4-a716-446655440004',
             email: 'admin@example.com',
@@ -256,6 +252,72 @@ export const AdminAuthExamples = {
         code: 401,
         success: false,
         message: 'Unauthorized',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  checkAuth: {
+    response: {
+      authenticated: {
+        code: 200,
+        success: true,
+        message: 'Authentication check completed',
+        data: {
+          isAuthenticated: true,
+          admin: {
+            id: '990e8400-e29b-41d4-a716-446655440004',
+            email: 'admin@example.com',
+            role: 'super_admin',
+            profileImage: 'https://example.com/superadmin.jpg',
+            createdAt: '2025-01-11T10:00:00.000Z',
+            updatedAt: '2025-01-11T10:00:00.000Z',
+          },
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notAuthenticated: {
+        code: 200,
+        success: true,
+        message: 'Authentication check completed',
+        data: {
+          isAuthenticated: false,
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Invalid or expired token',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  refreshToken: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Tokens refreshed successfully',
+        data: {
+          admin: {
+            id: '990e8400-e29b-41d4-a716-446655440004',
+            email: 'admin@example.com',
+            role: 'super_admin',
+            profileImage: 'https://example.com/superadmin.jpg',
+            createdAt: '2025-01-11T10:00:00.000Z',
+            updatedAt: '2025-01-11T10:00:00.000Z',
+          },
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Invalid or expired token',
         error: 'UnauthorizedException',
         timestamp: '2025-01-11T10:00:00.000Z',
       },

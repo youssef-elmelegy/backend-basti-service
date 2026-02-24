@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Patch, UseGuards, Req, Logger, Res } from '@nestjs/common';
+import { Controller, Post, Body, Patch, Get, UseGuards, Req, Logger, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service';
@@ -23,6 +23,8 @@ import {
   AdminResetPasswordEndpoint,
   AdminChangePasswordEndpoint,
   AdminLogoutEndpoint,
+  AdminCheckAuthEndpoint,
+  AdminRefreshTokenEndpoint,
 } from '../decorators';
 import { JwtAuthGuard, Public } from '@/common';
 
@@ -56,7 +58,12 @@ export class AdminAuthController {
 
     this.logger.log(`Admin logged in: ${result.data.admin.id}`);
     return res.json({
-      ...result,
+      code: result.code,
+      success: result.success,
+      message: result.message,
+      data: {
+        admin: result.data.admin,
+      },
       timestamp: new Date().toISOString(),
     });
   }
@@ -161,15 +168,88 @@ export class AdminAuthController {
     });
   }
 
+  @Post('refresh')
   @Public()
-  @Post('check-auth')
+  @AdminRefreshTokenEndpoint()
+  async refreshTokens(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
+      if (!refreshToken) {
+        this.logger.warn('Refresh token not found in cookies');
+        res.status(401).json({
+          code: 401,
+          success: false,
+          message: 'Refresh token not found',
+          error: 'Unauthorized',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      try {
+        const decoded = this.adminAuthService.verifyRefreshToken(refreshToken) as { id: string };
+        this.logger.debug(`Token refresh for admin: ${decoded.id}`);
+        const result = await this.adminAuthService.refreshTokens(decoded.id);
+
+        const accessToken = result.data.accessToken;
+        const newRefreshToken = result.data.refreshToken;
+        const adminData = result.data.admin;
+
+        res.cookie('accessToken', accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        res.cookie('refreshToken', newRefreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        this.logger.log(`Tokens refreshed for admin: ${decoded.id}`);
+        res.json({
+          code: 200,
+          success: true,
+          message: 'Tokens refreshed successfully',
+          data: {
+            admin: adminData,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (jwtError) {
+        this.logger.warn(`Invalid refresh token: ${jwtError}`);
+        res.clearCookie('refreshToken');
+        res.status(401).json({
+          code: 401,
+          success: false,
+          message: 'Invalid or expired refresh token',
+          error: 'Unauthorized',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    } catch (error) {
+      this.logger.error(`Token refresh failed: ${error}`);
+      throw error;
+    }
+  }
+
+  @Get('check-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @AdminCheckAuthEndpoint()
   async checkAuth(@Req() req: AuthenticatedRequest, @Res() res: Response) {
     this.logger.debug('Check auth request');
     try {
       if (req.user?.id) {
         const admin = await this.adminAuthService.getAdminById(req.user.id);
         return res.json({
+          code: 200,
           success: true,
+          message: 'Authentication check completed',
           data: {
             isAuthenticated: true,
             admin: {
@@ -178,6 +258,8 @@ export class AdminAuthController {
               role: admin.role,
               profileImage: admin.profileImage,
               bakeryId: admin.bakeryId || undefined,
+              createdAt: admin.createdAt,
+              updatedAt: admin.updatedAt,
             },
           },
           timestamp: new Date().toISOString(),
@@ -185,7 +267,9 @@ export class AdminAuthController {
       }
 
       return res.json({
+        code: 200,
         success: true,
+        message: 'Authentication check completed',
         data: {
           isAuthenticated: false,
         },
@@ -194,7 +278,9 @@ export class AdminAuthController {
     } catch (error) {
       this.logger.error(`Auth check failed: ${error}`);
       return res.json({
+        code: 200,
         success: true,
+        message: 'Authentication check completed',
         data: {
           isAuthenticated: false,
         },

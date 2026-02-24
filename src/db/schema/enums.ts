@@ -12,6 +12,8 @@ export const bakeryTypeEnum = pgEnum('bakery_type_enum', [
   'custom',
 ]);
 
+export const CartTypeEnum = pgEnum('cart_type_enum', ['big_cakes', 'small_cakes', 'others']);
+
 // TODO: we need to review this status
 export const orderStatusEnum = pgEnum('order_status_enum', [
   'pending',

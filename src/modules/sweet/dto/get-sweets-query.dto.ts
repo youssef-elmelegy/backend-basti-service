@@ -66,4 +66,12 @@ export class GetSweetsQueryDto {
   @IsOptional()
   @IsUUID()
   regionId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by name',
+    example: 'chocolate',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
