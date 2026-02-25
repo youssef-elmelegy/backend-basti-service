@@ -5,6 +5,10 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "20.x",
+    "npm": "11.x"
+  },
   "scripts": {
     "build": "nest build",
     "vercel-build": "nest build",
@@ -33,7 +37,7 @@
   "dependencies": {
     "@nestjs/common": "^11.1.9",
     "@nestjs/core": "^11.1.9",
-    "@nestjs/jwt": "10.2.0",
+    "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.9",
     "@nestjs/swagger": "^11.2.3",
