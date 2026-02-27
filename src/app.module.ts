@@ -16,6 +16,7 @@ import { CustomCakesModule } from './modules/custom-cakes/custom-cakes.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
 import { CartModule } from './modules/cart/cart.module';
+import { LocationModule } from './modules/location/location.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { CartModule } from './modules/cart/cart.module';
     OrderModule,
     CustomCakesModule,
     CartModule,
+    LocationModule,
     // ReviewModule,
     SliderImageModule,
     TagsModule,
