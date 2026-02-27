@@ -58,6 +58,14 @@ export class GetFlavorsQueryDto {
   regionId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by shape ID - returns flavors with variant images for this shape only',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  shapeId?: string;
+
+  @ApiPropertyOptional({
     description: 'Search by title',
     example: 'chocolate',
   })

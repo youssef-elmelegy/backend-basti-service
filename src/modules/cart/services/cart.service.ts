@@ -21,6 +21,7 @@ import {
   shapes,
 } from '@/db/schema';
 import { eq, and, inArray, getTableColumns } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import {
   CartResponseDto,
   CreateAddonItemDto,
@@ -335,6 +336,10 @@ export class CartService {
   }
 
   private async getPredesignedCake(predesignedCakeId: string, regionId: string) {
+    const flavorPrices = alias(regionItemPrices, 'flavorPrices');
+    const decorationPrices = alias(regionItemPrices, 'decorationPrices');
+    const shapePrices = alias(regionItemPrices, 'shapePrices');
+
     const configs = await db
       .select({
         id: designedCakeConfigs.id,
@@ -349,7 +354,7 @@ export class CartService {
           title: flavors.title,
           description: flavors.description,
           flavorUrl: flavors.flavorUrl,
-          price: regionItemPrices.price,
+          price: flavorPrices.price,
           createdAt: flavors.createdAt,
           updatedAt: flavors.updatedAt,
         },
@@ -359,7 +364,7 @@ export class CartService {
           description: decorations.description,
           decorationUrl: decorations.decorationUrl,
           tagId: decorations.tagId,
-          price: regionItemPrices.price,
+          price: decorationPrices.price,
           createdAt: decorations.createdAt,
           updatedAt: decorations.updatedAt,
         },
@@ -368,7 +373,7 @@ export class CartService {
           title: shapes.title,
           description: shapes.description,
           shapeUrl: shapes.shapeUrl,
-          price: regionItemPrices.price,
+          price: shapePrices.price,
           createdAt: shapes.createdAt,
           updatedAt: shapes.updatedAt,
         },
@@ -378,19 +383,19 @@ export class CartService {
       .innerJoin(decorations, eq(designedCakeConfigs.decorationId, decorations.id))
       .innerJoin(shapes, eq(designedCakeConfigs.shapeId, shapes.id))
       .leftJoin(
-        regionItemPrices,
-        and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
+        flavorPrices,
+        and(eq(flavorPrices.flavorId, flavors.id), eq(flavorPrices.regionId, regionId)),
       )
       .leftJoin(
-        regionItemPrices,
+        decorationPrices,
         and(
-          eq(regionItemPrices.decorationId, decorations.id),
-          eq(regionItemPrices.regionId, regionId),
+          eq(decorationPrices.decorationId, decorations.id),
+          eq(decorationPrices.regionId, regionId),
         ),
       )
       .leftJoin(
-        regionItemPrices,
-        and(eq(regionItemPrices.shapeId, shapes.id), eq(regionItemPrices.regionId, regionId)),
+        shapePrices,
+        and(eq(shapePrices.shapeId, shapes.id), eq(shapePrices.regionId, regionId)),
       )
       .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
 
@@ -404,8 +409,9 @@ export class CartService {
       .where(eq(predesignedCakes.id, predesignedCakeId))
       .limit(1);
 
-    const con = () =>
-      configs.map((config) => ({
+    return {
+      ...predesignedCake,
+      configs: configs.map((config) => ({
         id: config.id,
         flavor: config.flavor,
         decoration: config.decoration,
@@ -413,11 +419,7 @@ export class CartService {
         frostColorValue: config.frostColorValue,
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
-      }));
-
-    return {
-      ...predesignedCake,
-      configs: con(),
+      })),
     };
   }
 
@@ -448,9 +450,9 @@ export class CartService {
       .from(flavors)
       .leftJoin(
         regionItemPrices,
-        and(eq(regionItemPrices.decorationId, flavors.id), eq(regionItemPrices.regionId, regionId)),
+        and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
       )
-      .where(eq(flavors.id, customCake.decorationId))
+      .where(eq(flavors.id, customCake.flavorId))
       .limit(1);
 
     const [shape] = await db
@@ -461,9 +463,9 @@ export class CartService {
       .from(shapes)
       .leftJoin(
         regionItemPrices,
-        and(eq(regionItemPrices.decorationId, shapes.id), eq(regionItemPrices.regionId, regionId)),
+        and(eq(regionItemPrices.shapeId, shapes.id), eq(regionItemPrices.regionId, regionId)),
       )
-      .where(eq(shapes.id, customCake.decorationId))
+      .where(eq(shapes.id, customCake.shapeId))
       .limit(1);
 
     type ExtraLayerExpandedType = {
@@ -483,7 +485,7 @@ export class CartService {
 
     if (customCake.extraLayers.length > 0) {
       for (const layer of customCake.extraLayers) {
-        const [flavroLayers] = await db
+        const [flavorLayers] = await db
           .select({
             ...getTableColumns(flavors),
             price: regionItemPrices.price,
@@ -491,16 +493,13 @@ export class CartService {
           .from(flavors)
           .leftJoin(
             regionItemPrices,
-            and(
-              eq(regionItemPrices.decorationId, flavors.id),
-              eq(regionItemPrices.regionId, regionId),
-            ),
+            and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
           )
-          .where(eq(flavors.id, customCake.decorationId))
+          .where(eq(flavors.id, layer.flavorId))
           .limit(1);
         extraLayersExpanded.push({
           layer: layer.layer,
-          flavor: flavroLayers,
+          flavor: flavorLayers,
         });
       }
     }

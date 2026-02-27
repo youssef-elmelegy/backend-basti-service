@@ -66,6 +66,14 @@ export class GetDecorationsQueryDto {
   regionId?: string;
 
   @ApiPropertyOptional({
+    description: 'Filter by shape ID to get decorations with variant images for that shape',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  shapeId?: string;
+
+  @ApiPropertyOptional({
     description: 'Search by title',
     example: 'roses',
   })

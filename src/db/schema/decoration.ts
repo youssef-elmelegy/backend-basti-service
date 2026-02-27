@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { designedCakeConfigs, tags } from '.';
+import { designedCakeConfigs, tags, shapeVariantImages } from '.';
 
 export const decorations = pgTable(
   'decorations',
@@ -26,4 +26,5 @@ export const decorationsRelations = relations(decorations, ({ many, one }) => ({
     references: [tags.id],
   }),
   designedCakeConfigs: many(designedCakeConfigs),
+  shapeVariantImages: many(shapeVariantImages),
 }));

@@ -23,6 +23,40 @@ export class FlavorDataDto {
   updatedAt: Date;
 }
 
+export class VariantImageDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  id: string;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/sliced.jpg',
+  })
+  slicedViewUrl: string;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/front.jpg',
+  })
+  frontViewUrl: string;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/top.jpg',
+  })
+  topViewUrl: string;
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  updatedAt: Date;
+}
+
+export class FlavorWithVariantImagesDto extends FlavorDataDto {
+  @ApiProperty({ type: [VariantImageDto], required: false })
+  variantImages?: VariantImageDto[];
+
+  @ApiProperty({ example: '100', required: false })
+  price?: string;
+}
+
 export class PaginationDto {
   @ApiProperty({ example: 100 })
   total: number;
@@ -66,7 +100,7 @@ export class GetAllFlavorsResponseDto {
 
   @ApiHideProperty()
   data: {
-    items: FlavorDataDto[];
+    items: FlavorWithVariantImagesDto[];
     pagination: PaginationDto;
   };
 

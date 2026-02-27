@@ -18,6 +18,7 @@ import {
   UpdateFlavorDto,
   GetFlavorsQueryDto,
   CreateFlavorRegionItemPriceDto,
+  CreateFlavorWithVariantImagesDto,
 } from '../dto';
 import {
   CreateFlavorDecorator,
@@ -26,6 +27,7 @@ import {
   UpdateFlavorDecorator,
   DeleteFlavorDecorator,
   CreateFlavorRegionItemPriceDecorator,
+  CreateFlavorWithVariantImagesDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -52,7 +54,7 @@ export class FlavorController {
   @Public()
   @GetAllFlavorsDecorator()
   async findAll(@Query() query: GetFlavorsQueryDto) {
-    this.logger.debug(`Retrieving flavors: page ${query.page}, limit ${query.limit}`);
+    this.logger.debug(`Retrieving flavors with filters`);
     return this.flavorService.findAll(query);
   }
 
@@ -93,5 +95,18 @@ export class FlavorController {
     @Body() createFlavorRegionItemPriceDto: CreateFlavorRegionItemPriceDto,
   ) {
     return this.flavorService.createRegionItemPrice(createFlavorRegionItemPriceDto);
+  }
+
+  @Post('with-variant-images')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateFlavorWithVariantImagesDecorator()
+  async createWithVariantImages(
+    @Body() createFlavorWithVariantImagesDto: CreateFlavorWithVariantImagesDto,
+  ) {
+    this.logger.debug(
+      `Creating flavor with variant images: ${createFlavorWithVariantImagesDto.title}`,
+    );
+    return this.flavorService.createWithVariantImages(createFlavorWithVariantImagesDto);
   }
 }

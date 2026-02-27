@@ -401,8 +401,6 @@ export class RegionService {
 
             case ProductTypeFilter.SHAPE: {
               const shapesResponse = await this.shapeService.findAll({
-                page: 1,
-                limit: 1000,
                 regionId,
                 sortBy: ShapeSortBy.CREATED_AT,
                 order: 'desc',

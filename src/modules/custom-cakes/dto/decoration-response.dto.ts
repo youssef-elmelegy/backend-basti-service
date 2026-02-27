@@ -1,5 +1,5 @@
 import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
-import { PaginationDto } from './flavor-response.dto';
+import { PaginationDto, VariantImageDto } from './flavor-response.dto';
 
 export class DecorationDataDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -28,6 +28,12 @@ export class DecorationDataDto {
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   updatedAt: Date;
+
+  @ApiProperty({ type: [VariantImageDto], required: false })
+  variantImages?: VariantImageDto[];
+
+  @ApiProperty({ example: '500', required: false })
+  price?: string;
 }
 
 export class SuccessDecorationResponseDto {

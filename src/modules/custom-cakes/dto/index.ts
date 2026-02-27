@@ -3,6 +3,7 @@ export * from './update-flavor.dto';
 export * from './get-flavors-query.dto';
 export * from './flavor-response.dto';
 export * from './create-flavor-region-item-price.dto';
+export * from './create-flavor-with-variant-images.dto';
 
 export * from './create-shape.dto';
 export * from './update-shape.dto';
@@ -15,6 +16,7 @@ export * from './update-decoration.dto';
 export * from './get-decorations-query.dto';
 export * from './decoration-response.dto';
 export * from './create-decoration-region-item-price.dto';
+export * from './create-decoration-with-variant-images.dto';
 
 export * from './create-predesigned-cake.dto';
 export * from './update-predesigned-cake.dto';

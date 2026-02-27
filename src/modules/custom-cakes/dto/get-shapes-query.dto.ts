@@ -1,6 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, Min, Max, IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
 
 export enum ShapeSortBy {
   CREATED_AT = 'createdAt',
@@ -9,29 +8,6 @@ export enum ShapeSortBy {
 }
 
 export class GetShapesQueryDto {
-  @ApiProperty({
-    description: 'Page number for pagination',
-    example: 1,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page: number = 1;
-
-  @ApiProperty({
-    description: 'Number of items per page',
-    example: 10,
-    required: false,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit: number = 10;
-
   @ApiPropertyOptional({
     description: 'Field to sort by',
     enum: ShapeSortBy,

@@ -26,8 +26,8 @@ export class ShapeService {
   /**
    * Map shape data to response DTO
    */
-  private mapToShapeResponse(shape: typeof shapes.$inferSelect): ShapeDataDto {
-    return {
+  private mapToShapeResponse(shape: typeof shapes.$inferSelect, price?: string): ShapeDataDto {
+    const response: ShapeDataDto = {
       id: shape.id,
       title: shape.title,
       description: shape.description,
@@ -36,6 +36,12 @@ export class ShapeService {
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
+
+    if (price) {
+      response.price = price;
+    }
+
+    return response;
   }
 
   async create(createDto: CreateShapeDto): Promise<SuccessResponse<ShapeDataDto>> {
@@ -72,21 +78,15 @@ export class ShapeService {
     }
   }
 
-  async findAll(query: GetShapesQueryDto): Promise<
-    SuccessResponse<{
-      items: ShapeDataDto[];
-      pagination: { total: number; totalPages: number; page: number; limit: number };
-    }>
-  > {
+  async findAll(query: GetShapesQueryDto): Promise<SuccessResponse<ShapeDataDto[]>> {
     try {
-      const offset = (query.page - 1) * query.limit;
       const sortOrder = query.order === 'desc' ? desc : asc;
       const sortColumn = query.sortBy === ShapeSortBy.TITLE ? shapes.title : shapes.createdAt;
 
       let allShapesResult: Array<{
         shape: typeof shapes.$inferSelect;
+        price?: string;
       }> = [];
-      let total = 0;
 
       // Filter by regionId
       if (query.regionId) {
@@ -100,53 +100,30 @@ export class ShapeService {
           const searchPattern = `%${query.search}%`;
           const whereCondition = sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`;
 
-          const [{ count: combinedCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${shapes.id})` })
-            .from(shapes)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition);
-
-          total = Number(combinedCount);
-
           allShapesResult = await db
             .select({
               shape: shapes,
+              price: regionItemPrices.price,
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
             .where(whereCondition)
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
+            .orderBy(sortOrder(sortColumn));
         } else {
           // Only regionId, no search
-          const [{ count: regionCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${shapes.id})` })
-            .from(shapes)
-            .innerJoin(regionItemPrices, and(...joinConditions));
-
-          total = Number(regionCount);
-
           allShapesResult = await db
             .select({
               shape: shapes,
+              price: regionItemPrices.price,
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
+            .orderBy(sortOrder(sortColumn));
         }
       }
       // Search by title if provided
       else if (query.search) {
         const searchPattern = `%${query.search}%`;
-        const [{ count: searchCount }] = await db
-          .select({ count: sql<number>`COUNT(DISTINCT ${shapes.id})` })
-          .from(shapes)
-          .where(sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`);
-
-        total = Number(searchCount);
 
         allShapesResult = await db
           .select({
@@ -154,40 +131,20 @@ export class ShapeService {
           })
           .from(shapes)
           .where(sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`)
-          .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
-          .offset(offset);
+          .orderBy(sortOrder(sortColumn));
       }
       // Get all shapes
       else {
-        const [{ count: allCount }] = await db
-          .select({ count: sql<number>`COUNT(*)` })
-          .from(shapes);
-
-        total = Number(allCount);
-
         allShapesResult = await db
           .select({
             shape: shapes,
           })
           .from(shapes)
-          .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
-          .offset(offset);
+          .orderBy(sortOrder(sortColumn));
       }
 
-      const totalPages = Math.ceil(total / query.limit);
-
       return successResponse(
-        {
-          items: allShapesResult.map((row) => this.mapToShapeResponse(row.shape)),
-          pagination: {
-            total,
-            totalPages,
-            page: query.page,
-            limit: query.limit,
-          },
-        },
+        allShapesResult.map((row) => this.mapToShapeResponse(row.shape, row.price || undefined)),
         'Shapes retrieved successfully',
         HttpStatus.OK,
       );

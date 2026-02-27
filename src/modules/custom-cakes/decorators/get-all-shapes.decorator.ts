@@ -8,7 +8,7 @@ export function GetAllShapesDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get all shapes',
-      description: 'Retrieves all available cake shapes with pagination and sorting options.',
+      description: 'Retrieves all available cake shapes with sorting and filtering options.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

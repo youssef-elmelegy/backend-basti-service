@@ -6,7 +6,7 @@ export const DecorationExamples = {
       decorationUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
       tagId: '550e8400-e29b-41d4-a716-446655440000',
-    },
+    } as const,
     response: {
       success: {
         code: 201,
@@ -45,6 +45,20 @@ export const DecorationExamples = {
               tagName: 'Decorations',
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
+              price: '300',
+              variantImages: [
+                {
+                  id: '223e4567-e89b-12d3-a456-426614174000',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-sliced.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-top.jpg',
+                  createdAt: '2024-02-07T10:00:00Z',
+                  updatedAt: '2024-02-07T10:00:00Z',
+                },
+              ],
             },
             {
               id: '123e4567-e89b-12d3-a456-426614174001',
@@ -56,6 +70,20 @@ export const DecorationExamples = {
               tagName: 'Decorations',
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
+              price: '250',
+              variantImages: [
+                {
+                  id: '323e4567-e89b-12d3-a456-426614174001',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-sliced.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-top.jpg',
+                  createdAt: '2024-02-07T09:00:00Z',
+                  updatedAt: '2024-02-07T09:00:00Z',
+                },
+              ],
             },
           ],
           pagination: {
@@ -94,7 +122,7 @@ export const DecorationExamples = {
     request: {
       title: 'Gold Leaves',
       description: 'Luxury gold leaf decoration for premium cakes',
-    },
+    } as const,
     response: {
       success: {
         code: 200,
@@ -131,7 +159,7 @@ export const DecorationExamples = {
       decorationId: '123e4567-e89b-12d3-a456-426614174000',
       regionId: '660e8400-e29b-41d4-a716-446655440000',
       price: 8.99,
-    },
+    } as const,
     response: {
       success: {
         code: 201,
@@ -149,4 +177,52 @@ export const DecorationExamples = {
       },
     },
   },
-};
+  createWithVariantImages: {
+    request: {
+      title: 'Red Roses',
+      description: 'Beautiful fresh red roses for elegant cake decoration',
+      decorationUrl:
+        'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
+      tagId: '550e8400-e29b-41d4-a716-446655440000',
+      variantImages: [
+        {
+          shapeId: '223e4567-e89b-12d3-a456-426614174000',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-sliced.jpg',
+          frontViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-front.jpg',
+          topViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-top.jpg',
+        },
+        {
+          shapeId: '323e4567-e89b-12d3-a456-426614174001',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-sliced.jpg',
+          frontViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-front.jpg',
+          topViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-top.jpg',
+        },
+      ],
+    } as const,
+    response: {
+      success: {
+        code: 201,
+        success: true,
+        message: 'Decoration and variant images created successfully',
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          title: 'Red Roses',
+          description: 'Beautiful fresh red roses for elegant cake decoration',
+          decorationUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
+          tagId: '550e8400-e29b-41d4-a716-446655440000',
+          tagName: 'Decorations',
+          createdAt: '2024-02-07T10:00:00Z',
+          updatedAt: '2024-02-07T10:00:00Z',
+        },
+        timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
+} as const;

@@ -5,7 +5,7 @@ export const FlavorExamples = {
       description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
       flavorUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
-    },
+    } as const,
     response: {
       success: {
         code: 201,
@@ -40,6 +40,20 @@ export const FlavorExamples = {
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
+              price: '500',
+              variantImages: [
+                {
+                  id: '223e4567-e89b-12d3-a456-426614174000',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-top.jpg',
+                  createdAt: '2024-02-07T10:00:00Z',
+                  updatedAt: '2024-02-07T10:00:00Z',
+                },
+              ],
             },
             {
               id: '123e4567-e89b-12d3-a456-426614174001',
@@ -49,6 +63,20 @@ export const FlavorExamples = {
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/vanilla.jpg',
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
+              price: '450',
+              variantImages: [
+                {
+                  id: '323e4567-e89b-12d3-a456-426614174001',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-sliced.jpg',
+                  frontViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-front.jpg',
+                  topViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-top.jpg',
+                  createdAt: '2024-02-07T09:00:00Z',
+                  updatedAt: '2024-02-07T09:00:00Z',
+                },
+              ],
             },
           ],
           pagination: {
@@ -85,7 +113,7 @@ export const FlavorExamples = {
     request: {
       title: 'Dark Chocolate',
       description: 'Premium dark chocolate flavor with intense cocoa taste',
-    },
+    } as const,
     response: {
       success: {
         code: 200,
@@ -120,7 +148,7 @@ export const FlavorExamples = {
       flavorId: '123e4567-e89b-12d3-a456-426614174000',
       regionId: '550e8400-e29b-41d4-a716-446655440001',
       price: 500,
-    },
+    } as const,
     response: {
       success: {
         code: 201,
@@ -138,4 +166,49 @@ export const FlavorExamples = {
       },
     },
   },
-};
+  createWithVariantImages: {
+    request: {
+      title: 'Chocolate',
+      description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
+      flavorUrl:
+        'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+      variantImages: [
+        {
+          shapeId: '223e4567-e89b-12d3-a456-426614174000',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
+          frontViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
+          topViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-top.jpg',
+        },
+        {
+          shapeId: '323e4567-e89b-12d3-a456-426614174001',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-sliced.jpg',
+          frontViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-front.jpg',
+          topViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-top.jpg',
+        },
+      ],
+    } as const,
+    response: {
+      success: {
+        code: 201,
+        success: true,
+        message: 'Flavor and variant images created successfully',
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          title: 'Chocolate',
+          description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
+          flavorUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+          createdAt: '2024-02-07T10:00:00Z',
+          updatedAt: '2024-02-07T10:00:00Z',
+        },
+        timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
+} as const;
