@@ -248,7 +248,7 @@ export class DecorationService {
       if (decorationEntry && decorationEntry.variantImages) {
         decorationEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -363,7 +363,7 @@ export class DecorationService {
       if (decorationEntry && decorationEntry.variantImages) {
         decorationEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -950,7 +950,7 @@ export class DecorationService {
             shapeId: variant.shapeId,
             flavorId: null,
             decorationId: newDecoration.id,
-            sideViewUrl: variant.sideViewUrl,
+            slicedViewUrl: variant.slicedViewUrl,
             frontViewUrl: variant.frontViewUrl,
             topViewUrl: variant.topViewUrl,
           })),

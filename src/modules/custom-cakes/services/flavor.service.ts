@@ -195,7 +195,7 @@ export class FlavorService {
       if (flavorEntry && flavorEntry.variantImages) {
         flavorEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -305,7 +305,7 @@ export class FlavorService {
       if (flavorEntry && flavorEntry.variantImages) {
         flavorEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -807,7 +807,7 @@ export class FlavorService {
             shapeId: variant.shapeId,
             flavorId: newFlavor.id,
             decorationId: null,
-            sideViewUrl: variant.sideViewUrl,
+            slicedViewUrl: variant.slicedViewUrl,
             frontViewUrl: variant.frontViewUrl,
             topViewUrl: variant.topViewUrl,
           })),

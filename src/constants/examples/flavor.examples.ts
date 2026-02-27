@@ -44,8 +44,8 @@ export const FlavorExamples = {
               variantImages: [
                 {
                   id: '223e4567-e89b-12d3-a456-426614174000',
-                  sideViewUrl:
-                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-side.jpg',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
                   frontViewUrl:
                     'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
                   topViewUrl:
@@ -67,8 +67,8 @@ export const FlavorExamples = {
               variantImages: [
                 {
                   id: '323e4567-e89b-12d3-a456-426614174001',
-                  sideViewUrl:
-                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-side.jpg',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-sliced.jpg',
                   frontViewUrl:
                     'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/vanilla-round-front.jpg',
                   topViewUrl:
@@ -175,8 +175,8 @@ export const FlavorExamples = {
       variantImages: [
         {
           shapeId: '223e4567-e89b-12d3-a456-426614174000',
-          sideViewUrl:
-            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-side.jpg',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
           frontViewUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
           topViewUrl:
@@ -184,8 +184,8 @@ export const FlavorExamples = {
         },
         {
           shapeId: '323e4567-e89b-12d3-a456-426614174001',
-          sideViewUrl:
-            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-side.jpg',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-sliced.jpg',
           frontViewUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-front.jpg',
           topViewUrl:

@@ -49,8 +49,8 @@ export const DecorationExamples = {
               variantImages: [
                 {
                   id: '223e4567-e89b-12d3-a456-426614174000',
-                  sideViewUrl:
-                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-side.jpg',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-sliced.jpg',
                   frontViewUrl:
                     'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/red-roses-round-front.jpg',
                   topViewUrl:
@@ -74,8 +74,8 @@ export const DecorationExamples = {
               variantImages: [
                 {
                   id: '323e4567-e89b-12d3-a456-426614174001',
-                  sideViewUrl:
-                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-side.jpg',
+                  slicedViewUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-sliced.jpg',
                   frontViewUrl:
                     'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/white-pearls-round-front.jpg',
                   topViewUrl:
@@ -187,8 +187,8 @@ export const DecorationExamples = {
       variantImages: [
         {
           shapeId: '223e4567-e89b-12d3-a456-426614174000',
-          sideViewUrl:
-            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-side.jpg',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-sliced.jpg',
           frontViewUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-front.jpg',
           topViewUrl:
@@ -196,8 +196,8 @@ export const DecorationExamples = {
         },
         {
           shapeId: '323e4567-e89b-12d3-a456-426614174001',
-          sideViewUrl:
-            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-side.jpg',
+          slicedViewUrl:
+            'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-sliced.jpg',
           frontViewUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-front.jpg',
           topViewUrl:

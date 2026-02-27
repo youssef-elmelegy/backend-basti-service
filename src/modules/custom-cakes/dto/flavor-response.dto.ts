@@ -28,9 +28,9 @@ export class VariantImageDto {
   id: string;
 
   @ApiProperty({
-    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/side.jpg',
+    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/sliced.jpg',
   })
-  sideViewUrl: string;
+  slicedViewUrl: string;
 
   @ApiProperty({
     example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/front.jpg',

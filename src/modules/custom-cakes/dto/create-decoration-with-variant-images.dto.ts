@@ -19,11 +19,11 @@ export class DecorationShapeVariantImageDto {
   shapeId: string;
 
   @ApiProperty({
-    description: 'Side view image URL',
-    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/side.jpg',
+    description: 'Sliced view image URL',
+    example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/sliced.jpg',
   })
   @IsString()
-  sideViewUrl: string;
+  slicedViewUrl: string;
 
   @ApiProperty({
     description: 'Front view image URL',

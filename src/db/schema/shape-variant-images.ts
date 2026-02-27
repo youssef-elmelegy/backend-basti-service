@@ -15,7 +15,7 @@ export const shapeVariantImages = pgTable(
       .references(() => shapes.id, { onDelete: 'cascade' }),
     flavorId: uuid('flavor_id').references(() => flavors.id, { onDelete: 'cascade' }),
     decorationId: uuid('decoration_id').references(() => decorations.id, { onDelete: 'cascade' }),
-    sideViewUrl: text('side_view_url').notNull(),
+    slicedViewUrl: text('sliced_view_url').notNull(),
     frontViewUrl: text('front_view_url').notNull(),
     topViewUrl: text('top_view_url').notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
