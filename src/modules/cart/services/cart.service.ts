@@ -8,17 +8,19 @@ import {
 import { db } from '@/db';
 import {
   cartItems,
-  featuredCakes,
   tags,
   sweets,
   addons,
+  featuredCakes,
   predesignedCakes,
-  shapes,
+  regionItemPrices,
+  addonOptions,
+  designedCakeConfigs,
   flavors,
   decorations,
-  designedCakeConfigs,
+  shapes,
 } from '@/db/schema';
-import { eq, and, getTableColumns, or } from 'drizzle-orm';
+import { eq, and, inArray, getTableColumns } from 'drizzle-orm';
 import {
   CartResponseDto,
   CreateAddonItemDto,
@@ -26,39 +28,502 @@ import {
   CreateFeaturedCakeItemDto,
   CreatePredesignedCakeItemDto,
   CreateCustomCakeItemDto,
-  TypeQueryDto,
-  ToggleCartItemDto,
   UpdateQuantityDto,
-  CustomCakeConfig,
+  BulkDeleteDto,
+  DeleteOneDto,
+  ToggleStatusDto,
   CustomCakeConfigDto,
 } from '../dto';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse } from '@/utils';
+import { AddonService } from '@/modules/addon/services/addon.service';
+import { SweetService } from '@/modules/sweet/services/sweet.service';
+import { FeaturedCakeService } from '@/modules/featured-cake/services/featured-cake.service';
+import { PredesignedCakesService } from '@/modules/custom-cakes/services/predesigned-cakes.service';
+import { DecorationService } from '@/modules/custom-cakes/services/decoration.service';
+import { FlavorService } from '@/modules/custom-cakes/services/flavor.service';
+import { ShapeService } from '@/modules/custom-cakes/services/shape.service';
+import { RegionService } from '@/modules/region/services/region.service';
 
 @Injectable()
 export class CartService {
+  constructor(
+    private readonly addonService: AddonService,
+    private readonly sweetService: SweetService,
+    private readonly featuredCakeService: FeaturedCakeService,
+    private readonly predesignedCakesService: PredesignedCakesService,
+    private readonly regionService: RegionService,
+    private readonly decorationService: DecorationService,
+    private readonly flavorService: FlavorService,
+    private readonly shapeService: ShapeService,
+  ) {}
+
   private readonly logger = new Logger(CartService.name);
 
-  async addAddonToCart(
-    userId: string,
-    cartItem: CreateAddonItemDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const { addonId, isIncluded = true, quantity = 1 } = cartItem;
+  async getAll(userId: string, regionId: string): Promise<CartResponseDto> {
+    const bigCart = await db
+      .select()
+      .from(cartItems)
+      .where(and(eq(cartItems.userId, userId), eq(cartItems.type, 'big_cakes')));
 
+    const smallCart = await db
+      .select()
+      .from(cartItems)
+      .where(and(eq(cartItems.userId, userId), eq(cartItems.type, 'small_cakes')));
+
+    const othersCart = await db
+      .select()
+      .from(cartItems)
+      .where(and(eq(cartItems.userId, userId), eq(cartItems.type, 'others')));
+
+    const bigCartExpanded: CartResponseDto['bigCakes'] = {
+      customCakes: [],
+      predesignedCake: [],
+      featuredCakes: [],
+      addons: [],
+    };
+
+    const smallCartExpanded: CartResponseDto['smallCakes'] = {
+      customCakes: [],
+      predesignedCake: [],
+      featuredCakes: [],
+      addons: [],
+    };
+
+    const othersCartExpanded: CartResponseDto['others'] = {
+      sweets: [],
+      addons: [],
+    };
+
+    for (const item of bigCart) {
+      if (item.addonId) {
+        const addon = await this.getAddon(item.addonId, regionId);
+        const unitPrice =
+          Number(addon.price) + (addon.addonOption ? Number(addon.addonOption.value) : 0);
+        bigCartExpanded.addons.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: addon,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.featuredCakeId) {
+        const featuredCake = await this.getFeaturedCake(item.featuredCakeId, regionId);
+        const unitPrice = Number(featuredCake.price);
+        bigCartExpanded.featuredCakes.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: {
+            ...featuredCake,
+            updatedAt: featuredCake.updatedAt.toISOString(),
+            createdAt: featuredCake.createdAt.toISOString(),
+          },
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.predesignedCakeId) {
+        const predesignedCake = await this.getPredesignedCake(item.predesignedCakeId, regionId);
+        const unitPrice = predesignedCake.configs.reduce((total, config) => {
+          return (
+            total +
+            Number(config.flavor.price) +
+            Number(config.decoration.price) +
+            Number(config.shape.price)
+          );
+        }, 0);
+        bigCartExpanded.predesignedCake.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: predesignedCake,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.customCake) {
+        const customCakeData = await this.getCustomCakeComponents(item.customCake, regionId);
+        const unitPrice =
+          Number(customCakeData.decoration.price) +
+          Number(customCakeData.flavor.price) +
+          Number(customCakeData.shape.price) +
+          customCakeData.extraLayers.reduce(
+            (total, layer) => total + Number(layer.flavor.price),
+            0,
+          );
+        bigCartExpanded.customCakes.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: customCakeData,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      }
+    }
+
+    for (const item of smallCart) {
+      if (item.addonId) {
+        const addon = await this.getAddon(item.addonId, regionId);
+        const unitPrice =
+          Number(addon.price) + (addon.addonOption ? Number(addon.addonOption.value) : 0);
+        smallCartExpanded.addons.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: addon,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.featuredCakeId) {
+        const featuredCake = await this.getFeaturedCake(item.featuredCakeId, regionId);
+        const unitPrice = Number(featuredCake.price);
+        bigCartExpanded.featuredCakes.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: {
+            ...featuredCake,
+            updatedAt: featuredCake.updatedAt.toISOString(),
+            createdAt: featuredCake.createdAt.toISOString(),
+          },
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.predesignedCakeId) {
+        const predesignedCake = await this.getPredesignedCake(item.predesignedCakeId, regionId);
+        const unitPrice = predesignedCake.configs.reduce((total, config) => {
+          return (
+            total +
+            Number(config.flavor.price) +
+            Number(config.decoration.price) +
+            Number(config.shape.price)
+          );
+        }, 0);
+        smallCartExpanded.predesignedCake.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: predesignedCake,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.customCake) {
+        const customCakeData = await this.getCustomCakeComponents(item.customCake, regionId);
+        const unitPrice =
+          Number(customCakeData.decoration.price) +
+          Number(customCakeData.flavor.price) +
+          Number(customCakeData.shape.price) +
+          customCakeData.extraLayers.reduce(
+            (total, layer) => total + Number(layer.flavor.price),
+            0,
+          );
+        smallCartExpanded.customCakes.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: customCakeData,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      }
+    }
+
+    for (const item of othersCart) {
+      if (item.addonId) {
+        const addon = await this.getAddon(item.addonId, regionId);
+        const unitPrice =
+          Number(addon.price) + (addon.addonOption ? Number(addon.addonOption.value) : 0);
+        othersCartExpanded.addons.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: addon,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      } else if (item.sweetId) {
+        const sweet = await this.getSweet(item.sweetId, regionId);
+        const unitPrice = Number(sweet.price);
+        othersCartExpanded.sweets.push({
+          id: item.id,
+          quantity: item.quantity,
+          isIncluded: item.isIncluded,
+          type: item.type,
+          item: sweet,
+          unitPrice: unitPrice,
+          totalPrice: unitPrice * item.quantity,
+        });
+      }
+    }
+
+    return {
+      bigCakes: bigCartExpanded,
+      smallCakes: smallCartExpanded,
+      others: othersCartExpanded,
+    };
+  }
+
+  private async getAddon(addonId: string, regionId: string) {
     const [addon] = await db
       .select({
         ...getTableColumns(addons),
         tagName: tags.name,
+        price: regionItemPrices.price,
+        addonOption: getTableColumns(addonOptions),
       })
       .from(addons)
       .leftJoin(tags, eq(addons.tagId, tags.id))
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.addonId, addons.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .leftJoin(addonOptions, eq(addonOptions.addonId, addons.id))
       .where(eq(addons.id, addonId))
       .limit(1);
 
-    if (!addon) {
-      throw new NotFoundException(
-        errorResponse('Item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
+    return addon;
+  }
+
+  private async getSweet(sweetId: string, regionId: string) {
+    const [sweet] = await db
+      .select({
+        ...getTableColumns(sweets),
+        tagName: tags.name,
+        price: regionItemPrices.price,
+      })
+      .from(sweets)
+      .leftJoin(tags, eq(sweets.tagId, tags.id))
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.sweetId, sweets.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .where(eq(sweets.id, sweetId))
+      .limit(1);
+
+    return sweet;
+  }
+
+  private async getFeaturedCake(featuredCakeId: string, regionId: string) {
+    const [featuredCake] = await db
+      .select({
+        ...getTableColumns(featuredCakes),
+        tagName: tags.name,
+        price: regionItemPrices.price,
+      })
+      .from(featuredCakes)
+      .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
+      .leftJoin(
+        regionItemPrices,
+        and(
+          eq(regionItemPrices.featuredCakeId, featuredCakes.id),
+          eq(regionItemPrices.regionId, regionId),
+        ),
+      )
+      .where(eq(featuredCakes.id, featuredCakeId))
+      .limit(1);
+
+    return featuredCake;
+  }
+
+  private async getPredesignedCake(predesignedCakeId: string, regionId: string) {
+    const configs = await db
+      .select({
+        id: designedCakeConfigs.id,
+        flavorId: designedCakeConfigs.flavorId,
+        decorationId: designedCakeConfigs.decorationId,
+        shapeId: designedCakeConfigs.shapeId,
+        frostColorValue: designedCakeConfigs.frostColorValue,
+        createdAt: designedCakeConfigs.createdAt,
+        updatedAt: designedCakeConfigs.updatedAt,
+        flavor: {
+          id: flavors.id,
+          title: flavors.title,
+          description: flavors.description,
+          flavorUrl: flavors.flavorUrl,
+          price: regionItemPrices.price,
+          createdAt: flavors.createdAt,
+          updatedAt: flavors.updatedAt,
+        },
+        decoration: {
+          id: decorations.id,
+          title: decorations.title,
+          description: decorations.description,
+          decorationUrl: decorations.decorationUrl,
+          tagId: decorations.tagId,
+          price: regionItemPrices.price,
+          createdAt: decorations.createdAt,
+          updatedAt: decorations.updatedAt,
+        },
+        shape: {
+          id: shapes.id,
+          title: shapes.title,
+          description: shapes.description,
+          shapeUrl: shapes.shapeUrl,
+          price: regionItemPrices.price,
+          createdAt: shapes.createdAt,
+          updatedAt: shapes.updatedAt,
+        },
+      })
+      .from(designedCakeConfigs)
+      .innerJoin(flavors, eq(designedCakeConfigs.flavorId, flavors.id))
+      .innerJoin(decorations, eq(designedCakeConfigs.decorationId, decorations.id))
+      .innerJoin(shapes, eq(designedCakeConfigs.shapeId, shapes.id))
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .leftJoin(
+        regionItemPrices,
+        and(
+          eq(regionItemPrices.decorationId, decorations.id),
+          eq(regionItemPrices.regionId, regionId),
+        ),
+      )
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.shapeId, shapes.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
+
+    const [predesignedCake] = await db
+      .select({
+        ...getTableColumns(predesignedCakes),
+        tagName: tags.name,
+      })
+      .from(predesignedCakes)
+      .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
+      .where(eq(predesignedCakes.id, predesignedCakeId))
+      .limit(1);
+
+    const con = () =>
+      configs.map((config) => ({
+        id: config.id,
+        flavor: config.flavor,
+        decoration: config.decoration,
+        shape: config.shape,
+        frostColorValue: config.frostColorValue,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
+      }));
+
+    return {
+      ...predesignedCake,
+      configs: con(),
+    };
+  }
+
+  private async getCustomCakeComponents(customCake: CustomCakeConfigDto, regionId: string) {
+    const [decoration] = await db
+      .select({
+        ...getTableColumns(decorations),
+        price: regionItemPrices.price,
+        tagName: tags.name,
+      })
+      .from(decorations)
+      .leftJoin(tags, eq(decorations.tagId, tags.id))
+      .leftJoin(
+        regionItemPrices,
+        and(
+          eq(regionItemPrices.decorationId, decorations.id),
+          eq(regionItemPrices.regionId, regionId),
+        ),
+      )
+      .where(eq(decorations.id, customCake.decorationId))
+      .limit(1);
+
+    const [flavor] = await db
+      .select({
+        ...getTableColumns(flavors),
+        price: regionItemPrices.price,
+      })
+      .from(flavors)
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.decorationId, flavors.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .where(eq(flavors.id, customCake.decorationId))
+      .limit(1);
+
+    const [shape] = await db
+      .select({
+        ...getTableColumns(shapes),
+        price: regionItemPrices.price,
+      })
+      .from(shapes)
+      .leftJoin(
+        regionItemPrices,
+        and(eq(regionItemPrices.decorationId, shapes.id), eq(regionItemPrices.regionId, regionId)),
+      )
+      .where(eq(shapes.id, customCake.decorationId))
+      .limit(1);
+
+    type ExtraLayerExpandedType = {
+      layer: number;
+      flavor: {
+        price: string;
+        id: string;
+        title: string;
+        description: string;
+        flavorUrl: string;
+        createdAt: Date;
+        updatedAt: Date;
+      };
+    };
+
+    const extraLayersExpanded: ExtraLayerExpandedType[] = [];
+
+    if (customCake.extraLayers.length > 0) {
+      for (const layer of customCake.extraLayers) {
+        const [flavroLayers] = await db
+          .select({
+            ...getTableColumns(flavors),
+            price: regionItemPrices.price,
+          })
+          .from(flavors)
+          .leftJoin(
+            regionItemPrices,
+            and(
+              eq(regionItemPrices.decorationId, flavors.id),
+              eq(regionItemPrices.regionId, regionId),
+            ),
+          )
+          .where(eq(flavors.id, customCake.decorationId))
+          .limit(1);
+        extraLayersExpanded.push({
+          layer: layer.layer,
+          flavor: flavroLayers,
+        });
+      }
     }
+
+    return {
+      decoration,
+      flavor,
+      shape,
+      extraLayers: extraLayersExpanded,
+      message: customCake.message,
+      color: customCake.color,
+      imageToPrint: customCake.imageToPrint,
+      snapshotFront: customCake.snapshotFront,
+      snapshotSliced: customCake.snapshotSliced,
+      snapshotTop: customCake.snapshotTop,
+    };
+  }
+
+  async addAddon(userId: string, cartItem: CreateAddonItemDto): Promise<CartResponseDto> {
+    const { addonId, isIncluded = true, quantity = 1, regionId, type } = cartItem;
+
+    await this.addonService.findOne(addonId);
+    await this.regionService.findOne(regionId);
 
     const [existingItem] = await db
       .select()
@@ -68,26 +533,18 @@ export class CartService {
 
     if (existingItem) {
       try {
-        const [updatedItem] = await db
+        await db
           .update(cartItems)
           .set({ quantity: existingItem.quantity + quantity })
           .where(eq(cartItems.id, existingItem.id))
           .returning();
 
-        const cart = await this.getCartItemDetails(userId);
-
-        return successResponse(
-          {
-            ...cart,
-          },
-          `Item is already in the cart, the quantity was incremented from ${existingItem.quantity} to ${updatedItem.quantity} successfully`,
-          HttpStatus.OK,
-        );
+        return await this.getAll(userId, regionId);
       } catch {
         this.logger.error(`Error incrementing the quanity of the existing item`);
         throw new InternalServerErrorException(
           errorResponse(
-            'Failed to add item to the cart',
+            'Error incrementing the quanity of the existing item',
             HttpStatus.INTERNAL_SERVER_ERROR,
             'InternalServerError',
           ),
@@ -101,23 +558,15 @@ export class CartService {
         addonId: addonId,
         isIncluded: isIncluded,
         quantity: quantity,
-        type: 'others',
+        type: type,
       });
 
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Item added to the cart successfully',
-        HttpStatus.CREATED,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
       this.logger.error(`Error adding item to the cart`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to add item to the cart',
+          'Error adding item to the cart',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -125,27 +574,11 @@ export class CartService {
     }
   }
 
-  async addSweetToCart(
-    userId: string,
-    cartItem: CreateSweetItemDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const { sweetId, isIncluded = true, quantity = 1 } = cartItem;
+  async addSweet(userId: string, cartItem: CreateSweetItemDto): Promise<CartResponseDto> {
+    const { sweetId, isIncluded = true, quantity = 1, regionId } = cartItem;
 
-    const [sweet] = await db
-      .select({
-        ...getTableColumns(sweets),
-        tagName: tags.name,
-      })
-      .from(sweets)
-      .leftJoin(tags, eq(sweets.tagId, tags.id))
-      .where(eq(sweets.id, sweetId))
-      .limit(1);
-
-    if (!sweet) {
-      throw new NotFoundException(
-        errorResponse('Item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
+    await this.sweetService.findOne(sweetId);
+    await this.regionService.findOne(regionId);
 
     const [existingItem] = await db
       .select()
@@ -155,26 +588,18 @@ export class CartService {
 
     if (existingItem) {
       try {
-        const [updatedItem] = await db
+        await db
           .update(cartItems)
           .set({ quantity: existingItem.quantity + quantity })
           .where(eq(cartItems.id, existingItem.id))
           .returning();
 
-        const cart = await this.getCartItemDetails(userId);
-
-        return successResponse(
-          {
-            ...cart,
-          },
-          `Item is already in the cart, the quantity was incremented from ${existingItem.quantity} to ${updatedItem.quantity} successfully`,
-          HttpStatus.OK,
-        );
+        return await this.getAll(userId, regionId);
       } catch {
         this.logger.error(`Error incrementing the quanity of the existing item`);
         throw new InternalServerErrorException(
           errorResponse(
-            'Failed to add item to the cart',
+            'Error incrementing the quanity of the existing item',
             HttpStatus.INTERNAL_SERVER_ERROR,
             'InternalServerError',
           ),
@@ -191,20 +616,12 @@ export class CartService {
         type: 'others',
       });
 
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Item added to the cart successfully',
-        HttpStatus.CREATED,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
-      this.logger.error(`Error adding addon to the cart`);
+      this.logger.error(`Error adding item to the cart`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to add item to the cart',
+          'Error adding item to the cart',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -212,28 +629,14 @@ export class CartService {
     }
   }
 
-  async addFeaturedCakeToCart(
+  async addFeaturedCake(
     userId: string,
     cartItem: CreateFeaturedCakeItemDto,
-    { type }: TypeQueryDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const { featuredCakeId, isIncluded = true, quantity = 1 } = cartItem;
+  ): Promise<CartResponseDto> {
+    const { featuredCakeId, isIncluded = true, quantity = 1, regionId, type } = cartItem;
 
-    const [featuredCake] = await db
-      .select({
-        ...getTableColumns(featuredCakes),
-        tagName: tags.name,
-      })
-      .from(featuredCakes)
-      .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
-      .where(eq(featuredCakes.id, featuredCakeId))
-      .limit(1);
-
-    if (!featuredCake) {
-      throw new NotFoundException(
-        errorResponse('Item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
+    await this.featuredCakeService.findOne(featuredCakeId);
+    await this.regionService.findOne(regionId);
 
     const [existingItem] = await db
       .select()
@@ -243,26 +646,18 @@ export class CartService {
 
     if (existingItem) {
       try {
-        const [updatedItem] = await db
+        await db
           .update(cartItems)
           .set({ quantity: existingItem.quantity + quantity })
           .where(eq(cartItems.id, existingItem.id))
           .returning();
 
-        const cart = await this.getCartItemDetails(userId);
-
-        return successResponse(
-          {
-            ...cart,
-          },
-          `Item is already in the cart, the quantity was incremented from ${existingItem.quantity} to ${updatedItem.quantity} successfully`,
-          HttpStatus.OK,
-        );
+        return await this.getAll(userId, regionId);
       } catch {
         this.logger.error(`Error incrementing the quanity of the existing item`);
         throw new InternalServerErrorException(
           errorResponse(
-            'Failed to add item to the cart',
+            'Error incrementing the quanity of the existing item',
             HttpStatus.INTERNAL_SERVER_ERROR,
             'InternalServerError',
           ),
@@ -279,20 +674,12 @@ export class CartService {
         type: type,
       });
 
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Item added to the cart successfully',
-        HttpStatus.CREATED,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
-      this.logger.error(`Error adding addon to the cart`);
+      this.logger.error(`Error adding item to the cart`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to add item to the cart',
+          'Error adding item to the cart',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -300,28 +687,14 @@ export class CartService {
     }
   }
 
-  async addPredesignedCakeToCart(
+  async addPredesignedCake(
     userId: string,
     cartItem: CreatePredesignedCakeItemDto,
-    { type }: TypeQueryDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const { predesignedCakeId, isIncluded = true, quantity = 1 } = cartItem;
+  ): Promise<CartResponseDto> {
+    const { predesignedCakeId, isIncluded = true, quantity = 1, regionId, type } = cartItem;
 
-    const [predesignedCake] = await db
-      .select({
-        ...getTableColumns(predesignedCakes),
-        tagName: tags.name,
-      })
-      .from(predesignedCakes)
-      .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
-      .where(eq(predesignedCakes.id, predesignedCakeId))
-      .limit(1);
-
-    if (!predesignedCake) {
-      throw new NotFoundException(
-        errorResponse('Item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
+    await this.predesignedCakesService.findOne(predesignedCakeId);
+    await this.regionService.findOne(regionId);
 
     const [existingItem] = await db
       .select()
@@ -331,26 +704,18 @@ export class CartService {
 
     if (existingItem) {
       try {
-        const [updatedItem] = await db
+        await db
           .update(cartItems)
           .set({ quantity: existingItem.quantity + quantity })
           .where(eq(cartItems.id, existingItem.id))
           .returning();
 
-        const cart = await this.getCartItemDetails(userId);
-
-        return successResponse(
-          {
-            ...cart,
-          },
-          `Item is already in the cart, the quantity was incremented from ${existingItem.quantity} to ${updatedItem.quantity} successfully`,
-          HttpStatus.OK,
-        );
+        return await this.getAll(userId, regionId);
       } catch {
         this.logger.error(`Error incrementing the quanity of the existing item`);
         throw new InternalServerErrorException(
           errorResponse(
-            'Failed to add item to the cart',
+            'Error incrementing the quanity of the existing item',
             HttpStatus.INTERNAL_SERVER_ERROR,
             'InternalServerError',
           ),
@@ -367,20 +732,12 @@ export class CartService {
         type: type,
       });
 
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Item added to the cart successfully',
-        HttpStatus.CREATED,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
-      this.logger.error(`Error adding addon to the cart`);
+      this.logger.error(`Error adding item to the cart`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to add item to the cart',
+          'Error adding item to the cart',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -388,45 +745,60 @@ export class CartService {
     }
   }
 
-  async addCustomCakeToCart(
-    userId: string,
-    cartItem: CreateCustomCakeItemDto,
-    { type }: TypeQueryDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const { customCakeConfigs, isIncluded = true, quantity = 1 } = cartItem;
+  async addCustomCake(userId: string, cartItem: CreateCustomCakeItemDto) {
+    const {
+      decorationId,
+      flavorId,
+      shapeId,
+      color,
+      extraLayers,
+      message,
+      isIncluded = true,
+      quantity = 1,
+      regionId,
+      type,
+      imageToPrint,
+      snapshotFront,
+      snapshotSliced,
+      snapshotTop,
+    } = cartItem;
 
-    const configs = await this.getCustomCakeComponents(customCakeConfigs);
+    await this.regionService.findOne(regionId);
+    await this.decorationService.findOne(decorationId);
+    await this.flavorService.findOne(flavorId);
+    await this.shapeService.findOne(shapeId);
+    if (extraLayers.length > 0) {
+      for (const layer of extraLayers) {
+        await this.flavorService.findOne(layer.flavorId);
+      }
+    }
 
     try {
       await db.insert(cartItems).values({
         userId,
-        customCake: {
-          configs: configs.map((c) => ({
-            decorationId: c.decoration.id,
-            flavorId: c.flavor.id,
-            shapeId: c.shape.id,
-            frostColorValue: c.frostColorValue,
-          })),
-        },
         isIncluded: isIncluded,
         quantity: quantity,
         type: type,
+        customCake: {
+          decorationId,
+          flavorId,
+          shapeId,
+          color,
+          extraLayers,
+          message,
+          imageToPrint,
+          snapshotFront,
+          snapshotSliced,
+          snapshotTop,
+        },
       });
 
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Item added to the cart successfully',
-        HttpStatus.CREATED,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
-      this.logger.error(`Error adding addon to the cart`);
+      this.logger.error(`Error adding item to the cart`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to add item to the cart',
+          'Error adding item to the cart',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -434,54 +806,15 @@ export class CartService {
     }
   }
 
-  async getAllCartItems(userId: string): Promise<SuccessResponse<CartResponseDto>> {
-    try {
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Retrived all cart items successfully',
-        HttpStatus.OK,
-      );
-    } catch {
-      this.logger.error(`Error retriving cart items`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'Failed to retrive cart items',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  async deleteCartItem(itemId: string, userId: string): Promise<SuccessResponse<CartResponseDto>> {
-    const [selectedItem] = await db
-      .select()
-      .from(cartItems)
-      .where(and(eq(cartItems.id, itemId), eq(cartItems.userId, userId)))
-      .limit(1);
-
-    if (!selectedItem) {
-      throw new NotFoundException(
-        errorResponse('Cart item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
-
+  async deleteCartItem(
+    itemId: string,
+    userId: string,
+    { regionId }: DeleteOneDto,
+  ): Promise<CartResponseDto> {
+    await this.findOne(itemId, userId);
     try {
       await db.delete(cartItems).where(eq(cartItems.id, itemId));
-
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Cart item deleted successfully',
-        HttpStatus.OK,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
       this.logger.error(`Cart item deletion error for ${itemId}`);
       throw new InternalServerErrorException(
@@ -494,35 +827,48 @@ export class CartService {
     }
   }
 
+  async bulkDelete(userId: string, { ids, regionId }: BulkDeleteDto): Promise<CartResponseDto> {
+    try {
+      const deletedItems = await db
+        .delete(cartItems)
+        .where(inArray(cartItems.id, ids))
+        .returning({ deletedId: cartItems.id });
+
+      // if (deletedItems.length !== ids.length) {
+      //   const deletedIds = deletedItems.map((item) => item.deletedId);
+      //   const missingIds = ids.filter((id) => !deletedIds.includes(id));
+      //   this.logger.warn(`Bulk delete partial success. Missing IDs: ${missingIds.join(', ')}`);
+      //   throw new BadRequestException(
+      //     errorResponse(
+      //       'Failed to delete cart items',
+      //       HttpStatus.INTERNAL_SERVER_ERROR,
+      //       'InternalServerError',
+      //     ),
+      //   );
+      // }
+      this.logger.log(`Successfully bulk deleted ${deletedItems.length} add-ons`);
+      return await this.getAll(userId, regionId);
+    } catch {
+      this.logger.error(`Cart item deletion error`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to delete cart items',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
   async toggleCartItem(
     itemId: string,
     userId: string,
-    { isIncluded }: ToggleCartItemDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const [selectedItem] = await db
-      .select()
-      .from(cartItems)
-      .where(and(eq(cartItems.id, itemId), eq(cartItems.userId, userId)))
-      .limit(1);
-
-    if (!selectedItem) {
-      throw new NotFoundException(
-        errorResponse('Cart item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
-
+    { isIncluded, regionId }: ToggleStatusDto,
+  ): Promise<CartResponseDto> {
+    await this.findOne(itemId, userId);
     try {
       await db.update(cartItems).set({ isIncluded: isIncluded }).where(eq(cartItems.id, itemId));
-
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Cart item status toggled successfully',
-        HttpStatus.OK,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
       this.logger.error(`Error toggling cart item status for ${itemId}`);
       throw new InternalServerErrorException(
@@ -538,32 +884,12 @@ export class CartService {
   async updateQuantity(
     itemId: string,
     userId: string,
-    { quantity: newQuantity }: UpdateQuantityDto,
-  ): Promise<SuccessResponse<CartResponseDto>> {
-    const [selectedItem] = await db
-      .select()
-      .from(cartItems)
-      .where(and(eq(cartItems.id, itemId), eq(cartItems.userId, userId)))
-      .limit(1);
-
-    if (!selectedItem) {
-      throw new NotFoundException(
-        errorResponse('Cart item not found', HttpStatus.NOT_FOUND, 'NotFound'),
-      );
-    }
-
+    { quantity: newQuantity, regionId }: UpdateQuantityDto,
+  ): Promise<CartResponseDto> {
+    await this.findOne(itemId, userId);
     try {
       await db.update(cartItems).set({ quantity: newQuantity }).where(eq(cartItems.id, itemId));
-
-      const cart = await this.getCartItemDetails(userId);
-
-      return successResponse(
-        {
-          ...cart,
-        },
-        'Cart item quantity updated successfully',
-        HttpStatus.OK,
-      );
+      return await this.getAll(userId, regionId);
     } catch {
       this.logger.error(`Error updating cart item quantity for ${itemId}`);
       throw new InternalServerErrorException(
@@ -576,265 +902,19 @@ export class CartService {
     }
   }
 
-  private async getCustomCakeComponents(configs: CustomCakeConfigDto[]) {
-    const cakeComponents: CustomCakeConfig[] = [];
-
-    // STUBID - FIX ME
-    for (const config of configs) {
-      const { decorationId, flavorId, shapeId, frostColorValue } = config;
-
-      const [decoration] = await db
-        .select({
-          ...getTableColumns(decorations),
-          tagName: tags.name,
-        })
-        .from(decorations)
-        .leftJoin(tags, eq(decorations.tagId, tags.id))
-        .where(eq(decorations.id, decorationId))
-        .limit(1);
-
-      if (!decoration) {
-        throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFound'),
-        );
-      }
-
-      const [flavor] = await db.select().from(flavors).where(eq(flavors.id, flavorId)).limit(1);
-
-      if (!flavor) {
-        throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFound'),
-        );
-      }
-
-      const [shape] = await db.select().from(shapes).where(eq(shapes.id, shapeId)).limit(1);
-
-      if (!shape) {
-        throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFound'),
-        );
-      }
-
-      cakeComponents.push({
-        decoration,
-        flavor,
-        shape,
-        frostColorValue,
-      });
-    }
-
-    return cakeComponents;
-  }
-
-  private async getPredesignedCakesComponents(predesignedCakeId: string) {
-    const configs = await db
-      .select({
-        id: designedCakeConfigs.id,
-        flavorId: designedCakeConfigs.flavorId,
-        decorationId: designedCakeConfigs.decorationId,
-        shapeId: designedCakeConfigs.shapeId,
-        frostColorValue: designedCakeConfigs.frostColorValue,
-        createdAt: designedCakeConfigs.createdAt,
-        updatedAt: designedCakeConfigs.updatedAt,
-        flavor: {
-          id: flavors.id,
-          title: flavors.title,
-          description: flavors.description,
-          flavorUrl: flavors.flavorUrl,
-          createdAt: flavors.createdAt,
-          updatedAt: flavors.updatedAt,
-        },
-        decoration: {
-          id: decorations.id,
-          title: decorations.title,
-          description: decorations.description,
-          decorationUrl: decorations.decorationUrl,
-          tagId: decorations.tagId,
-          tagName: tags.name,
-          createdAt: decorations.createdAt,
-          updatedAt: decorations.updatedAt,
-        },
-        shape: {
-          id: shapes.id,
-          title: shapes.title,
-          description: shapes.description,
-          shapeUrl: shapes.shapeUrl,
-          createdAt: shapes.createdAt,
-          updatedAt: shapes.updatedAt,
-        },
-      })
-      .from(designedCakeConfigs)
-      .innerJoin(flavors, eq(designedCakeConfigs.flavorId, flavors.id))
-      .innerJoin(decorations, eq(designedCakeConfigs.decorationId, decorations.id))
-      .innerJoin(shapes, eq(designedCakeConfigs.shapeId, shapes.id))
-      .leftJoin(tags, eq(decorations.tagId, tags.id))
-      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
-
-    return configs.map((config) => ({
-      id: config.id,
-      flavor: config.flavor,
-      decoration: config.decoration,
-      shape: config.shape,
-      frostColorValue: config.frostColorValue,
-      createdAt: config.createdAt,
-      updatedAt: config.updatedAt,
-    }));
-  }
-
-  private async getCartItemDetails(userId: string) {
-    const cart = await db
-      .select({
-        ...getTableColumns(cartItems),
-        sweet: {
-          ...getTableColumns(sweets),
-          tagName: tags.name,
-        },
-        addon: {
-          ...getTableColumns(addons),
-          tagName: tags.name,
-        },
-        featuredCake: {
-          ...getTableColumns(featuredCakes),
-          tagName: tags.name,
-        },
-        predesignedCake: {
-          ...getTableColumns(predesignedCakes),
-          tagName: tags.name,
-        },
-      })
+  private async findOne(itemId: string, userId: string) {
+    const [cartItem] = await db
+      .select()
       .from(cartItems)
-      .leftJoin(sweets, eq(cartItems.sweetId, sweets.id))
-      .leftJoin(addons, eq(cartItems.addonId, addons.id))
-      .leftJoin(featuredCakes, eq(cartItems.featuredCakeId, featuredCakes.id))
-      .leftJoin(predesignedCakes, eq(cartItems.predesignedCakeId, predesignedCakes.id))
-      .leftJoin(
-        tags,
-        or(
-          eq(sweets.tagId, tags.id),
-          eq(addons.tagId, tags.id),
-          eq(featuredCakes.tagId, tags.id),
-          eq(predesignedCakes.tagId, tags.id),
-        ),
-      )
-      .where(eq(cartItems.userId, userId));
+      .where(and(eq(cartItems.id, itemId), eq(cartItems.userId, userId)))
+      .limit(1);
 
-    const bigCakes: CartResponseDto['bigCakes'] = {
-      customCakes: [],
-      predesignedCake: [],
-      featuredCakes: [],
-    };
-    const smallCakes: CartResponseDto['smallCakes'] = {
-      customCakes: [],
-      predesignedCake: [],
-      featuredCakes: [],
-    };
-    const others: CartResponseDto['others'] = {
-      sweets: [],
-      addons: [],
-    };
-
-    for (const item of cart) {
-      if (item.addonId && item.addon) {
-        others.addons.push({
-          id: item.id,
-          quantity: item.quantity,
-          isIncluded: item.isIncluded,
-          type: item.type,
-          item: item.addon,
-        });
-      } else if (item.sweetId && item.sweet) {
-        others.sweets.push({
-          id: item.id,
-          quantity: item.quantity,
-          isIncluded: item.isIncluded,
-          type: item.type,
-          item: item.sweet,
-        });
-      } else if (item.featuredCakeId && item.featuredCake) {
-        if (item.type === 'big_cakes') {
-          bigCakes.featuredCakes.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.featuredCake,
-              updatedAt: item.featuredCake.updatedAt.toISOString(),
-              createdAt: item.featuredCake.createdAt.toISOString(),
-            },
-          });
-        } else {
-          smallCakes.featuredCakes.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.featuredCake,
-              updatedAt: item.featuredCake.updatedAt.toISOString(),
-              createdAt: item.featuredCake.createdAt.toISOString(),
-            },
-          });
-        }
-      } else if (item.predesignedCakeId && item.predesignedCake) {
-        const predesignedCakeData = await this.getPredesignedCakesComponents(
-          item.predesignedCakeId,
-        );
-        if (item.type === 'big_cakes') {
-          bigCakes.predesignedCake.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.predesignedCake,
-              configs: predesignedCakeData,
-            },
-          });
-        } else {
-          smallCakes.predesignedCake.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.predesignedCake,
-              configs: predesignedCakeData,
-            },
-          });
-        }
-      } else if (item.customCake) {
-        const customCakeData = await this.getCustomCakeComponents(item.customCake.configs);
-        if (item.type === 'big_cakes') {
-          bigCakes.customCakes.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.customCake,
-              configs: customCakeData,
-            },
-          });
-        } else {
-          smallCakes.customCakes.push({
-            id: item.id,
-            quantity: item.quantity,
-            isIncluded: item.isIncluded,
-            type: item.type,
-            item: {
-              ...item.customCake,
-              configs: customCakeData,
-            },
-          });
-        }
-      }
+    if (!cartItem) {
+      throw new NotFoundException(
+        errorResponse('Cart item not found', HttpStatus.NOT_FOUND, 'NotFound'),
+      );
     }
 
-    return {
-      bigCakes,
-      smallCakes,
-      others,
-    };
+    return cartItem;
   }
 }

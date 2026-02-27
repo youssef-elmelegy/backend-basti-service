@@ -20,12 +20,22 @@ export const cartItems = pgTable(
       onDelete: 'cascade',
     }),
     customCake: jsonb('custom_cake').$type<{
-      configs: {
-        shapeId: string;
+      shapeId: string;
+      flavorId: string;
+      decorationId: string;
+      color: {
+        name: string;
+        hex: string;
+      };
+      extraLayers?: {
+        layer: number;
         flavorId: string;
-        decorationId: string;
-        frostColorValue: string;
       }[];
+      message?: string;
+      imageToPrint?: string;
+      snapshotFront?: string;
+      snapshotTop?: string;
+      snapshotSliced?: string;
     }>(),
     type: CartTypeEnum('type').default('big_cakes').notNull(),
     isIncluded: boolean('is_included').default(true).notNull(),

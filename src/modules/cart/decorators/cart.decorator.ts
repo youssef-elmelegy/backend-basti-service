@@ -1,16 +1,19 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody, ApiParam, ApiQuery } from '@nestjs/swagger';
 import {
-  CartResponseDto,
   CreateAddonItemDto,
   CreateSweetItemDto,
   CreateFeaturedCakeItemDto,
   CreatePredesignedCakeItemDto,
   CreateCustomCakeItemDto,
-  ToggleCartItemDto,
   UpdateQuantityDto,
+  ToggleStatusDto,
+  DeleteOneDto,
+  BulkDeleteDto,
+  SuccessCartResponseDto,
 } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
+import { CartExamples } from '@/constants/examples';
 
 export function GetAllCartItemsDecorator() {
   return applyDecorators(
@@ -18,10 +21,23 @@ export function GetAllCartItemsDecorator() {
       summary: 'Get all cart items',
       description: 'Retrieve all cart items for the authenticated user, grouped by category',
     }),
+    ApiQuery({
+      name: 'regionId',
+      type: 'string',
+      required: true,
+      description: 'The UUID of the region to get prices for',
+      example: '550e8400-e29b-41d4-a716-446655440000',
+    }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Cart items retrieved successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.getAllCartItems.response.success,
+    }),
+    ApiResponse({
+      status: HttpStatus.BAD_REQUEST,
+      description: 'Invalid regionId (validation failed)',
+      type: ErrorResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.UNAUTHORIZED,
@@ -49,7 +65,8 @@ export function AddAddonToCartDecorator() {
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Addon added to cart successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.addAddon.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -87,7 +104,8 @@ export function AddSweetToCartDecorator() {
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Sweet added to cart successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.addSweet.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -122,16 +140,11 @@ export function AddFeaturedCakeToCartDecorator() {
       type: CreateFeaturedCakeItemDto,
       description: 'Required: featuredCakeId. Optional: quantity, isIncluded',
     }),
-    ApiQuery({
-      name: 'type',
-      required: true,
-      enum: ['big_cakes', 'small_cakes', 'others'],
-      description: 'The category type for the cake',
-    }),
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Featured cake added to cart successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.addFeaturedCake.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -166,16 +179,11 @@ export function AddPredesignedCakeToCartDecorator() {
       type: CreatePredesignedCakeItemDto,
       description: 'Required: predesignedCakeId. Optional: quantity, isIncluded',
     }),
-    ApiQuery({
-      name: 'type',
-      required: true,
-      enum: ['big_cakes', 'small_cakes', 'others'],
-      description: 'The category type for the cake',
-    }),
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Predesigned cake added to cart successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.addPredesignedCake.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -211,16 +219,11 @@ export function AddCustomCakeToCartDecorator() {
       type: CreateCustomCakeItemDto,
       description: 'Required: customCakeConfigs. Optional: quantity, isIncluded',
     }),
-    ApiQuery({
-      name: 'type',
-      required: true,
-      enum: ['big_cakes', 'small_cakes', 'others'],
-      description: 'The category type for the cake',
-    }),
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Custom cake added to cart successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.addCustomCake.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -257,10 +260,20 @@ export function DeleteCartItemDecorator() {
       description: 'The UUID of the cart item to delete',
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
+    ApiBody({
+      type: DeleteOneDto,
+      description: 'Required: regionId (to return updated cart with correct prices)',
+    }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Cart item deleted successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.deleteCartItem.response.success,
+    }),
+    ApiResponse({
+      status: HttpStatus.BAD_REQUEST,
+      description: 'Invalid input data (validation failed)',
+      type: ErrorResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,
@@ -280,6 +293,45 @@ export function DeleteCartItemDecorator() {
   );
 }
 
+export function BulkDeleteCartItemsDecorator() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Bulk delete cart items',
+      description: "Remove multiple items from the authenticated user's cart by their IDs",
+    }),
+    ApiBody({
+      type: BulkDeleteDto,
+      description: 'Required: ids (array of cart item UUIDs), regionId',
+    }),
+    ApiResponse({
+      status: HttpStatus.OK,
+      description: 'Cart items deleted successfully',
+      type: SuccessCartResponseDto,
+      example: CartExamples.bulkDeleteCartItems.response.success,
+    }),
+    ApiResponse({
+      status: HttpStatus.BAD_REQUEST,
+      description: 'Invalid input data (validation failed)',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
+      status: HttpStatus.NOT_FOUND,
+      description: 'One or more cart items not found',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
+      status: HttpStatus.UNAUTHORIZED,
+      description: 'Unauthorized - missing or invalid token',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      description: 'Failed to delete cart items',
+      type: ErrorResponseDto,
+    }),
+  );
+}
+
 export function ToggleCartItemDecorator() {
   return applyDecorators(
     ApiOperation({
@@ -293,13 +345,14 @@ export function ToggleCartItemDecorator() {
       example: '550e8400-e29b-41d4-a716-446655440000',
     }),
     ApiBody({
-      type: ToggleCartItemDto,
-      description: 'Required: isIncluded (boolean)',
+      type: ToggleStatusDto,
+      description: 'Required: isIncluded (boolean), regionId',
     }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Cart item toggled successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.toggleCartItem.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
@@ -338,12 +391,13 @@ export function UpdateCartItemQuantityDecorator() {
     }),
     ApiBody({
       type: UpdateQuantityDto,
-      description: 'Required: quantity (number)',
+      description: 'Required: quantity (number), regionId',
     }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Cart item quantity updated successfully',
-      type: CartResponseDto,
+      type: SuccessCartResponseDto,
+      example: CartExamples.updateQuantity.response.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,

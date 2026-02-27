@@ -9,10 +9,48 @@ import {
   IsUUID,
   IsIn,
   IsString,
+  IsUrl,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
 const allowedTypes = ['big_cakes', 'small_cakes', 'others'] as const;
 export type ItemType = (typeof allowedTypes)[number];
+
+export class ColorConfigDto {
+  @ApiProperty({
+    name: 'name',
+    description: 'Name of the color',
+    example: 'Red',
+  })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    name: 'hex',
+    description: 'Hex code of the color',
+    example: '#FF0000',
+  })
+  @IsString()
+  hex: string;
+}
+
+export class ExtraLayerConfigDto {
+  @ApiProperty({
+    name: 'layer',
+    description: 'Layer number for the extra layer',
+    example: 1,
+  })
+  @IsNumber()
+  @Min(1, { message: 'Layer number must be at least 1' })
+  layer: number;
+
+  @ApiProperty({
+    name: 'flavorId',
+    description: 'Flavor ID for the extra layer',
+  })
+  @IsUUID()
+  flavorId: string;
+}
 
 export class CustomCakeConfigDto {
   @ApiProperty({
@@ -37,11 +75,55 @@ export class CustomCakeConfigDto {
   decorationId: string;
 
   @ApiProperty({
-    name: 'frostColorValue',
-    description: 'Frost color value for the custom cake (e.g., hex code)',
+    name: 'message',
+    description: 'Custom message to be written on the cake',
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  frostColorValue: string;
+  message?: string;
+
+  @ApiProperty({
+    name: 'color',
+    description: 'Color configuration for the custom cake',
+    type: () => ColorConfigDto,
+  })
+  @ValidateNested()
+  @Type(() => ColorConfigDto)
+  color: ColorConfigDto;
+
+  @ApiProperty({
+    name: 'extraLayers',
+    description: 'Extra layers configuration for the custom cake',
+    type: () => ExtraLayerConfigDto,
+    isArray: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ExtraLayerConfigDto)
+  extraLayers?: ExtraLayerConfigDto[];
+
+  @ApiProperty({ description: 'Cloudinary URL for the printed image', required: false })
+  @IsOptional()
+  @IsUrl()
+  imageToPrint?: string;
+
+  @ApiProperty({ description: 'Cloudinary URL for the front snapshot', required: false })
+  @IsOptional()
+  @IsUrl()
+  snapshotFront?: string;
+
+  @ApiProperty({ description: 'Cloudinary URL for the top snapshot', required: false })
+  @IsOptional()
+  @IsUrl()
+  snapshotTop?: string;
+
+  @ApiProperty({ description: 'Cloudinary URL for the sliced snapshot', required: false })
+  @IsOptional()
+  @IsUrl()
+  snapshotSliced?: string;
 }
 
 export class CreateFeaturedCakeItemDto {
@@ -53,6 +135,13 @@ export class CreateFeaturedCakeItemDto {
   featuredCakeId: string;
 
   @ApiProperty({
+    name: 'regionId',
+    description: 'region ID',
+  })
+  @IsUUID()
+  regionId: string;
+
+  @ApiProperty({
     name: 'quantity',
     description: 'Quantity of the item to add',
     required: false,
@@ -70,6 +159,15 @@ export class CreateFeaturedCakeItemDto {
   @IsOptional()
   @IsBoolean()
   isIncluded?: boolean;
+
+  @ApiProperty({
+    name: 'type',
+    description: 'Type of item to add',
+    example: 'big_cakes',
+    enum: allowedTypes,
+  })
+  @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
+  type: ItemType;
 }
 
 export class CreateAddonItemDto {
@@ -81,6 +179,13 @@ export class CreateAddonItemDto {
   addonId: string;
 
   @ApiProperty({
+    name: 'regionId',
+    description: 'region ID',
+  })
+  @IsUUID()
+  regionId: string;
+
+  @ApiProperty({
     name: 'quantity',
     description: 'Quantity of the item to add',
     required: false,
@@ -98,6 +203,15 @@ export class CreateAddonItemDto {
   @IsOptional()
   @IsBoolean()
   isIncluded?: boolean;
+
+  @ApiProperty({
+    name: 'type',
+    description: 'Type of item to add',
+    example: 'big_cakes',
+    enum: allowedTypes,
+  })
+  @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
+  type: ItemType;
 }
 
 export class CreateSweetItemDto {
@@ -107,6 +221,13 @@ export class CreateSweetItemDto {
   })
   @IsUUID()
   sweetId: string;
+
+  @ApiProperty({
+    name: 'regionId',
+    description: 'region ID',
+  })
+  @IsUUID()
+  regionId: string;
 
   @ApiProperty({
     name: 'quantity',
@@ -137,36 +258,11 @@ export class CreatePredesignedCakeItemDto {
   predesignedCakeId: string;
 
   @ApiProperty({
-    name: 'quantity',
-    description: 'Quantity of the item to add',
-    required: false,
+    name: 'regionId',
+    description: 'region ID',
   })
-  @IsNumber()
-  @Min(1, { message: 'Quantity must be at least 1' })
-  @IsOptional()
-  quantity?: number;
-
-  @ApiProperty({
-    description: 'Whether the item is included in the cart or just saved for later',
-    example: true,
-    required: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isIncluded?: boolean;
-}
-
-export class CreateCustomCakeItemDto {
-  @ApiProperty({
-    name: 'customCakeConfigs',
-    description: 'Custom cake to add',
-    type: () => CustomCakeConfigDto,
-    isArray: true,
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CustomCakeConfigDto)
-  customCakeConfigs: CustomCakeConfigDto[];
+  @IsUUID()
+  regionId: string;
 
   @ApiProperty({
     name: 'quantity',
@@ -186,13 +282,48 @@ export class CreateCustomCakeItemDto {
   @IsOptional()
   @IsBoolean()
   isIncluded?: boolean;
-}
 
-export class TypeQueryDto {
   @ApiProperty({
     name: 'type',
     description: 'Type of item to add',
-    example: 'bigCakes',
+    example: 'big_cakes',
+    enum: allowedTypes,
+  })
+  @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
+  type: ItemType;
+}
+
+export class CreateCustomCakeItemDto extends CustomCakeConfigDto {
+  @ApiProperty({
+    name: 'regionId',
+    description: 'region ID',
+  })
+  @IsUUID()
+  regionId: string;
+
+  @ApiProperty({
+    name: 'quantity',
+    description: 'Quantity of the item to add',
+    required: false,
+  })
+  @IsNumber()
+  @Min(1, { message: 'Quantity must be at least 1' })
+  @IsOptional()
+  quantity?: number;
+
+  @ApiProperty({
+    description: 'Whether the item is included in the cart or just saved for later',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isIncluded?: boolean;
+
+  @ApiProperty({
+    name: 'type',
+    description: 'Type of item to add',
+    example: 'big_cakes',
     enum: allowedTypes,
   })
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
