@@ -11,5 +11,6 @@ import { RegionModule } from '@/modules/region/region.module';
   controllers: [CartController],
   providers: [CartService],
   imports: [AddonModule, SweetModule, FeaturedCakeModule, CustomCakesModule, RegionModule],
+  exports: [CartService],
 })
 export class CartModule {}

@@ -273,7 +273,7 @@ export class CartService {
     };
   }
 
-  private async getAddon(addonId: string, regionId: string) {
+  async getAddon(addonId: string, regionId: string) {
     const [addon] = await db
       .select({
         ...getTableColumns(addons),
@@ -294,7 +294,7 @@ export class CartService {
     return addon;
   }
 
-  private async getSweet(sweetId: string, regionId: string) {
+  async getSweet(sweetId: string, regionId: string) {
     const [sweet] = await db
       .select({
         ...getTableColumns(sweets),
@@ -313,7 +313,7 @@ export class CartService {
     return sweet;
   }
 
-  private async getFeaturedCake(featuredCakeId: string, regionId: string) {
+  async getFeaturedCake(featuredCakeId: string, regionId: string) {
     const [featuredCake] = await db
       .select({
         ...getTableColumns(featuredCakes),
@@ -335,7 +335,7 @@ export class CartService {
     return featuredCake;
   }
 
-  private async getPredesignedCake(predesignedCakeId: string, regionId: string) {
+  async getPredesignedCake(predesignedCakeId: string, regionId: string) {
     const flavorPrices = alias(regionItemPrices, 'flavorPrices');
     const decorationPrices = alias(regionItemPrices, 'decorationPrices');
     const shapePrices = alias(regionItemPrices, 'shapePrices');
@@ -423,7 +423,7 @@ export class CartService {
     };
   }
 
-  private async getCustomCakeComponents(customCake: CustomCakeConfigDto, regionId: string) {
+  async getCustomCakeComponents(customCake: CustomCakeConfigDto, regionId: string) {
     const [decoration] = await db
       .select({
         ...getTableColumns(decorations),
@@ -833,18 +833,6 @@ export class CartService {
         .where(inArray(cartItems.id, ids))
         .returning({ deletedId: cartItems.id });
 
-      // if (deletedItems.length !== ids.length) {
-      //   const deletedIds = deletedItems.map((item) => item.deletedId);
-      //   const missingIds = ids.filter((id) => !deletedIds.includes(id));
-      //   this.logger.warn(`Bulk delete partial success. Missing IDs: ${missingIds.join(', ')}`);
-      //   throw new BadRequestException(
-      //     errorResponse(
-      //       'Failed to delete cart items',
-      //       HttpStatus.INTERNAL_SERVER_ERROR,
-      //       'InternalServerError',
-      //     ),
-      //   );
-      // }
       this.logger.log(`Successfully bulk deleted ${deletedItems.length} add-ons`);
       return await this.getAll(userId, regionId);
     } catch {

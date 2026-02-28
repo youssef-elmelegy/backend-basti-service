@@ -14,3 +14,5 @@ export * from './decoration.examples';
 export * from './predesigned-cakes.examples';
 export * from './cart-examples';
 export * from './location-examples';
+export * from './config-examples';
+export * from './payment-method-examples';

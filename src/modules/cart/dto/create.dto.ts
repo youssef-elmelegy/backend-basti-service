@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-const allowedTypes = ['big_cakes', 'small_cakes', 'others'] as const;
+export const allowedTypes = ['big_cakes', 'small_cakes', 'others'] as const;
 export type ItemType = (typeof allowedTypes)[number];
 
 export class ColorConfigDto {
