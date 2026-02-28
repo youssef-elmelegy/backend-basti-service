@@ -1,4 +1,4 @@
-import { CurrentUser } from '@/common';
+import { CurrentUser, Public } from '@/common';
 import {
   Controller,
   Get,
@@ -34,13 +34,13 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
   private readonly logger = new Logger(OrderController.name);
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Post('place')
   @PlaceOrderDecorator()
-  async placeOrder(@CurrentUser('sub') userId: string, @Body() orderData: CreateOrderDto) {
-    this.logger.debug(`processing order for user: ${userId}`);
-    const result = await this.orderService.create(userId, orderData);
-    this.logger.debug(`order placed for user: ${userId} with order id: ${result.id}`);
+  async placeOrder(@Body() orderData: CreateOrderDto) {
+    this.logger.debug(`processing order`);
+    const result = await this.orderService.create(orderData);
+    this.logger.debug(`order placed with order id: ${result.id}`);
     return successResponse(result, 'Order placed successfully');
   }
 

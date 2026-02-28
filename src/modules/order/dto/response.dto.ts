@@ -1,76 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, OmitType } from '@nestjs/swagger';
 import { orderStatusEnum, paymentMethodTypeEnum, CartTypeEnum } from '@/db/schema';
 import { FeaturedCakeDataDto } from '@/modules/featured-cake/dto/featured-cake-response.dto';
 import { SweetDataDto } from '@/modules/sweet/dto/sweet-response.dto';
 import { AddonDataDto } from '@/modules/addon/dto/addon-response.dto';
 import { PredesignedCakeDataDto } from '@/modules/custom-cakes/dto/predesigned-cake-response.dto';
 import { CustomCakeConfig } from '@/modules/cart/dto';
-
-export class ChangeOrderStatusResponseDto {
-  @ApiProperty({
-    description: 'The unique identifier of the order',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  id: string;
-
-  @ApiProperty({
-    enum: orderStatusEnum.enumValues,
-    description: 'The new status of the order.',
-  })
-  status: (typeof orderStatusEnum.enumValues)[number];
-}
-
-export class OrderItemSelectedOptions {
-  optionId: string;
-  type: string;
-  label: string;
-  value: string;
-}
-
-export class OrderItemResponseDto<T> {
-  id: string;
-  orderId: string;
-  quantity: number;
-  size: string;
-  flavor: string;
-  price: number;
-  selectedOptions: OrderItemSelectedOptions[];
-  data: T;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export class OrderResponseDto {
-  id: string;
-  userId: string;
-  bakeryId?: string;
-  locationId: string;
-
-  addons: OrderItemResponseDto<AddonDataDto>[];
-  sweets: OrderItemResponseDto<SweetDataDto>[];
-  featuredCakes: OrderItemResponseDto<FeaturedCakeDataDto>[];
-  predesignedCakes: OrderItemResponseDto<PredesignedCakeDataDto>[];
-  customCakes: OrderItemResponseDto<CustomCakeConfig>[];
-
-  totalPrice: number;
-  discountAmount: number;
-  finalPrice: number;
-
-  paymentMethodId: string;
-  paymentMethodType: (typeof paymentMethodTypeEnum.enumValues)[number];
-
-  orderStatus: (typeof orderStatusEnum.enumValues)[number];
-  deliveryNote?: string;
-  keepAnonymous: boolean;
-  cartType: (typeof CartTypeEnum.enumValues)[number];
-
-  cardMessage?: string;
-  cardQrCodeUrl?: string;
-  willDeliverAt?: Date;
-  deliveredAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export class CreateOrderItemResponseDto {
   id: string;
@@ -111,13 +45,251 @@ export class CreateOrderItemResponseDto {
   updatedAt: Date;
 }
 
+export class UserDataDto {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+}
+
+export class LocationDataDto {
+  label: string;
+  latitude: number;
+  longitude: number;
+  buildingNo: string;
+  street: string;
+  description: string;
+}
+
+export class PaymentDataDto {
+  type: string;
+  cardHolderName: string;
+  cardLastFourDigits: string;
+  cardExpiryMonth: number;
+  cardExpiryYear: number;
+}
+
 export class CreateOrderResponseDto {
+  @ApiProperty({
+    description: 'Unique identifier of the order',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   id: string;
-  discountAmount: number;
+
+  @ApiProperty({
+    description: 'User ID who placed the order',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  userId: string;
+
+  @ApiProperty({
+    description: 'User data snapshot at the time of order',
+    type: UserDataDto,
+    required: false,
+  })
+  userData?: UserDataDto;
+
+  @ApiProperty({
+    description: 'Assigned bakery ID',
+    example: '550e8400-e29b-41d4-a716-446655440002',
+    required: false,
+  })
+  bakeryId?: string;
+
+  @ApiProperty({
+    description: 'Reference to the user saved location',
+    example: '550e8400-e29b-41d4-a716-446655440003',
+    required: false,
+  })
+  locationId?: string;
+
+  @ApiProperty({
+    description: 'Location data snapshot at the time of order',
+    type: LocationDataDto,
+    required: false,
+  })
+  locationData?: LocationDataDto;
+
+  @ApiProperty({
+    description: 'Total price before discounts',
+    example: 150.0,
+  })
   totalPrice: number;
+
+  @ApiProperty({
+    description: 'Discount amount applied to the order',
+    example: 10.0,
+  })
+  discountAmount: number;
+
+  @ApiProperty({
+    description: 'Final price after discounts',
+    example: 140.0,
+  })
   finalPrice: number;
+
+  @ApiProperty({
+    description: 'Reference to the user saved payment method',
+    example: '550e8400-e29b-41d4-a716-446655440004',
+    required: false,
+  })
+  paymentMethodId?: string;
+
+  @ApiProperty({
+    description: 'Type of payment method used',
+    enum: ['credit_card', 'debit_card', 'cash', 'wallet'],
+    example: 'credit_card',
+  })
+  paymentMethodType: (typeof paymentMethodTypeEnum.enumValues)[number];
+
+  @ApiProperty({
+    description: 'Payment method data snapshot at the time of order',
+    type: PaymentDataDto,
+    required: false,
+  })
+  paymentData?: PaymentDataDto;
+
+  @ApiProperty({
+    description: 'Current status of the order',
+    enum: ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'],
+    example: 'pending',
+  })
   orderStatus: (typeof orderStatusEnum.enumValues)[number];
+
+  @ApiProperty({
+    description: 'Special delivery instructions',
+    example: 'Please ring the doorbell twice',
+    required: false,
+  })
+  deliveryNote?: string;
+
+  @ApiProperty({
+    description: 'Whether to hide sender information from recipient',
+    example: false,
+  })
+  keepAnonymous: boolean;
+
+  @ApiProperty({
+    description: 'Type of cart this order was created from',
+    enum: ['big_cakes', 'small_cakes', 'others'],
+    example: 'big_cakes',
+  })
+  cartType: (typeof CartTypeEnum.enumValues)[number];
+
+  @ApiProperty({
+    description: 'Custom message for the gift card',
+    example: 'Happy Birthday!',
+    required: false,
+  })
+  cardMessage?: string;
+
+  @ApiProperty({
+    description: 'QR code URL for the gift card',
+    example: 'https://example.com/qr/abc123',
+    required: false,
+  })
+  cardQrCodeUrl?: string;
+
+  @ApiProperty({
+    description: 'Expected delivery date and time',
+    example: '2025-12-25T14:00:00.000Z',
+  })
   willDeliverAt: Date;
+
+  @ApiProperty({
+    description: 'Actual delivery date and time',
+    example: '2025-12-25T14:30:00.000Z',
+    required: false,
+  })
+  deliveredAt?: Date;
+
+  @ApiProperty({
+    description: 'Order creation timestamp',
+    example: '2025-12-20T10:00:00.000Z',
+  })
   createdAt: Date;
+
+  @ApiProperty({
+    description: 'Order last update timestamp',
+    example: '2025-12-20T10:00:00.000Z',
+  })
+  updatedAt: Date;
+
+  @ApiProperty({
+    description: 'List of items in the order',
+    type: [CreateOrderItemResponseDto],
+    example: [],
+  })
   items: CreateOrderItemResponseDto[];
+}
+
+export class ChangeOrderStatusResponseDto {
+  @ApiProperty({
+    description: 'The unique identifier of the order',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  id: string;
+
+  @ApiProperty({
+    enum: orderStatusEnum.enumValues,
+    description: 'The new status of the order.',
+  })
+  status: (typeof orderStatusEnum.enumValues)[number];
+}
+
+export class OrderItemSelectedOptions {
+  optionId: string;
+  type: string;
+  label: string;
+  value: string;
+}
+
+export class OrderItemResponseDto<T> {
+  id: string;
+  orderId: string;
+  quantity: number;
+  size: string;
+  flavor: string;
+  price: number;
+  selectedOptions: OrderItemSelectedOptions[];
+  data: T;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items'] as const) {
+  @ApiProperty({
+    description: 'List of addons in the order',
+    type: [OrderItemResponseDto],
+    example: [],
+  })
+  addons: OrderItemResponseDto<AddonDataDto>[];
+
+  @ApiProperty({
+    description: 'List of sweets in the order',
+    type: [OrderItemResponseDto],
+    example: [],
+  })
+  sweets: OrderItemResponseDto<SweetDataDto>[];
+
+  @ApiProperty({
+    description: 'List of featured cakes in the order',
+    type: [OrderItemResponseDto],
+    example: [],
+  })
+  featuredCakes: OrderItemResponseDto<FeaturedCakeDataDto>[];
+
+  @ApiProperty({
+    description: 'List of predesigned cakes in the order',
+    type: [OrderItemResponseDto],
+    example: [],
+  })
+  predesignedCakes: OrderItemResponseDto<PredesignedCakeDataDto>[];
+
+  @ApiProperty({
+    description: 'List of custom cakes in the order',
+    type: [OrderItemResponseDto],
+    example: [],
+  })
+  customCakes: OrderItemResponseDto<CustomCakeConfig>[];
 }

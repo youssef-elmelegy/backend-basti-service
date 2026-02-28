@@ -26,6 +26,7 @@ import {
   designedCakeConfigs,
   cartItems,
   bakeries,
+  users,
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
@@ -42,10 +43,15 @@ export class OrderService {
 
   private readonly logger = new Logger(OrderService.name);
 
-  async create(userId: string, orderData: CreateOrderDto): Promise<CreateOrderResponseDto> {
+  async create(orderData: CreateOrderDto): Promise<CreateOrderResponseDto> {
     const {
+      userId,
+      userData,
       locationId,
+      locationData,
       paymentMethodId,
+      PaymentMethodData,
+      orderItemsData,
       cardMessage = '',
       deliveryNote = '',
       keepAnonymous = false,
@@ -54,61 +60,125 @@ export class OrderService {
       regionId,
       type,
     } = orderData;
+
     try {
-      const [existingLocation] = await db
-        .select()
-        .from(locations)
-        .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-        .limit(1);
+      let user: typeof users.$inferInsert;
+      let existingLocation: typeof locations.$inferInsert;
+      let existingPaymentMethod: typeof paymentMethods.$inferInsert;
+      let cart: (typeof cartItems.$inferSelect)[];
 
-      if (!existingLocation && !location) {
-        this.logger.warn(
-          `Order creation failed: Invalid location ${locationId} for user ${userId}`,
-        );
+      if (!userId && !userData) {
+        this.logger.warn(`User ID or user data must be provided to place an order`);
         throw new BadRequestException(
           errorResponse(
-            'Location ID is invalid or does not belong to the user',
+            'User ID or user data must be provided',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
       }
 
-      const [existingPaymentMethod] = await db
-        .select()
-        .from(paymentMethods)
-        .where(and(eq(paymentMethods.id, paymentMethodId), eq(paymentMethods.userId, userId)))
-        .limit(1);
+      if (userId) {
+        user = await db.select().from(users).where(eq(users.id, userId)).limit(1)[0];
+      }
 
-      if (!existingPaymentMethod) {
-        this.logger.warn(
-          `Order creation failed: Invalid paymentMethod ID ${paymentMethodId} for user ${userId}`,
-        );
+      if (!locationId && !locationData) {
+        this.logger.warn(`Location ID or location data must be provided to place an order`);
         throw new BadRequestException(
           errorResponse(
-            'Payment Method ID is invalid or does not belong to the user',
+            'Location ID or location data must be provided',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
       }
 
-      const cart = await db
-        .select()
-        .from(cartItems)
-        .where(
-          and(
-            eq(cartItems.userId, userId),
-            eq(cartItems.type, type),
-            eq(cartItems.isIncluded, true),
-          ),
-        );
+      if (userId && locationId) {
+        existingLocation = await db
+          .select()
+          .from(locations)
+          .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
+          .limit(1)[0];
 
-      const addons = cart.filter((item) => item.addonId !== null);
-      const sweets = cart.filter((item) => item.sweetId !== null);
-      const featuredCakes = cart.filter((item) => item.featuredCakeId !== null);
-      const predesignedCakes = cart.filter((item) => item.predesignedCakeId !== null);
-      const customCakes = cart.filter((item) => item.customCake !== null);
+        if (!existingLocation) {
+          this.logger.warn(
+            `Location ID ${locationId} is invalid or does not belong to the user ${userId}`,
+          );
+          throw new BadRequestException(
+            errorResponse(
+              'Invalid location ID or location does not belong to the user',
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      if (userId && paymentMethodId) {
+        existingPaymentMethod = await db
+          .select()
+          .from(paymentMethods)
+          .where(and(eq(paymentMethods.id, paymentMethodId), eq(paymentMethods.userId, userId)))
+          .limit(1)[0];
+
+        if (!existingPaymentMethod) {
+          this.logger.warn(
+            `Payment method ID ${locationId} is invalid or does not belong to the user ${userId}`,
+          );
+          throw new BadRequestException(
+            errorResponse(
+              'Invalid Payment method ID or location does not belong to the user',
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      if (userId && (!orderItemsData || orderItemsData.length === 0)) {
+        cart = await db
+          .select()
+          .from(cartItems)
+          .where(
+            and(
+              eq(cartItems.userId, userId),
+              eq(cartItems.type, type),
+              eq(cartItems.isIncluded, true),
+            ),
+          );
+
+        if (!cart || cart.length === 0) {
+          this.logger.warn(`Cart is empty for user ${userId} and type ${type}`);
+          throw new BadRequestException(
+            errorResponse(
+              `Cart is empty for user ${userId} and type ${type}`,
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      const useOrderItemsData = orderItemsData && orderItemsData.length > 0;
+
+      // Initialize cart as empty array if undefined
+      const cartItems$ = cart || [];
+
+      const addons = useOrderItemsData
+        ? orderItemsData.filter((item) => item.addonId)
+        : cartItems$.filter((item) => item.addonId);
+      const sweets = useOrderItemsData
+        ? orderItemsData.filter((item) => item.sweetId)
+        : cartItems$.filter((item) => item.sweetId);
+      const featuredCakes = useOrderItemsData
+        ? orderItemsData.filter((item) => item.featuredCakeId)
+        : cartItems$.filter((item) => item.featuredCakeId);
+      const predesignedCakes = useOrderItemsData
+        ? orderItemsData.filter((item) => item.predesignedCakeId)
+        : cartItems$.filter((item) => item.predesignedCakeId);
+      const customCakes = useOrderItemsData
+        ? orderItemsData.filter((item) => item.customCakeConfig)
+        : cartItems$.filter((item) => item.customCake);
 
       const orderItemsDetails: Omit<typeof orderItems.$inferInsert, 'orderId'>[] = [];
 
@@ -161,15 +231,17 @@ export class OrderService {
       }
 
       for (const customCake of customCakes) {
-        const customCakePrice = await this.caclulateCustomCakePrice(
-          customCake.customCake,
-          regionId,
-        );
+        const customCakeData =
+          'customCake' in customCake ? customCake.customCake : customCake.customCakeConfig;
+
+        if (!customCakeData) continue;
+
+        const customCakePrice = await this.caclulateCustomCakePrice(customCakeData, regionId);
         totalPrice += customCakePrice * customCake.quantity;
         orderItemsDetails.push({
           price: customCakePrice.toFixed(2),
           quantity: customCake.quantity,
-          customCake: customCake.customCake,
+          customCake: customCakeData,
         });
       }
 
@@ -183,9 +255,42 @@ export class OrderService {
           .insert(orders)
           .values({
             userId,
+            userData: {
+              email: userData?.email || user?.email || '',
+              firstName: userData?.firstName || user?.firstName || '',
+              lastName: userData?.lastName || user?.lastName || '',
+              phoneNumber: userData?.phoneNumber || user?.phoneNumber || '',
+            },
             locationId,
+            locationData: {
+              label: locationData?.label || existingLocation?.label || '',
+              buildingNo: locationData?.buildingNo || existingLocation?.buildingNo || '',
+              street: locationData?.street || existingLocation?.street || '',
+              description: locationData?.description || existingLocation?.description || '',
+              latitude: Number(locationData?.latitude || existingLocation?.latitude || 0),
+              longitude: Number(locationData?.longitude || existingLocation?.longitude || 0),
+            },
             paymentMethodId,
-            paymentMethodType: existingPaymentMethod.type,
+            paymentMethodType: PaymentMethodData?.type || existingPaymentMethod?.type || 'cash',
+            paymentData: existingPaymentMethod
+              ? {
+                  type: existingPaymentMethod.type,
+                  cardHolderName:
+                    PaymentMethodData?.cardHolderName || existingPaymentMethod.cardHolderName || '',
+                  cardLastFourDigits:
+                    PaymentMethodData?.cardLastFourDigits ||
+                    existingPaymentMethod.cardLastFourDigits ||
+                    '',
+                  cardExpiryMonth: Number(
+                    PaymentMethodData?.cardExpiryMonth ||
+                      existingPaymentMethod.cardExpiryMonth ||
+                      0,
+                  ),
+                  cardExpiryYear: Number(
+                    PaymentMethodData?.cardExpiryYear || existingPaymentMethod.cardExpiryYear || 0,
+                  ),
+                }
+              : undefined,
             cardMessage,
             deliveryNote,
             keepAnonymous,
@@ -228,19 +333,25 @@ export class OrderService {
         Order created: ${newOrder.id} for user ${userId}, with ${newItems.length} items`);
 
       const response: CreateOrderResponseDto = {
-        id: newOrder.id,
-        discountAmount: Number(newOrder.discountAmount),
-        totalPrice: Number(newOrder.totalPrice),
-        finalPrice: Number(newOrder.finalPrice),
-        orderStatus: newOrder.orderStatus,
-        willDeliverAt: newOrder.willDeliverAt,
-        createdAt: newOrder.createdAt,
+        ...newOrder,
+        totalPrice: parseFloat(newOrder.totalPrice),
+        discountAmount: parseFloat(newOrder.discountAmount),
+        finalPrice: parseFloat(newOrder.finalPrice),
         items: newItems,
       };
 
       return response;
-    } catch {
-      this.logger.error(`Error placing the order`);
+    } catch (error) {
+      // Re-throw known exceptions
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : '';
+      this.logger.error(`Error placing the order: ${errMsg}`);
+      this.logger.error(`Stack trace: ${stack}`);
+
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to place the order',

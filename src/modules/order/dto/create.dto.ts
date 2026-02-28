@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
-  IsDecimal,
   IsInt,
   IsOptional,
   IsString,
@@ -11,12 +10,55 @@ import {
   ValidateNested,
   IsUrl,
   IsNumber,
-  IsEmail,
   IsIn,
+  IsEmail,
+  MinLength,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CreateLocationDto } from '@/modules/location/dto';
+import { CreatePaymentMethodDto } from '@/modules/payment-method/dto';
 import { ItemType, allowedTypes } from '@/modules/cart/dto/create.dto';
+
+export class UserDto {
+  @ApiProperty({
+    description: 'User email address',
+    example: 'user@example.com',
+  })
+  @IsEmail({}, { message: 'email must be a valid email address' })
+  email: string;
+
+  @ApiProperty({
+    description: 'User first name',
+    example: 'John',
+    minLength: 2,
+    maxLength: 100,
+  })
+  @IsString()
+  @MinLength(2, { message: 'firstName must be at least 2 characters long' })
+  @MaxLength(100, { message: 'firstName must not exceed 100 characters' })
+  firstName: string;
+
+  @ApiProperty({
+    description: 'User last name',
+    example: 'Doe',
+    minLength: 2,
+    maxLength: 100,
+  })
+  @IsString()
+  @MinLength(2, { message: 'lastName must be at least 2 characters long' })
+  @MaxLength(100, { message: 'lastName must not exceed 100 characters' })
+  lastName: string;
+
+  @ApiProperty({
+    description: 'User phone number',
+    example: '+1234567890',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber: string;
+}
 
 export class ColorConfigDto {
   @ApiProperty({
@@ -232,16 +274,73 @@ export class OrderItemDto {
 
 export class CreateOrderDto {
   @ApiProperty({
-    description: 'The ID of the location where the order will be placed.',
+    description:
+      'The ID of the user placing the order. If not provided, the order will be placed for a guest user.',
+    required: false,
   })
   @IsUUID()
-  locationId: string;
+  @IsOptional()
+  userId?: string;
+
+  @ApiProperty({
+    description: 'User data to be used for the order. If userId is provided, this will be ignored.',
+    type: () => UserDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UserDto)
+  userData?: UserDto;
+
+  @ApiProperty({
+    description: 'The ID of the location where the order will be placed.',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  locationId?: string;
+
+  @ApiProperty({
+    description:
+      'Location data to be used for the order. If locationId is provided, this will be ignored.',
+    type: () => CreateLocationDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateLocationDto)
+  locationData?: CreateLocationDto;
 
   @ApiProperty({
     description: 'The ID of the payment method to be used for the order.',
+    required: false,
   })
+  @IsOptional()
   @IsUUID()
-  paymentMethodId: string;
+  paymentMethodId?: string;
+
+  @ApiProperty({
+    description:
+      'Payment method data to be used for the order. If paymentMethodId is provided, this will be ignored.',
+    type: () => CreatePaymentMethodDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreatePaymentMethodDto)
+  PaymentMethodData?: CreatePaymentMethodDto;
+
+  @ApiProperty({
+    description:
+      'Order items data to be added for the order. If provided, the users saved cart on the db will be ignored.',
+    type: () => [OrderItemDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  orderItemsData?: OrderItemDto[];
 
   @ApiProperty({
     name: 'regionId',
@@ -299,107 +398,4 @@ export class CreateOrderDto {
   })
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
   type: ItemType;
-}
-
-export class CreateGuestOrderDto {
-  @ApiProperty({
-    description: 'The ID of the location where the order will be placed.',
-    required: false,
-  })
-  @IsOptional()
-  @IsUUID()
-  locationId?: string;
-
-  @ApiProperty({
-    description:
-      'The location details for the order. This is required if locationId is not provided.',
-    type: () => CreateLocationDto,
-  })
-  @ValidateNested()
-  @Type(() => CreateLocationDto)
-  location?: CreateLocationDto;
-
-  @ApiProperty({
-    description: 'The ID of the payment method to be used for the order.',
-  })
-  // @IsOptional()
-  @IsUUID()
-  paymentMethodId?: string;
-
-  @ApiProperty({
-    description: 'The full name of the person placing the order.',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  fullName?: string;
-
-  @ApiProperty({
-    description: 'The full name of the person placing the order.',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @ApiProperty({
-    description: 'The email address of the person placing the order.',
-    required: false,
-  })
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @ApiProperty({
-    description: 'The discount amount to be applied to the order.',
-  })
-  @IsOptional()
-  @IsDecimal()
-  discountAmount?: number;
-
-  @ApiProperty({
-    description: 'The delivery note to be included with the order.',
-  })
-  @IsOptional()
-  @IsString()
-  deliveryNote?: string;
-
-  @ApiProperty({
-    description: 'Whether the order should be kept anonymous or not.',
-  })
-  @IsBoolean()
-  @IsOptional()
-  keepAnonymous?: boolean;
-
-  @ApiProperty({
-    description: 'The message to be printed on the cake card.',
-  })
-  @IsString()
-  @IsOptional()
-  cardMessage?: string;
-
-  @ApiProperty({
-    description: 'The QR code URL to be printed on the cake card.',
-  })
-  @IsString()
-  @IsOptional()
-  cardQrCodeUrl?: string;
-
-  @ApiProperty({
-    description: 'The items to be included in the order.',
-    example: [
-      {
-        featuredCakeId: '123e4567-e89b-12d3-a456-426614174000',
-        addonId: '223e4567-e89b-12d3-a456-426614174000',
-        quantity: 2,
-        size: 'medium',
-        flavor: 'vanilla',
-      },
-    ],
-    type: [OrderItemDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderItemDto)
-  items: OrderItemDto[];
 }

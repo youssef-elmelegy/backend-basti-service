@@ -1,4 +1,13 @@
-import { pgTable, boolean, timestamp, uuid, decimal, text, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  boolean,
+  timestamp,
+  uuid,
+  decimal,
+  text,
+  index,
+  jsonb,
+} from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import {
   orderStatusEnum,
@@ -18,14 +27,24 @@ export const orders = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id),
+    userId: uuid('user_id').references(() => users.id),
+    userData: jsonb('user_data').$type<{
+      email: string;
+      firstName: string;
+      lastName: string;
+      phoneNumber: string;
+    }>(),
     bakeryId: uuid('bakery_id').references(() => bakeries.id),
 
-    locationId: uuid('location_id')
-      .notNull()
-      .references(() => locations.id),
+    locationId: uuid('location_id').references(() => locations.id),
+    locationData: jsonb('location_data').$type<{
+      label: string;
+      latitude: number;
+      longitude: number;
+      buildingNo: string;
+      street: string;
+      description: string;
+    }>(),
 
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
@@ -33,6 +52,13 @@ export const orders = pgTable(
 
     paymentMethodId: uuid('payment_method_id').references(() => paymentMethods.id),
     paymentMethodType: paymentMethodTypeEnum('payment_method_type').notNull(),
+    paymentData: jsonb('payment_data').$type<{
+      type: string;
+      cardHolderName: string;
+      cardLastFourDigits: string;
+      cardExpiryMonth: number;
+      cardExpiryYear: number;
+    }>(),
 
     orderStatus: orderStatusEnum('order_status').default('pending').notNull(),
     deliveryNote: text('delivery_note'),
