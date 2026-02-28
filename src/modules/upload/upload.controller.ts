@@ -20,6 +20,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Public } from '@/common';
 
 export interface DeleteImageDto {
   urls: string[];
@@ -48,8 +49,9 @@ export class UploadController {
     return 'unknown error';
   }
 
+  @Public()
   @Post('image')
-  @UseGuards(FlexibleJwtGuard)
+  // @UseGuards(FlexibleJwtGuard)
   @ApiQuery({ name: 'folder', required: false, description: 'Target folder in Cloudinary' })
   @UploadImageDecorator('Upload image to Cloudinary')
   @UseInterceptors(FileInterceptor('file'))
