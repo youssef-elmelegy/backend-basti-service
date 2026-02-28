@@ -9,6 +9,7 @@ import {
   paymentMethods,
   reviews,
   orderItems,
+  CartTypeEnum,
 } from '.';
 
 export const orders = pgTable(
@@ -20,9 +21,8 @@ export const orders = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id),
-    bakeryId: uuid('bakery_id')
-      // .notNull()
-      .references(() => bakeries.id),
+    bakeryId: uuid('bakery_id').references(() => bakeries.id),
+
     locationId: uuid('location_id')
       .notNull()
       .references(() => locations.id),
@@ -37,6 +37,7 @@ export const orders = pgTable(
     orderStatus: orderStatusEnum('order_status').default('pending').notNull(),
     deliveryNote: text('delivery_note'),
     keepAnonymous: boolean('keep_anonymous').default(false).notNull(),
+    cartType: CartTypeEnum('type').notNull(),
 
     cardMessage: text('card_message'),
     cardQrCodeUrl: text('card_qr_code_url'),

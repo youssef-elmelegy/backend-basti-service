@@ -1,3 +1,4 @@
+export * from './assign-bakery.decorator';
 export * from './cancel-order.decorator';
 export * from './change-order-status.decorator';
 export * from './get-all-orders.decorator';
