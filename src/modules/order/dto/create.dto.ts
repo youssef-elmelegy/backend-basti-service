@@ -14,6 +14,7 @@ import {
   IsEmail,
   MinLength,
   MaxLength,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CreateLocationDto } from '@/modules/location/dto';
@@ -58,6 +59,57 @@ export class UserDto {
   @IsOptional()
   @IsString()
   phoneNumber: string;
+}
+
+export class CardMessageDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  to: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  from: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  message: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUrl()
+  link: string;
+}
+
+export class RecipientDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsEmail({}, { message: 'email must be a valid email address' })
+  email: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  name: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  phoneNumber: string;
+}
+
+export class WantedDeliveryTimeSlotDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  from: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  to: string;
 }
 
 export class ColorConfigDto {
@@ -375,20 +427,43 @@ export class CreateOrderDto {
   keepAnonymous?: boolean;
 
   @ApiProperty({
-    description: 'The message to be printed on the cake card.',
+    description: 'Card message data to be included with the order.',
     required: false,
+    type: () => CardMessageDto,
   })
-  @IsString()
+  @ValidateNested()
+  @Type(() => CardMessageDto)
   @IsOptional()
-  cardMessage?: string;
+  cardMessage?: CardMessageDto;
 
   @ApiProperty({
-    description: 'The QR code URL to be printed on the cake card.',
+    description: 'Recipient data to be included with the order.',
+    required: false,
+    type: () => RecipientDto,
+  })
+  @ValidateNested()
+  @Type(() => RecipientDto)
+  @IsOptional()
+  recipientData?: RecipientDto;
+
+  @ApiProperty({
+    description: 'The wanted delivery date for the order.',
+    example: '2025-12-25',
     required: false,
   })
-  @IsString()
   @IsOptional()
-  cardQrCodeUrl?: string;
+  @IsDateString({}, { message: 'wantedDeliveryDate must be a valid ISO 8601 date string' })
+  wantedDeliveryDate?: string;
+
+  @ApiProperty({
+    description: 'The wanted delivery time slot for the delivery.',
+    required: false,
+    type: () => WantedDeliveryTimeSlotDto,
+  })
+  @ValidateNested()
+  @Type(() => WantedDeliveryTimeSlotDto)
+  @IsOptional()
+  wantedDeliveryTimeSlot?: WantedDeliveryTimeSlotDto;
 
   @ApiProperty({
     name: 'type',

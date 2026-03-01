@@ -65,9 +65,24 @@ export const orders = pgTable(
     keepAnonymous: boolean('keep_anonymous').default(false).notNull(),
     cartType: CartTypeEnum('type').notNull(),
 
-    cardMessage: text('card_message'),
-    cardQrCodeUrl: text('card_qr_code_url'),
+    cardMessage: jsonb('card_message').$type<{
+      to: string;
+      from: string;
+      message: string;
+      link: string;
+    }>(),
 
+    recipientData: jsonb('recipient_data').$type<{
+      name: string;
+      email: string;
+      phoneNumber: string;
+    }>(),
+
+    wantedDeliveryDate: timestamp('wanted_delivery_date', { mode: 'date' }),
+    wantedDeliveryTimeSlot: jsonb('wanted_delivery_time_slot').$type<{
+      from: string;
+      to: string;
+    }>(),
     willDeliverAt: timestamp('will_deliver_at', { mode: 'date' }).notNull(),
     deliveredAt: timestamp('delivered_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

@@ -61,6 +61,24 @@ export class LocationDataDto {
   description: string;
 }
 
+export class CardMessageDataDto {
+  to: string;
+  from: string;
+  message: string;
+  link: string;
+}
+
+export class RecipientDataDto {
+  name: string;
+  email: string;
+  phoneNumber: string;
+}
+
+export class WantedDeliveryTimeSlotDateDto {
+  from: string;
+  to: string;
+}
+
 export class PaymentDataDto {
   type: string;
   cardHolderName: string;
@@ -177,18 +195,45 @@ export class CreateOrderResponseDto {
   cartType: (typeof CartTypeEnum.enumValues)[number];
 
   @ApiProperty({
-    description: 'Custom message for the gift card',
-    example: 'Happy Birthday!',
+    description: 'Card message details if the order includes a card message',
+    type: CardMessageDataDto,
+    example: {
+      to: 'John Doe',
+      from: 'Jane Doe',
+      message: 'Happy Birthday!',
+      link: 'https://example.com/card/abc123',
+    },
     required: false,
   })
-  cardMessage?: string;
+  cardMessage?: CardMessageDataDto;
 
   @ApiProperty({
-    description: 'QR code URL for the gift card',
-    example: 'https://example.com/qr/abc123',
+    description: 'Recipient details',
+    type: RecipientDataDto,
+    example: {
+      name: 'John Doe',
+      email: 'john@test.com',
+      phoneNumber: '+1234567890',
+    },
     required: false,
   })
-  cardQrCodeUrl?: string;
+  recipientData?: RecipientDataDto;
+
+  @ApiProperty({
+    description: 'Recipient details',
+  })
+  wantedDeliveryDate?: Date;
+
+  @ApiProperty({
+    description: 'Recipient details',
+    type: WantedDeliveryTimeSlotDateDto,
+    example: {
+      from: '14:00',
+      to: '16:00',
+    },
+    required: false,
+  })
+  wantedDeliveryTimeSlot?: WantedDeliveryTimeSlotDateDto;
 
   @ApiProperty({
     description: 'Expected delivery date and time',

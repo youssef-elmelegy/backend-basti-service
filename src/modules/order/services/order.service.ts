@@ -52,13 +52,15 @@ export class OrderService {
       paymentMethodId,
       PaymentMethodData,
       orderItemsData,
-      cardMessage = '',
       deliveryNote = '',
       keepAnonymous = false,
       discountAmount = 0,
-      cardQrCodeUrl = '',
       regionId,
       type,
+      cardMessage,
+      recipientData,
+      wantedDeliveryDate,
+      wantedDeliveryTimeSlot,
     } = orderData;
 
     try {
@@ -82,16 +84,16 @@ export class OrderService {
         user = await db.select().from(users).where(eq(users.id, userId)).limit(1)[0];
       }
 
-      if (!locationId && !locationData) {
-        this.logger.warn(`Location ID or location data must be provided to place an order`);
-        throw new BadRequestException(
-          errorResponse(
-            'Location ID or location data must be provided',
-            HttpStatus.BAD_REQUEST,
-            'BadRequestException',
-          ),
-        );
-      }
+      // if (!locationId && !locationData) {
+      //   this.logger.warn(`Location ID or location data must be provided to place an order`);
+      //   throw new BadRequestException(
+      //     errorResponse(
+      //       'Location ID or location data must be provided',
+      //       HttpStatus.BAD_REQUEST,
+      //       'BadRequestException',
+      //     ),
+      //   );
+      // }
 
       if (userId && locationId) {
         existingLocation = await db
@@ -246,7 +248,7 @@ export class OrderService {
       }
 
       let finalPrice = 0;
-      const willDeliverAt = await this.calculateTheExpectedDeliveryTime(type);
+      const willDeliverAt = await this.calculateTheExpectedDeliveryTime(type, wantedDeliveryDate);
 
       finalPrice = totalPrice - discountAmount;
 
@@ -294,7 +296,9 @@ export class OrderService {
             cardMessage,
             deliveryNote,
             keepAnonymous,
-            cardQrCodeUrl,
+            recipientData,
+            wantedDeliveryDate: wantedDeliveryDate ? new Date(wantedDeliveryDate) : undefined,
+            wantedDeliveryTimeSlot,
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
@@ -750,6 +754,7 @@ export class OrderService {
 
   private async calculateTheExpectedDeliveryTime(
     type: 'big_cakes' | 'small_cakes' | 'others',
+    wantedDate?: string,
   ): Promise<Date> {
     const config = await this.configService.get();
 
@@ -757,28 +762,64 @@ export class OrderService {
     const isWorkingHours = currentHour >= config.openingHour && currentHour < config.closingHour;
 
     const baseDays = type === 'big_cakes' ? 2 : 1;
-    const deliveryDate = new Date();
 
-    //?> add base days, plus 1 if outside working hours
+    //?> Calculate minimum delivery date based on preparation time
+    const minDeliveryDate = new Date();
     let daysToAdd = isWorkingHours ? baseDays : baseDays + 1;
 
-    //?> keep adding days until we find a valid delivery date
     while (daysToAdd > 0) {
-      deliveryDate.setDate(deliveryDate.getDate() + 1);
+      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
 
-      if (!this.isClosedDay(deliveryDate, config)) {
+      if (!this.isClosedDay(minDeliveryDate, config)) {
         daysToAdd--;
       }
     }
 
-    //?> ff the calculated date is still a closed day, skip to the next open day
-    while (this.isClosedDay(deliveryDate, config)) {
-      deliveryDate.setDate(deliveryDate.getDate() + 1);
+    while (this.isClosedDay(minDeliveryDate, config)) {
+      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
     }
 
-    deliveryDate.setHours(config.openingHour, 0, 0, 0);
+    minDeliveryDate.setHours(config.openingHour, 0, 0, 0);
 
-    return deliveryDate;
+    //?> If wantedDate is provided, validate and use it
+    if (wantedDate) {
+      const requestedDate = new Date(wantedDate);
+
+      //?> Check if requested date is valid
+      if (isNaN(requestedDate.getTime())) {
+        this.logger.warn(`Invalid wantedDate provided: ${wantedDate}`);
+        return minDeliveryDate;
+      }
+
+      //?> Check if requested date is after minimum delivery date
+      if (requestedDate >= minDeliveryDate) {
+        //?> Check if requested date is not a closed day
+        if (!this.isClosedDay(requestedDate, config)) {
+          //?> Ensure delivery is within working hours
+          if (requestedDate.getHours() < config.openingHour) {
+            requestedDate.setHours(config.openingHour, 0, 0, 0);
+          } else if (requestedDate.getHours() >= config.closingHour) {
+            requestedDate.setHours(config.closingHour - 1, 0, 0, 0);
+          }
+          return requestedDate;
+        } else {
+          //?> If requested date is a closed day, find the next open day
+          const adjustedDate = new Date(requestedDate);
+          while (this.isClosedDay(adjustedDate, config)) {
+            adjustedDate.setDate(adjustedDate.getDate() + 1);
+          }
+          adjustedDate.setHours(config.openingHour, 0, 0, 0);
+          return adjustedDate;
+        }
+      }
+
+      //?> Requested date is before minimum delivery date, use minimum
+      this.logger.warn(
+        `Requested date ${wantedDate} is before minimum delivery date. Using minimum.`,
+      );
+    }
+
+    return minDeliveryDate;
   }
 
   private isClosedDay(
