@@ -18,6 +18,9 @@ import {
   AdminVerifyOtpDto,
   AdminResetPasswordDto,
   AdminChangePasswordDto,
+  CreateAdminDto,
+  BlockAdminDto,
+  UpdateAdminDto,
 } from '../dto';
 import { EmailService } from '@/common/services';
 import { successResponse } from '@/utils';
@@ -335,5 +338,147 @@ export class AdminAuthService {
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+  }
+
+  async createAdmin(createAdminDto: CreateAdminDto) {
+    const { email, password, role, bakeryId, profileImage } = createAdminDto;
+
+    // Check if admin with email already exists
+    const existingAdmin = await db.query.admins.findFirst({
+      where: eq(admins.email, email),
+    });
+
+    if (existingAdmin) {
+      throw new BadRequestException('Admin with this email already exists');
+    }
+
+    // Validate password
+    this.passwordSchema.parse(password);
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const [newAdmin] = await db
+      .insert(admins)
+      .values({
+        email,
+        password: hashedPassword,
+        role: role,
+        bakeryId: bakeryId || null,
+        profileImage: profileImage || null,
+      })
+      .returning();
+
+    return successResponse(
+      {
+        id: newAdmin.id,
+        email: newAdmin.email,
+        role: newAdmin.role,
+        profileImage: newAdmin.profileImage || null,
+        bakeryId: newAdmin.bakeryId || undefined,
+        createdAt: newAdmin.createdAt,
+        updatedAt: newAdmin.updatedAt,
+      },
+      'Admin created successfully',
+      HttpStatus.CREATED,
+    );
+  }
+
+  async blockAdmin(adminId: string, blockAdminDto: BlockAdminDto) {
+    const { isBlocked } = blockAdminDto;
+    // Check if admin exists
+    const admin = await db.query.admins.findFirst({
+      where: eq(admins.id, adminId),
+    });
+
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    const [updatedAdmin] = await db
+      .update(admins)
+      .set({
+        isBlocked,
+        blockedAt: isBlocked ? new Date() : null,
+      })
+      .where(eq(admins.id, adminId))
+      .returning();
+
+    return successResponse(
+      {
+        id: updatedAdmin.id,
+        email: updatedAdmin.email,
+        role: updatedAdmin.role,
+        profileImage: updatedAdmin.profileImage || null,
+        bakeryId: updatedAdmin.bakeryId || undefined,
+        isBlocked: updatedAdmin.isBlocked,
+        createdAt: updatedAdmin.createdAt,
+        updatedAt: updatedAdmin.updatedAt,
+      },
+      isBlocked ? 'Admin blocked successfully' : 'Admin unblocked successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  async updateAdmin(adminId: string, updateAdminDto: UpdateAdminDto) {
+    const { role, bakeryId, profileImage } = updateAdminDto;
+
+    // Check if admin exists
+    const admin = await db.query.admins.findFirst({
+      where: eq(admins.id, adminId),
+    });
+
+    if (!admin) {
+      throw new NotFoundException('Admin not found');
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (role !== undefined) updateData.role = role;
+    if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
+    if (profileImage !== undefined) updateData.profileImage = profileImage;
+
+    const [updatedAdmin] = await db
+      .update(admins)
+      .set(updateData)
+      .where(eq(admins.id, adminId))
+      .returning();
+
+    return successResponse(
+      {
+        id: updatedAdmin.id,
+        email: updatedAdmin.email,
+        role: updatedAdmin.role,
+        profileImage: updatedAdmin.profileImage || null,
+        bakeryId: updatedAdmin.bakeryId || undefined,
+        createdAt: updatedAdmin.createdAt,
+        updatedAt: updatedAdmin.updatedAt,
+      },
+      'Admin updated successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  async getAllAdmins() {
+    const adminsList = await db.query.admins.findMany();
+
+    const formattedAdmins = adminsList.map((admin) => ({
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+      profileImage: admin.profileImage || null,
+      bakeryId: admin.bakeryId || undefined,
+      isBlocked: admin.isBlocked,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt,
+    }));
+
+    return successResponse(
+      {
+        admins: formattedAdmins,
+        total: formattedAdmins.length,
+      },
+      'Admins retrieved successfully',
+      HttpStatus.OK,
+    );
   }
 }

@@ -1,4 +1,16 @@
-import { Controller, Post, Body, Patch, Get, UseGuards, Req, Logger, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  Get,
+  UseGuards,
+  Req,
+  Logger,
+  Res,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service';
@@ -15,6 +27,9 @@ import {
   AdminVerifyOtpDto,
   AdminResetPasswordDto,
   AdminChangePasswordDto,
+  CreateAdminDto,
+  BlockAdminDto,
+  UpdateAdminDto,
 } from '../dto';
 import {
   AdminLoginEndpoint,
@@ -25,8 +40,12 @@ import {
   AdminLogoutEndpoint,
   AdminCheckAuthEndpoint,
   AdminRefreshTokenEndpoint,
+  AdminCreateEndpoint,
+  AdminBlockEndpoint,
+  AdminUpdateEndpoint,
+  AdminGetAllEndpoint,
 } from '../decorators';
-import { JwtAuthGuard, Public } from '@/common';
+import { JwtAuthGuard, Public, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common';
 
 @ApiTags('admin-auth')
 @Controller('admin-auth')
@@ -331,5 +350,77 @@ export class AdminAuthController {
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  @Post('create')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin')
+  @ApiBearerAuth('access-token')
+  @AdminCreateEndpoint()
+  async create(@Body() createAdminDto: CreateAdminDto, @Res() res: Response) {
+    const { email } = createAdminDto as { email: string };
+    this.logger.debug(`Creating new admin: ${email}`);
+    const result = await this.adminAuthService.createAdmin(createAdminDto);
+    const { data } = result as { data: { id: string } };
+    this.logger.log(`Admin created: ${data.id}`);
+    return res.status(201).json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @Patch(':id/block')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin')
+  @ApiBearerAuth('access-token')
+  @AdminBlockEndpoint()
+  async blockAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() blockAdminDto: BlockAdminDto,
+    @Res() res: Response,
+  ) {
+    this.logger.debug(`Updating block status for admin: ${id}`);
+    const { isBlocked } = blockAdminDto as { isBlocked: boolean };
+    const result = await this.adminAuthService.blockAdmin(id, blockAdminDto);
+    this.logger.log(`Admin block status updated: ${id} - blocked: ${isBlocked}`);
+    return res.json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @Patch(':id/update')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin')
+  @ApiBearerAuth('access-token')
+  @AdminUpdateEndpoint()
+  async updateAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateAdminDto: UpdateAdminDto,
+    @Res() res: Response,
+  ) {
+    this.logger.debug(`Updating admin: ${id}`);
+    const result = await this.adminAuthService.updateAdmin(id, updateAdminDto);
+    this.logger.log(`Admin updated: ${id}`);
+    return res.json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @Get()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin')
+  @ApiBearerAuth('access-token')
+  @AdminGetAllEndpoint()
+  async getAllAdmins(@Res() res: Response) {
+    this.logger.debug('Fetching all admins');
+    const result = await this.adminAuthService.getAllAdmins();
+    const { data } = result as { data: { admins: unknown[]; total: number } };
+    this.logger.log(`Fetched admins: ${data.total}`);
+    return res.json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
   }
 }

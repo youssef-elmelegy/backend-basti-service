@@ -55,8 +55,8 @@ export class UpdateBakeryDto {
   @ApiProperty({
     description: 'Types of cakes the bakery produces',
     type: [String],
-    enum: ['basket_cakes', 'medium_cakes', 'small_cakes', 'large_cakes', 'custom'],
-    example: ['basket_cakes', 'medium_cakes', 'large_cakes'],
+    enum: ['large_cakes', 'small_cakes', 'other'],
+    example: ['large_cakes', 'small_cakes'],
     required: false,
   })
   @IsOptional()
