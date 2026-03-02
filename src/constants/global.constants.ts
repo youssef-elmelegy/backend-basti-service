@@ -52,11 +52,9 @@ export const MOCK_IMAGES = {
 } as const;
 
 export const BAKERY_TYPES = {
-  BASKET_CAKES: 'basket_cakes',
-  MIDUME: 'midume',
-  SMALL_CAKES: 'small_cakes',
   LARGE_CAKES: 'large_cakes',
-  CUSTOM: 'custom',
+  SMALL_CAKES: 'small_cakes',
+  OTHER: 'other',
 } as const;
 
 export const PAGINATION_DEFAULTS = {

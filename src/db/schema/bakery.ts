@@ -29,7 +29,7 @@ export const bakeries = pgTable(
 
     bakeryTypes: jsonb('bakery_types')
       .notNull()
-      .$type<Array<'basket_cakes' | 'medium_cakes' | 'small_cakes' | 'large_cakes' | 'custom'>>(),
+      .$type<Array<'large_cakes' | 'small_cakes' | 'other'>>(),
 
     averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
     totalReviews: integer('total_reviews').default(0).notNull(),

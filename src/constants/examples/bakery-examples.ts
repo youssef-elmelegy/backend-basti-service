@@ -7,7 +7,7 @@ export const BakeryExamples = {
       locationDescription: '12 El-Maadi St, Cairo',
       regionId: MOCK_DATA.id.region,
       capacity: MOCK_DATA.numbers.capacity,
-      bakeryTypes: ['basket_cakes', 'medium_cakes', 'large_cakes'],
+      bakeryTypes: ['large_cakes', 'small_cakes', 'other'],
     },
     response: {
       success: {

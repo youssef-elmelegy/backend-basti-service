@@ -57,9 +57,14 @@ export class OrderController {
   @AdminRoles('super_admin', 'admin')
   @Get()
   @GetAllOrdersDecorator()
-  async getAllOrders(@Query() { regionId }: RegionFilterDto) {
+  async getAllOrders(
+    @Query('regionId') regionId?: string,
+    @Query('status') status?: string | string[],
+  ) {
     this.logger.debug('getting all orders');
-    const result = await this.orderService.getAllOrders(regionId);
+    // Normalize status to array format
+    const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
+    const result = await this.orderService.getAllOrders(regionId, statusArray);
     return successResponse(result, 'Orders retrieved successfully');
   }
 
