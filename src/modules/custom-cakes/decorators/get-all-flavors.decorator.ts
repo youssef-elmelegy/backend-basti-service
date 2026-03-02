@@ -9,7 +9,7 @@ export function GetAllFlavorsDecorator() {
     ApiOperation({
       summary: 'Get all flavors',
       description:
-        'Retrieves all available flavors with optional filtering by shape (with variant images), region (with regional pricing), and search. When shapeId is provided, only flavors with variant images for that shape are returned. When regionId is provided, regional pricing is included in the response.',
+        'Retrieves all available flavors with optional filtering by shape (with variant images), region (with regional pricing), active status, and search. When shapeId is provided, only flavors with variant images for that shape are returned. When regionId is provided, regional pricing is included in the response. When isActive is specified, only active or inactive flavors are returned.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

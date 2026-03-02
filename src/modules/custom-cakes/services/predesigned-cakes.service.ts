@@ -170,6 +170,11 @@ export class PredesignedCakesService {
         whereConditions.push(eq(predesignedCakes.tagId, query.tagId));
       }
 
+      // Add isActive filter
+      if (query.isActive !== undefined) {
+        whereConditions.push(eq(predesignedCakes.isActive, query.isActive));
+      }
+
       // Add search filter
       if (query.search) {
         const searchPattern = `%${query.search}%`;
@@ -480,6 +485,74 @@ export class PredesignedCakesService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete predesigned cake',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async toggleStatus(id: string) {
+    try {
+      const [existingCake] = await db
+        .select()
+        .from(predesignedCakes)
+        .where(eq(predesignedCakes.id, id))
+        .limit(1);
+
+      if (!existingCake) {
+        this.logger.warn(`Predesigned cake not found for status toggle: ${id}`);
+        throw new NotFoundException(
+          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        );
+      }
+
+      const [updatedCake] = await db
+        .update(predesignedCakes)
+        .set({
+          isActive: !existingCake.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(predesignedCakes.id, id))
+        .returning();
+
+      const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
+      this.logger.log(`Predesigned cake status toggled (${statusText}): ${id}`);
+
+      let tagName: string;
+      if (updatedCake.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, updatedCake.tagId))
+          .limit(1);
+
+        tagName = tagResult[0]?.name || '';
+      }
+
+      return successResponse(
+        {
+          id: updatedCake.id,
+          name: updatedCake.name,
+          description: updatedCake.description,
+          thumbnailUrl: updatedCake.thumbnailUrl,
+          isActive: updatedCake.isActive,
+          tag: tagName || null,
+          createdAt: updatedCake.createdAt,
+          updatedAt: updatedCake.updatedAt,
+        },
+        `Predesigned cake status ${statusText} successfully`,
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to toggle predesigned cake status ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to toggle predesigned cake status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

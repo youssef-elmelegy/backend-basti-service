@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsUUID, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsInt, Min, Max, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetPredesignedCakesQueryDto {
@@ -70,4 +70,14 @@ export class GetPredesignedCakesQueryDto {
   @IsUUID()
   @IsOptional()
   tagId?: string;
+
+  @ApiProperty({
+    description: 'Filter by active status',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
 }

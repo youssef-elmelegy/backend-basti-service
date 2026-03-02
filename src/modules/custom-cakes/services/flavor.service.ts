@@ -121,6 +121,11 @@ export class FlavorService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(flavors.isActive, query.isActive));
+    }
+
     let allFlavorsResult: Array<{
       flavor: typeof flavors.$inferSelect;
       image: typeof shapeVariantImages.$inferSelect;
@@ -129,7 +134,8 @@ export class FlavorService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       allFlavorsResult = await db
         .select({
@@ -140,7 +146,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -154,6 +160,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -163,20 +170,25 @@ export class FlavorService {
     let total = 0;
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const whereConditionsCount: any[] = [];
+      whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+      if (query.isActive !== undefined) {
+        whereConditionsCount.push(eq(flavors.isActive, query.isActive));
+      }
       const [{ count: searchCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
-        .where(whereCondition);
+        .where(whereConditionsCount.length > 0 ? and(...whereConditionsCount) : undefined);
       total = Number(searchCount);
     } else {
       const [{ count: combinedCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
-        .innerJoin(regionItemPrices, and(...regionJoinConditions));
+        .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
       total = Number(combinedCount);
     }
 
@@ -244,6 +256,11 @@ export class FlavorService {
       eq(shapeVariantImages.shapeId, query.shapeId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(flavors.isActive, query.isActive));
+    }
+
     let allFlavorsResult: Array<{
       flavor: typeof flavors.$inferSelect;
       image: typeof shapeVariantImages.$inferSelect;
@@ -252,7 +269,8 @@ export class FlavorService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       allFlavorsResult = await db
         .select({
@@ -261,16 +279,21 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...joinConditions))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
+      const whereConditionsCount: any[] = [];
+      whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+      if (query.isActive !== undefined) {
+        whereConditionsCount.push(eq(flavors.isActive, query.isActive));
+      }
       const [{ count: searchCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...joinConditions))
-        .where(whereCondition);
+        .where(whereConditionsCount.length > 0 ? and(...whereConditionsCount) : undefined);
       total = Number(searchCount);
     } else {
       allFlavorsResult = await db
@@ -280,6 +303,7 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -287,7 +311,8 @@ export class FlavorService {
       const [{ count: shapeCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
-        .innerJoin(shapeVariantImages, and(...joinConditions));
+        .innerJoin(shapeVariantImages, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
       total = Number(shapeCount);
     }
 
@@ -341,6 +366,11 @@ export class FlavorService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(flavors.isActive, query.isActive));
+    }
+
     let allFlavorsResult: Array<{
       flavor: typeof flavors.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
@@ -350,13 +380,14 @@ export class FlavorService {
     // If search is also provided, combine both filters
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       const [{ count: combinedCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .where(whereCondition);
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
       total = Number(combinedCount);
 
@@ -367,7 +398,7 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -376,7 +407,8 @@ export class FlavorService {
       const [{ count: regionCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
         .from(flavors)
-        .innerJoin(regionItemPrices, and(...joinConditions));
+        .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
       total = Number(regionCount);
 
@@ -387,6 +419,7 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -418,10 +451,16 @@ export class FlavorService {
     totalPages: number;
   }> {
     const searchPattern = `%${query.search}%`;
+    const whereConditions: any[] = [];
+    whereConditions.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(flavors.isActive, query.isActive));
+    }
+
     const [{ count: searchCount }] = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${flavors.id})` })
       .from(flavors)
-      .where(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const total = Number(searchCount);
 
@@ -430,7 +469,7 @@ export class FlavorService {
         flavor: flavors,
       })
       .from(flavors)
-      .where(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .orderBy(sortOrder(sortColumn))
       .limit(query.limit)
       .offset(offset);
@@ -457,7 +496,15 @@ export class FlavorService {
     total: number;
     totalPages: number;
   }> {
-    const [{ count: allCount }] = await db.select({ count: sql<number>`COUNT(*)` }).from(flavors);
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(flavors.isActive, query.isActive));
+    }
+
+    const [{ count: allCount }] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(flavors)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const total = Number(allCount);
 
@@ -466,6 +513,7 @@ export class FlavorService {
         flavor: flavors,
       })
       .from(flavors)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .orderBy(sortOrder(sortColumn))
       .limit(query.limit)
       .offset(offset);
@@ -665,6 +713,58 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete flavor',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async toggleStatus(id: string): Promise<SuccessResponse<Record<string, unknown>>> {
+    try {
+      const [existingFlavor] = await db.select().from(flavors).where(eq(flavors.id, id)).limit(1);
+
+      if (!existingFlavor) {
+        this.logger.warn(`Flavor not found for status toggle: ${id}`);
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        );
+      }
+
+      const [updatedFlavor] = await db
+        .update(flavors)
+        .set({
+          isActive: !existingFlavor.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(flavors.id, id))
+        .returning();
+
+      const statusText = updatedFlavor.isActive ? 'activated' : 'deactivated';
+      this.logger.log(`Flavor status toggled (${statusText}): ${id}`);
+
+      return successResponse(
+        {
+          id: updatedFlavor.id,
+          title: updatedFlavor.title,
+          description: updatedFlavor.description,
+          flavorUrl: updatedFlavor.flavorUrl,
+          isActive: updatedFlavor.isActive,
+          createdAt: updatedFlavor.createdAt,
+          updatedAt: updatedFlavor.updatedAt,
+        },
+        `Flavor status ${statusText} successfully`,
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to toggle flavor status ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to toggle flavor status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
