@@ -49,7 +49,7 @@ export class CreateBakeryDto {
   @ApiProperty({
     description: 'Types of cakes the bakery produces',
     type: [String],
-    enum: ['large_cakes', 'small_cakes', 'other'],
+    enum: ['large_cakes', 'small_cakes', 'others'],
     example: ['large_cakes', 'small_cakes'],
   })
   @IsArray()

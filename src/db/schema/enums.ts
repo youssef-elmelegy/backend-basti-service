@@ -4,7 +4,7 @@ export const genderEnum = pgEnum('gender_enum', ['male', 'female']);
 
 export const adminRoleEnum = pgEnum('admin_role_enum', ['super_admin', 'admin', 'manager']);
 
-export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'other']);
+export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'others']);
 
 export const CartTypeEnum = pgEnum('cart_type_enum', ['big_cakes', 'small_cakes', 'others']);
 

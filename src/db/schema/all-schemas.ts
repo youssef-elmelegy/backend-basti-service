@@ -25,7 +25,7 @@ export const genderEnum = pgEnum('gender_enum', ['male', 'female']);
 
 export const adminRoleEnum = pgEnum('admin_role_enum', ['super_admin', 'admin', 'manager']);
 
-export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'other']);
+export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'others']);
 
 export const orderStatusEnum = pgEnum('order_status_enum', [
   'pending',
@@ -172,7 +172,7 @@ export const bakeries = pgTable(
 
     bakeryTypes: jsonb('bakery_types')
       .notNull()
-      .$type<Array<'large_cakes' | 'small_cakes' | 'other'>>(),
+      .$type<Array<'large_cakes' | 'small_cakes' | 'others'>>(),
 
     averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
     totalReviews: integer('total_reviews').default(0).notNull(),

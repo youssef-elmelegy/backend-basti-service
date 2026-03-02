@@ -43,7 +43,7 @@ export interface SeedBakery {
   name: string;
   locationDescription: string;
   capacity: number;
-  bakeryTypes: Array<'large_cakes' | 'small_cakes' | 'other'>;
+  bakeryTypes: Array<'large_cakes' | 'small_cakes' | 'others'>;
   averageRating?: string;
   totalReviews?: number;
   createdAt: Date;
@@ -292,7 +292,7 @@ export function getSeedBakeries(
       name: 'Downtown Bakery',
       locationDescription: 'Located in the heart of downtown with convenient parking',
       capacity: 50,
-      bakeryTypes: ['large_cakes', 'small_cakes', 'other'],
+      bakeryTypes: ['large_cakes', 'small_cakes', 'others'],
       averageRating: '4.5',
       totalReviews: 120,
       createdAt: new Date('2025-01-10'),

@@ -37,7 +37,7 @@ export class BakeryService {
           locationDescription,
           regionId,
           capacity,
-          bakeryTypes: bakeryTypes as ('large_cakes' | 'small_cakes' | 'other')[],
+          bakeryTypes: bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[],
         })
         .returning();
 
@@ -169,7 +169,7 @@ export class BakeryService {
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
       if (bakeryTypes !== undefined)
-        updateData.bakeryTypes = bakeryTypes as ('large_cakes' | 'small_cakes' | 'other')[];
+        updateData.bakeryTypes = bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[];
       updateData.updatedAt = new Date();
 
       const [updatedBakery] = await db
