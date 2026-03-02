@@ -33,6 +33,7 @@ export class ShapeService {
       description: shape.description,
       shapeUrl: shape.shapeUrl,
       size: shape.size,
+      capacity: shape.capacity,
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
@@ -53,6 +54,7 @@ export class ShapeService {
           description: createDto.description,
           shapeUrl: createDto.shapeUrl,
           size: createDto.size,
+          capacity: createDto.capacity,
         })
         .returning();
 

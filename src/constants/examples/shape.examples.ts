@@ -6,6 +6,7 @@ export const ShapeExamples = {
       shapeUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
       size: 'medium',
+      capacity: 20,
     },
     response: {
       success: {
@@ -19,6 +20,7 @@ export const ShapeExamples = {
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
           size: 'medium',
+          capacity: 20,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -40,6 +42,7 @@ export const ShapeExamples = {
             shapeUrl:
               'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
             size: 'medium',
+            capacity: 20,
             createdAt: '2024-02-07T10:00:00Z',
             updatedAt: '2024-02-07T10:00:00Z',
           },
@@ -50,6 +53,7 @@ export const ShapeExamples = {
             shapeUrl:
               'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/square.jpg',
             size: 'large',
+            capacity: 30,
             createdAt: '2024-02-07T09:00:00Z',
             updatedAt: '2024-02-07T09:00:00Z',
           },
@@ -71,6 +75,7 @@ export const ShapeExamples = {
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
           size: 'medium',
+          capacity: 20,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -83,6 +88,7 @@ export const ShapeExamples = {
       title: 'Heart',
       description: 'Romantic heart-shaped cake perfect for special occasions',
       size: 'small',
+      capacity: 15,
     },
     response: {
       success: {
@@ -96,6 +102,7 @@ export const ShapeExamples = {
           shapeUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
           size: 'small',
+          capacity: 15,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T11:00:00Z',
         },

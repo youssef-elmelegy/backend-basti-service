@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, text, timestamp, index, boolean } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  index,
+  boolean,
+  integer,
+} from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, shapeVariantImages } from '.';
 
@@ -12,6 +21,7 @@ export const shapes = pgTable(
     description: text('description').notNull(),
     shapeUrl: text('shape_url').notNull(),
     size: varchar('size', { length: 50 }).notNull().default('medium'),
+    capacity: integer('capacity'),
     isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
