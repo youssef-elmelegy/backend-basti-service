@@ -106,7 +106,7 @@ export class PredesignedCakesService {
         .values({
           name: createDto.name,
           description: createDto.description,
-          imageUrl: createDto.imageUrl || null,
+          thumbnailUrl: createDto.thumbnailUrl || null,
           tagId: createDto.tagId || null,
         })
         .returning();
@@ -419,7 +419,7 @@ export class PredesignedCakesService {
       const updateValues: Partial<typeof predesignedCakes.$inferInsert> = {};
       if (updateDto.name) updateValues.name = updateDto.name;
       if (updateDto.description) updateValues.description = updateDto.description;
-      if (updateDto.imageUrl !== undefined) updateValues.imageUrl = updateDto.imageUrl;
+      if (updateDto.thumbnailUrl !== undefined) updateValues.thumbnailUrl = updateDto.thumbnailUrl;
       if (updateDto.tagId !== undefined) updateValues.tagId = updateDto.tagId;
 
       const [updatedCake] = await db

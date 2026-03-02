@@ -3,7 +3,7 @@ export const PredesignedCakesExamples = {
     request: {
       name: 'Classic Chocolate Elegance',
       description: 'A beautiful chocolate cake with chocolate frosting and elegant decorations',
-      imageUrl:
+      thumbnailUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/predesigned-cakes/chocolate-elegance.jpg',
       tagId: '550e8400-e29b-41d4-a716-446655440000',
       configs: [
@@ -24,7 +24,7 @@ export const PredesignedCakesExamples = {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Classic Chocolate Elegance',
           description: 'A beautiful chocolate cake with chocolate frosting and elegant decorations',
-          imageUrl:
+          thumbnailUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/predesigned-cakes/chocolate-elegance.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Premium',
@@ -135,7 +135,7 @@ export const PredesignedCakesExamples = {
               id: '123e4567-e89b-12d3-a456-426614174001',
               name: 'Vanilla Dream',
               description: 'Vanilla cake with vanilla frosting and fresh berries',
-              imageUrl:
+              thumbnailUrl:
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/predesigned-cakes/vanilla-dream.jpg',
               tagId: '550e8400-e29b-41d4-a716-446655440001',
               tagName: 'Classic',
@@ -253,7 +253,7 @@ export const PredesignedCakesExamples = {
     request: {
       name: 'Premium Chocolate Elegance',
       description: 'Premium chocolate cake with premium frosting and premium decorations',
-      imageUrl:
+      thumbnailUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/predesigned-cakes/premium-chocolate.jpg',
       configs: [
         {
@@ -273,7 +273,7 @@ export const PredesignedCakesExamples = {
           id: '123e4567-e89b-12d3-a456-426614174000',
           name: 'Premium Chocolate Elegance',
           description: 'Premium chocolate cake with premium frosting and premium decorations',
-          imageUrl:
+          thumbnailUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/predesigned-cakes/premium-chocolate.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Premium',

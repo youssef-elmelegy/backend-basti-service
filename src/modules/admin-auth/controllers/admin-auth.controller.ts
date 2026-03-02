@@ -38,32 +38,51 @@ export class AdminAuthController {
   @Public()
   @Post('login')
   @AdminLoginEndpoint()
-  async login(@Body() loginDto: AdminLoginDto, @Res() res: Response) {
+  async login(@Body() loginDto: AdminLoginDto, @Req() req: Request, @Res() res: Response) {
     this.logger.debug(`Admin login attempt: ${loginDto.email}`);
     const result = await this.adminAuthService.login(loginDto);
 
-    res.cookie('accessToken', result.data.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    // Check if request is from mobile client
+    const isMobileClient = req.headers['x-client-type'] === 'mobile';
 
-    res.cookie('refreshToken', result.data.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    // Only set cookies if not from mobile
+    if (!isMobileClient) {
+      res.cookie('accessToken', result.data.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
 
-    this.logger.log(`Admin logged in: ${result.data.admin.id}`);
+      res.cookie('refreshToken', result.data.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+    }
+
+    this.logger.log(`Admin logged in: ${result.data.admin.id} (mobile: ${isMobileClient})`);
+
+    // Return tokens in response if from mobile
+    const responseData: {
+      admin: typeof result.data.admin;
+      accessToken?: string;
+      refreshToken?: string;
+    } = {
+      admin: result.data.admin,
+    };
+
+    if (isMobileClient) {
+      responseData.accessToken = result.data.accessToken;
+      responseData.refreshToken = result.data.refreshToken;
+    }
+
     return res.json({
       code: result.code,
       success: result.success,
       message: result.message,
-      data: {
-        admin: result.data.admin,
-      },
+      data: responseData,
       timestamp: new Date().toISOString(),
     });
   }
@@ -173,9 +192,18 @@ export class AdminAuthController {
   @AdminRefreshTokenEndpoint()
   async refreshTokens(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
-      const refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
+      // Check if request is from mobile client
+      const isMobileClient = req.headers['x-client-type'] === 'mobile';
+
+      // Get refresh token from either header (mobile) or cookies (web)
+      let refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
+
+      if (isMobileClient && !refreshToken) {
+        refreshToken = req.headers.authorization?.replace('Bearer ', '');
+      }
+
       if (!refreshToken) {
-        this.logger.warn('Refresh token not found in cookies');
+        this.logger.warn('Refresh token not found');
         res.status(401).json({
           code: 401,
           success: false,
@@ -188,35 +216,51 @@ export class AdminAuthController {
 
       try {
         const decoded = this.adminAuthService.verifyRefreshToken(refreshToken) as { id: string };
-        this.logger.debug(`Token refresh for admin: ${decoded.id}`);
+        this.logger.debug(`Token refresh for admin: ${decoded.id} (mobile: ${isMobileClient})`);
         const result = await this.adminAuthService.refreshTokens(decoded.id);
 
         const accessToken = result.data.accessToken;
         const newRefreshToken = result.data.refreshToken;
         const adminData = result.data.admin;
 
-        res.cookie('accessToken', accessToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        // Only set cookies if not from mobile
+        if (!isMobileClient) {
+          res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+          });
 
-        res.cookie('refreshToken', newRefreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+          res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+          });
+        }
 
         this.logger.log(`Tokens refreshed for admin: ${decoded.id}`);
+
+        const responseData: {
+          admin: typeof adminData;
+          accessToken?: string;
+          refreshToken?: string;
+        } = {
+          admin: adminData,
+        };
+
+        // Include tokens in response if from mobile
+        if (isMobileClient) {
+          responseData.accessToken = accessToken;
+          responseData.refreshToken = newRefreshToken;
+        }
+
         res.json({
           code: 200,
           success: true,
           message: 'Tokens refreshed successfully',
-          data: {
-            admin: adminData,
-          },
+          data: responseData,
           timestamp: new Date().toISOString(),
         });
       } catch (jwtError) {

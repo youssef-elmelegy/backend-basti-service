@@ -30,13 +30,13 @@ export class UpdatePredesignedCakeDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Image URL for the predesigned cake',
+    description: 'Thumbnail URL for the predesigned cake',
     example: 'https://example.com/images/chocolate-cake.jpg',
     required: false,
   })
   @IsString()
   @IsOptional()
-  imageUrl?: string;
+  thumbnailUrl?: string;
 
   @ApiProperty({
     description: 'Tag ID for categorization',
