@@ -61,4 +61,13 @@ export class GetPredesignedCakesQueryDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @ApiProperty({
+    description: 'Tag ID to filter by (optional)',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  tagId?: string;
 }
