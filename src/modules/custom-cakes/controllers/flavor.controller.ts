@@ -28,6 +28,7 @@ import {
   DeleteFlavorDecorator,
   CreateFlavorRegionItemPriceDecorator,
   CreateFlavorWithVariantImagesDecorator,
+  ToggleFlavorStatusDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -85,6 +86,17 @@ export class FlavorController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting flavor: ${id}`);
     return this.flavorService.remove(id);
+  }
+
+  @Patch(':id/toggle-status')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleFlavorStatusDecorator()
+  async toggleStatus(@Param('id', new ParseUUIDPipe()) id: string): Promise<any> {
+    this.logger.debug(`Toggling flavor status: ${id}`);
+    const result = await this.flavorService.toggleStatus(id);
+    this.logger.log(`Flavor status toggled: ${id}`);
+    return result;
   }
 
   @Post('region-pricing')

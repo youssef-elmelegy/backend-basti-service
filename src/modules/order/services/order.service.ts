@@ -485,9 +485,14 @@ export class OrderService {
     }
   }
 
-  async getAllOrders(regionId: string): Promise<OrderResponseDto[]> {
+  async getAllOrders(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
     try {
-      const allOrders = await db.select().from(orders);
+      let allOrders = await db.select().from(orders);
+
+      // Filter by status(es) if provided
+      if (status && status.length > 0) {
+        allOrders = allOrders.filter((order) => status.includes(order.orderStatus));
+      }
 
       const response: OrderResponseDto[] = [];
 

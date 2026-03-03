@@ -28,6 +28,7 @@ import {
   DeleteDecorationDecorator,
   CreateDecorationRegionItemPriceDecorator,
   CreateDecorationWithVariantImagesDecorator,
+  ToggleDecorationStatusDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -85,6 +86,17 @@ export class DecorationController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting decoration: ${id}`);
     return this.decorationService.remove(id);
+  }
+
+  @Patch(':id/toggle-status')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleDecorationStatusDecorator()
+  async toggleStatus(@Param('id', new ParseUUIDPipe()) id: string): Promise<any> {
+    this.logger.debug(`Toggling decoration status: ${id}`);
+    const result = await this.decorationService.toggleStatus(id);
+    this.logger.log(`Decoration status toggled: ${id}`);
+    return result;
   }
 
   @Post('region-pricing')

@@ -33,6 +33,7 @@ export class ShapeService {
       description: shape.description,
       shapeUrl: shape.shapeUrl,
       size: shape.size,
+      capacity: shape.capacity,
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
@@ -53,6 +54,7 @@ export class ShapeService {
           description: createDto.description,
           shapeUrl: createDto.shapeUrl,
           size: createDto.size,
+          capacity: createDto.capacity,
         })
         .returning();
 
@@ -83,6 +85,11 @@ export class ShapeService {
       const sortOrder = query.order === 'desc' ? desc : asc;
       const sortColumn = query.sortBy === ShapeSortBy.TITLE ? shapes.title : shapes.createdAt;
 
+      const whereConditions: any[] = [];
+      if (query.isActive !== undefined) {
+        whereConditions.push(eq(shapes.isActive, query.isActive));
+      }
+
       let allShapesResult: Array<{
         shape: typeof shapes.$inferSelect;
         price?: string;
@@ -98,7 +105,8 @@ export class ShapeService {
         // If search is also provided, combine both filters
         if (query.search) {
           const searchPattern = `%${query.search}%`;
-          const whereCondition = sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`;
+          const searchCondition = sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`;
+          whereConditions.push(searchCondition);
 
           allShapesResult = await db
             .select({
@@ -107,7 +115,7 @@ export class ShapeService {
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition)
+            .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(sortOrder(sortColumn));
         } else {
           // Only regionId, no search
@@ -118,19 +126,21 @@ export class ShapeService {
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
+            .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(sortOrder(sortColumn));
         }
       }
       // Search by title if provided
       else if (query.search) {
         const searchPattern = `%${query.search}%`;
+        whereConditions.push(sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`);
 
         allShapesResult = await db
           .select({
             shape: shapes,
           })
           .from(shapes)
-          .where(sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`)
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn));
       }
       // Get all shapes
@@ -140,6 +150,7 @@ export class ShapeService {
             shape: shapes,
           })
           .from(shapes)
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn));
       }
 
@@ -272,6 +283,59 @@ export class ShapeService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete shape',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async toggleStatus(id: string): Promise<SuccessResponse<Record<string, unknown>>> {
+    try {
+      const [existingShape] = await db.select().from(shapes).where(eq(shapes.id, id)).limit(1);
+
+      if (!existingShape) {
+        this.logger.warn(`Shape not found for status toggle: ${id}`);
+        throw new NotFoundException(
+          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        );
+      }
+
+      const [updatedShape] = await db
+        .update(shapes)
+        .set({
+          isActive: !existingShape.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(shapes.id, id))
+        .returning();
+
+      const statusText = updatedShape.isActive ? 'activated' : 'deactivated';
+      this.logger.log(`Shape status toggled (${statusText}): ${id}`);
+
+      return successResponse(
+        {
+          id: updatedShape.id,
+          title: updatedShape.title,
+          description: updatedShape.description,
+          shapeUrl: updatedShape.shapeUrl,
+          size: updatedShape.size,
+          isActive: updatedShape.isActive,
+          createdAt: updatedShape.createdAt,
+          updatedAt: updatedShape.updatedAt,
+        },
+        `Shape status ${statusText} successfully`,
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to toggle shape status ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to toggle shape status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -9,7 +9,7 @@ export function GetAllDecorationsDecorator() {
     ApiOperation({
       summary: 'Get all decorations',
       description:
-        'Retrieves all available decorations with pagination, sorting, and optional filtering by shape (with variant images) or region (with regional pricing). When shapeId and regionId are both provided, returns decorations with variant images and regional pricing.',
+        'Retrieves all available decorations with optional filtering by tag, active status, region (with regional pricing), and search. When isActive is specified, only active or inactive decorations are returned. When regionId is provided, regional pricing is included.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

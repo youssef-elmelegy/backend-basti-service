@@ -6,3 +6,6 @@ export * from './admin-change-password.dto';
 export * from './admin-auth-response.interface';
 export * from './admin-response.dto';
 export * from './admin-response-wrapper.dto';
+export * from './admin-create.dto';
+export * from './admin-block.dto';
+export * from './admin-update.dto';

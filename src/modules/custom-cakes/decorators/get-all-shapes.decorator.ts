@@ -8,7 +8,8 @@ export function GetAllShapesDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get all shapes',
-      description: 'Retrieves all available cake shapes with sorting and filtering options.',
+      description:
+        'Retrieves all available cake shapes with optional filtering by region (with regional pricing), active status, and search. When regionId is provided, regional pricing is included. When isActive is specified, only active or inactive shapes are returned.',
     }),
     ApiResponse({
       status: HttpStatus.OK,

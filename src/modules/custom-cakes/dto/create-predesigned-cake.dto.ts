@@ -29,6 +29,15 @@ export class CreatePredesignedCakeDto {
   description: string;
 
   @ApiProperty({
+    description: 'Thumbnail URL for the predesigned cake',
+    example: 'https://example.com/images/chocolate-cake.jpg',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
+
+  @ApiProperty({
     description: 'Tag ID for categorization',
     example: '550e8400-e29b-41d4-a716-446655440000',
     required: false,

@@ -16,8 +16,9 @@ import {
   flavors,
   decorations,
   shapes,
+  shapeVariantImages,
 } from '@/db/schema';
-import { eq, and, or, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, SQL } from 'drizzle-orm';
 import {
   CreatePredesignedCakeDto,
   UpdatePredesignedCakeDto,
@@ -31,7 +32,9 @@ import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 export class PredesignedCakesService {
   private readonly logger = new Logger(PredesignedCakesService.name);
 
-  async create(createDto: CreatePredesignedCakeDto): Promise<SuccessResponse<any>> {
+  async create(
+    createDto: CreatePredesignedCakeDto,
+  ): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       if (createDto.tagId) {
         const tagExists = await db
@@ -103,6 +106,7 @@ export class PredesignedCakesService {
         .values({
           name: createDto.name,
           description: createDto.description,
+          thumbnailUrl: createDto.thumbnailUrl || null,
           tagId: createDto.tagId || null,
         })
         .returning();
@@ -143,7 +147,9 @@ export class PredesignedCakesService {
     }
   }
 
-  async findAll(query: GetPredesignedCakesQueryDto): Promise<SuccessResponse<any>> {
+  async findAll(
+    query: GetPredesignedCakesQueryDto,
+  ): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       const offset = (query.page - 1) * query.limit;
       const sortOrder = query.order === 'desc' ? desc : asc;
@@ -152,8 +158,33 @@ export class PredesignedCakesService {
 
       let allCakesResult: Array<{
         cake: typeof predesignedCakes.$inferSelect;
+        price?: string;
       }> = [];
       let total = 0;
+
+      // Build WHERE conditions
+      const whereConditions: SQL[] = [];
+
+      // Add tag filter
+      if (query.tagId) {
+        whereConditions.push(eq(predesignedCakes.tagId, query.tagId));
+      }
+
+      // Add isActive filter
+      if (query.isActive !== undefined) {
+        whereConditions.push(eq(predesignedCakes.isActive, query.isActive));
+      }
+
+      // Add search filter
+      if (query.search) {
+        const searchPattern = `%${query.search}%`;
+        whereConditions.push(
+          or(
+            sql`LOWER(${predesignedCakes.name}) LIKE LOWER(${searchPattern})`,
+            sql`LOWER(${predesignedCakes.description}) LIKE LOWER(${searchPattern})`,
+          ),
+        );
+      }
 
       if (query.regionId) {
         const joinConditions = [
@@ -161,104 +192,70 @@ export class PredesignedCakesService {
           eq(regionItemPrices.regionId, query.regionId),
         ] as const;
 
-        // If search is also provided, combine both filters
-        if (query.search) {
-          const searchPattern = `%${query.search}%`;
-          const whereCondition = or(
-            sql`LOWER(${predesignedCakes.name}) LIKE LOWER(${searchPattern})`,
-            sql`LOWER(${predesignedCakes.description}) LIKE LOWER(${searchPattern})`,
-          );
+        // Count total
+        const [{ count: combinedCount }] = await db
+          .select({ count: sql<number>`COUNT(DISTINCT ${predesignedCakes.id})` })
+          .from(predesignedCakes)
+          .innerJoin(regionItemPrices, and(...joinConditions))
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
-          const [{ count: combinedCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${predesignedCakes.id})` })
-            .from(predesignedCakes)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition);
+        total = Number(combinedCount);
 
-          total = Number(combinedCount);
-
-          allCakesResult = await db
-            .select({
-              cake: predesignedCakes,
-            })
-            .from(predesignedCakes)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .where(whereCondition)
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        } else {
-          // Only regionId, no search
-          const [{ count: regionCount }] = await db
-            .select({ count: sql<number>`COUNT(DISTINCT ${predesignedCakes.id})` })
-            .from(predesignedCakes)
-            .innerJoin(regionItemPrices, and(...joinConditions));
-
-          total = Number(regionCount);
-
-          allCakesResult = await db
-            .select({
-              cake: predesignedCakes,
-            })
-            .from(predesignedCakes)
-            .innerJoin(regionItemPrices, and(...joinConditions))
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        }
+        // Fetch with pricing
+        allCakesResult = await db
+          .select({
+            cake: predesignedCakes,
+            price: regionItemPrices.price,
+          })
+          .from(predesignedCakes)
+          .innerJoin(regionItemPrices, and(...joinConditions))
+          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
       } else {
-        // No regionId filter, optional search
-        if (query.search) {
-          const searchPattern = `%${query.search}%`;
-          const whereCondition = or(
-            sql`LOWER(${predesignedCakes.name}) LIKE LOWER(${searchPattern})`,
-            sql`LOWER(${predesignedCakes.description}) LIKE LOWER(${searchPattern})`,
-          );
+        // No regionId filter
+        const finalWhereCondition =
+          whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-          const [{ count: searchCount }] = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(predesignedCakes)
-            .where(whereCondition);
+        // Count total
+        const [{ count: totalCount }] = await db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(predesignedCakes)
+          .where(finalWhereCondition);
 
-          total = Number(searchCount);
+        total = Number(totalCount);
 
-          allCakesResult = await db
-            .select({
-              cake: predesignedCakes,
-            })
-            .from(predesignedCakes)
-            .where(whereCondition)
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        } else {
-          // No filters at all
-          const [{ count: allCount }] = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(predesignedCakes);
-
-          total = Number(allCount);
-
-          allCakesResult = await db
-            .select({
-              cake: predesignedCakes,
-            })
-            .from(predesignedCakes)
-            .orderBy(sortOrder(sortColumn))
-            .limit(query.limit)
-            .offset(offset);
-        }
+        // Fetch without pricing
+        allCakesResult = await db
+          .select({
+            cake: predesignedCakes,
+          })
+          .from(predesignedCakes)
+          .where(finalWhereCondition)
+          .orderBy(sortOrder(sortColumn))
+          .limit(query.limit)
+          .offset(offset);
       }
 
       const totalPages = Math.ceil(total / query.limit);
 
-      // Get tag names and configs for all items
+      // Get tag names, configs, and format pricing for all items
       const itemsWithTagsAndConfigs = await Promise.all(
-        allCakesResult.map(async (result: { cake: typeof predesignedCakes.$inferSelect }) => {
-          const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
-          const configs = await this.getConfigsWithObjects(result.cake.id);
-          return { ...result.cake, tagName, configs };
-        }),
+        allCakesResult.map(
+          async (result: { cake: typeof predesignedCakes.$inferSelect; price?: string }) => {
+            const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
+            const configs = await this.getConfigsWithObjects(result.cake.id);
+            const item = {
+              ...result.cake,
+              tagName,
+              configs,
+              ...(result.price && { price: result.price }),
+            };
+
+            return item;
+          },
+        ),
       );
 
       this.logger.log(`Retrieved predesigned cakes: page ${query.page}, limit ${query.limit}`);
@@ -288,7 +285,7 @@ export class PredesignedCakesService {
     }
   }
 
-  async findOne(id: string): Promise<SuccessResponse<any>> {
+  async findOne(id: string): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       const cake = await db
         .select()
@@ -327,7 +324,10 @@ export class PredesignedCakesService {
     }
   }
 
-  async update(id: string, updateDto: UpdatePredesignedCakeDto): Promise<SuccessResponse<any>> {
+  async update(
+    id: string,
+    updateDto: UpdatePredesignedCakeDto,
+  ): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       const cakeExists = await db
         .select({ id: predesignedCakes.id })
@@ -424,6 +424,7 @@ export class PredesignedCakesService {
       const updateValues: Partial<typeof predesignedCakes.$inferInsert> = {};
       if (updateDto.name) updateValues.name = updateDto.name;
       if (updateDto.description) updateValues.description = updateDto.description;
+      if (updateDto.thumbnailUrl !== undefined) updateValues.thumbnailUrl = updateDto.thumbnailUrl;
       if (updateDto.tagId !== undefined) updateValues.tagId = updateDto.tagId;
 
       const [updatedCake] = await db
@@ -491,9 +492,77 @@ export class PredesignedCakesService {
     }
   }
 
+  async toggleStatus(id: string) {
+    try {
+      const [existingCake] = await db
+        .select()
+        .from(predesignedCakes)
+        .where(eq(predesignedCakes.id, id))
+        .limit(1);
+
+      if (!existingCake) {
+        this.logger.warn(`Predesigned cake not found for status toggle: ${id}`);
+        throw new NotFoundException(
+          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        );
+      }
+
+      const [updatedCake] = await db
+        .update(predesignedCakes)
+        .set({
+          isActive: !existingCake.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(predesignedCakes.id, id))
+        .returning();
+
+      const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
+      this.logger.log(`Predesigned cake status toggled (${statusText}): ${id}`);
+
+      let tagName: string;
+      if (updatedCake.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, updatedCake.tagId))
+          .limit(1);
+
+        tagName = tagResult[0]?.name || '';
+      }
+
+      return successResponse(
+        {
+          id: updatedCake.id,
+          name: updatedCake.name,
+          description: updatedCake.description,
+          thumbnailUrl: updatedCake.thumbnailUrl,
+          isActive: updatedCake.isActive,
+          tag: tagName || null,
+          createdAt: updatedCake.createdAt,
+          updatedAt: updatedCake.updatedAt,
+        },
+        `Predesigned cake status ${statusText} successfully`,
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to toggle predesigned cake status ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to toggle predesigned cake status',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
   async checkEntityRegionAvailability(
     checkDto: CheckEntityRegionAvailabilityDto,
-  ): Promise<SuccessResponse<any>> {
+  ): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       // Check if region exists
       const regionExists = await db
@@ -577,7 +646,7 @@ export class PredesignedCakesService {
   }
 
   private async getConfigsWithObjects(predesignedCakeId: string) {
-    const configs = await db
+    const configsWithImages = await db
       .select({
         id: designedCakeConfigs.id,
         flavorId: designedCakeConfigs.flavorId,
@@ -611,22 +680,121 @@ export class PredesignedCakesService {
           createdAt: shapes.createdAt,
           updatedAt: shapes.updatedAt,
         },
+        variantImage: {
+          id: shapeVariantImages.id,
+          flavorId: shapeVariantImages.flavorId,
+          decorationId: shapeVariantImages.decorationId,
+          slicedViewUrl: shapeVariantImages.slicedViewUrl,
+          frontViewUrl: shapeVariantImages.frontViewUrl,
+          topViewUrl: shapeVariantImages.topViewUrl,
+          createdAt: shapeVariantImages.createdAt,
+          updatedAt: shapeVariantImages.updatedAt,
+        },
       })
       .from(designedCakeConfigs)
       .innerJoin(flavors, eq(designedCakeConfigs.flavorId, flavors.id))
       .innerJoin(decorations, eq(designedCakeConfigs.decorationId, decorations.id))
       .innerJoin(shapes, eq(designedCakeConfigs.shapeId, shapes.id))
+      .leftJoin(
+        shapeVariantImages,
+        or(
+          and(
+            eq(shapeVariantImages.shapeId, designedCakeConfigs.shapeId),
+            eq(shapeVariantImages.flavorId, designedCakeConfigs.flavorId),
+          ),
+          and(
+            eq(shapeVariantImages.shapeId, designedCakeConfigs.shapeId),
+            eq(shapeVariantImages.decorationId, designedCakeConfigs.decorationId),
+          ),
+        ),
+      )
       .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
 
-    return configs.map((config) => ({
-      id: config.id,
-      flavor: config.flavor,
-      decoration: config.decoration,
-      shape: config.shape,
-      frostColorValue: config.frostColorValue,
-      createdAt: config.createdAt,
-      updatedAt: config.updatedAt,
-    }));
+    // Group the results by config ID to consolidate variant images
+    const configMap = new Map<
+      string,
+      {
+        id: string;
+        flavor: {
+          id: string;
+          title: string;
+          description: string;
+          flavorUrl: string;
+          shapeVariantImages: Array<{
+            id: string;
+            slicedViewUrl: string;
+            frontViewUrl: string;
+            topViewUrl: string;
+            createdAt: Date;
+            updatedAt: Date;
+          }>;
+          createdAt: Date;
+          updatedAt: Date;
+        };
+        decoration: {
+          id: string;
+          title: string;
+          description: string;
+          decorationUrl: string;
+          tagId: string | null;
+          shapeVariantImages: Array<{
+            id: string;
+            slicedViewUrl: string;
+            frontViewUrl: string;
+            topViewUrl: string;
+            createdAt: Date;
+            updatedAt: Date;
+          }>;
+          createdAt: Date;
+          updatedAt: Date;
+        };
+        shape: {
+          id: string;
+          title: string;
+          description: string;
+          shapeUrl: string;
+          createdAt: Date;
+          updatedAt: Date;
+        };
+        frostColorValue: string;
+        createdAt: Date;
+        updatedAt: Date;
+      }
+    >();
+
+    configsWithImages.forEach((row) => {
+      if (!configMap.has(row.id)) {
+        configMap.set(row.id, {
+          id: row.id,
+          flavor: {
+            ...row.flavor,
+            shapeVariantImages: [],
+          },
+          decoration: {
+            ...row.decoration,
+            shapeVariantImages: [],
+          },
+          shape: row.shape,
+          frostColorValue: row.frostColorValue,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        });
+      }
+
+      const config = configMap.get(row.id);
+      if (row.variantImage && row.variantImage.id) {
+        // Add to flavor variant images if it matches the flavor
+        if (row.variantImage.flavorId === row.flavorId) {
+          config.flavor.shapeVariantImages.push(row.variantImage);
+        }
+        // Add to decoration variant images if it matches the decoration
+        if (row.variantImage.decorationId === row.decorationId) {
+          config.decoration.shapeVariantImages.push(row.variantImage);
+        }
+      }
+    });
+
+    return Array.from(configMap.values());
   }
 
   private async getTagName(tagId: string): Promise<string> {
@@ -636,7 +804,7 @@ export class PredesignedCakesService {
 
   async createRegionItemPrice(
     createDto: CreatePredesignedCakeRegionItemPriceDto,
-  ): Promise<SuccessResponse<any>> {
+  ): Promise<SuccessResponse<Record<string, unknown>>> {
     try {
       // Validate region exists
       const regionExists = await db
