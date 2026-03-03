@@ -323,4 +323,206 @@ export const AdminAuthExamples = {
       },
     },
   },
+
+  create: {
+    request: {
+      email: 'newadmin@basti.com',
+      password: 'NewAdminPass1',
+      role: 'admin',
+      bakeryId: '550e8400-e29b-41d4-a716-446655440000',
+      profileImage: 'https://example.com/images/admin.jpg',
+    },
+    response: {
+      success: {
+        code: 201,
+        success: true,
+        message: 'Admin created successfully',
+        data: {
+          id: '990e8400-e29b-41d4-a716-446655440005',
+          email: 'newadmin@basti.com',
+          role: 'admin',
+          profileImage: 'https://example.com/images/admin.jpg',
+          bakeryId: '550e8400-e29b-41d4-a716-446655440000',
+          createdAt: '2025-01-11T10:00:00.000Z',
+          updatedAt: '2025-01-11T10:00:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      emailExists: {
+        code: 400,
+        success: false,
+        message: 'Admin with this email already exists',
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      validationError: {
+        code: 400,
+        success: false,
+        message: [
+          'email must be a valid email address',
+          'password must be at least 8 characters long',
+        ],
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      forbidden: {
+        code: 403,
+        success: false,
+        message: 'Forbidden - insufficient permissions (super_admin only)',
+        error: 'ForbiddenException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  block: {
+    request: {
+      isBlocked: true,
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Admin blocked successfully',
+        data: {
+          id: '990e8400-e29b-41d4-a716-446655440005',
+          email: 'admin@example.com',
+          role: 'admin',
+          profileImage: null,
+          bakeryId: null,
+          isBlocked: true,
+          createdAt: '2025-01-11T10:00:00.000Z',
+          updatedAt: '2025-01-11T10:00:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'Admin not found',
+        error: 'NotFoundException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      validationError: {
+        code: 400,
+        success: false,
+        message: ['isBlocked must be a boolean value'],
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      forbidden: {
+        code: 403,
+        success: false,
+        message: 'Forbidden - insufficient permissions (super_admin only)',
+        error: 'ForbiddenException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  update: {
+    request: {
+      role: 'manager',
+      bakeryId: '550e8400-e29b-41d4-a716-446655440000',
+      profileImage: 'https://example.com/images/admin-updated.jpg',
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Admin updated successfully',
+        data: {
+          id: '990e8400-e29b-41d4-a716-446655440005',
+          email: 'admin@example.com',
+          role: 'manager',
+          profileImage: 'https://example.com/images/admin-updated.jpg',
+          bakeryId: '550e8400-e29b-41d4-a716-446655440000',
+          createdAt: '2025-01-11T10:00:00.000Z',
+          updatedAt: '2025-01-11T10:00:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'Admin not found',
+        error: 'NotFoundException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      validationError: {
+        code: 400,
+        success: false,
+        message: ['role must be one of: super_admin, admin, manager'],
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      forbidden: {
+        code: 403,
+        success: false,
+        message: 'Forbidden - insufficient permissions (super_admin only)',
+        error: 'ForbiddenException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  getAll: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Admins retrieved successfully',
+        data: {
+          admins: [
+            {
+              id: '990e8400-e29b-41d4-a716-446655440001',
+              email: 'superadmin@basti.com',
+              role: 'super_admin',
+              profileImage: 'https://example.com/images/superadmin.jpg',
+              bakeryId: undefined,
+              isBlocked: false,
+              createdAt: '2025-01-10T10:00:00.000Z',
+              updatedAt: '2025-01-10T10:00:00.000Z',
+            },
+            {
+              id: '990e8400-e29b-41d4-a716-446655440002',
+              email: 'admin@basti.com',
+              role: 'admin',
+              profileImage: 'https://example.com/images/admin.jpg',
+              bakeryId: '550e8400-e29b-41d4-a716-446655440000',
+              isBlocked: false,
+              createdAt: '2025-01-11T10:00:00.000Z',
+              updatedAt: '2025-01-11T10:00:00.000Z',
+            },
+            {
+              id: '990e8400-e29b-41d4-a716-446655440003',
+              email: 'manager@basti.com',
+              role: 'manager',
+              profileImage: null,
+              bakeryId: '550e8400-e29b-41d4-a716-446655440001',
+              isBlocked: false,
+              createdAt: '2025-01-12T10:00:00.000Z',
+              updatedAt: '2025-01-12T10:00:00.000Z',
+            },
+          ],
+          total: 3,
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Unauthorized',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      forbidden: {
+        code: 403,
+        success: false,
+        message: 'Forbidden - insufficient permissions (super_admin only)',
+        error: 'ForbiddenException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
 } as const;

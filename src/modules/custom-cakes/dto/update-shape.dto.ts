@@ -1,4 +1,12 @@
-import { IsString, MinLength, MaxLength, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsPositive,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ShapeSize } from './create-shape.dto';
 
@@ -47,4 +55,15 @@ export class UpdateShapeDto {
   @IsOptional()
   @IsEnum(ShapeSize, { message: 'Size must be one of: small, medium, large' })
   size?: ShapeSize;
+
+  @ApiProperty({
+    description: 'Shape capacity (number of servings)',
+    example: 20,
+    minimum: 1,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'Capacity must be a number' })
+  @IsPositive({ message: 'Capacity must be greater than 0' })
+  capacity?: number;
 }

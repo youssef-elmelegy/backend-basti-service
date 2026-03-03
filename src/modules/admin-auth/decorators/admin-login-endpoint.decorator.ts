@@ -1,5 +1,5 @@
 import { applyDecorators, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiBody, ApiHeader } from '@nestjs/swagger';
 import { AdminLoginDto } from '../dto';
 import { SuccessAdminLoginResponseDto, AdminErrorResponseDto } from '../dto';
 import { AdminAuthExamples } from '@/constants/examples';
@@ -7,10 +7,17 @@ import { AdminAuthExamples } from '@/constants/examples';
 export function AdminLoginEndpoint() {
   return applyDecorators(
     HttpCode(HttpStatus.OK),
+    ApiHeader({
+      name: 'x-client-type',
+      description:
+        'Client type identifier. Use "mobile" for mobile clients to receive tokens in response instead of cookies.',
+      required: false,
+      example: 'mobile',
+    }),
     ApiOperation({
       summary: 'Admin Login',
       description:
-        'Authenticate admin with email and password. Tokens are stored in HTTP-only cookies.',
+        'Authenticate admin with email and password. For web clients, tokens are stored in HTTP-only cookies. For mobile clients (header: x-client-type=mobile), tokens are returned in the response body.',
     }),
     ApiBody({
       type: AdminLoginDto,

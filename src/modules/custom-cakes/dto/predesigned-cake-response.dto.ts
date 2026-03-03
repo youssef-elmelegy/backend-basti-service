@@ -1,4 +1,5 @@
 import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
+import { ShapeVariantImageDto } from './create-flavor-with-variant-images.dto';
 
 export class CakeConfigFlavorDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -15,6 +16,9 @@ export class CakeConfigFlavorDto {
       'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
   })
   flavorUrl: string;
+
+  @ApiProperty({ type: () => [ShapeVariantImageDto], required: false })
+  shapeVariantImages?: ShapeVariantImageDto[];
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
@@ -41,6 +45,9 @@ export class CakeConfigDecorationDto {
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', required: false })
   tagId?: string;
+
+  @ApiProperty({ type: () => [ShapeVariantImageDto], required: false })
+  shapeVariantImages?: ShapeVariantImageDto[];
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
@@ -121,6 +128,9 @@ export class PredesignedCakeDataDto {
 
   @ApiProperty({ example: true })
   isActive: boolean;
+
+  @ApiProperty({ example: '95.50', nullable: true, required: false })
+  price?: string;
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;

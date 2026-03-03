@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, index, boolean } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, tags, shapeVariantImages } from '.';
 
@@ -12,11 +12,13 @@ export const decorations = pgTable(
     description: text('description').notNull(),
     tagId: uuid('tag_id'),
     decorationUrl: text('decoration_url').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     titleIdx: index('decorations_title_idx').on(table.title),
+    isActiveIdx: index('decorations_is_active_idx').on(table.isActive),
   }),
 );
 

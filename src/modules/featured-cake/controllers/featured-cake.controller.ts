@@ -94,7 +94,7 @@ export class FeaturedCakeController {
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
   @ToggleFeaturedCakeStatusDecorator()
-  async toggleStatus(@Param('id') id: string) {
+  async toggleStatus(@Param('id') id: string): Promise<any> {
     this.logger.debug(`Toggling featured cake status: ${id}`);
     const result = await this.featuredCakeService.toggleStatus(id);
     this.logger.log(`Featured cake status toggled: ${id}`);

@@ -18,6 +18,9 @@ export class ShapeDataDto {
   @ApiProperty({ example: 'medium', enum: ['small', 'medium', 'large'] })
   size: string;
 
+  @ApiProperty({ example: 20 })
+  capacity: number;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 

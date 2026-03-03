@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, index, boolean } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, shapeVariantImages } from '.';
 
@@ -11,11 +11,13 @@ export const flavors = pgTable(
     title: varchar('title', { length: 255 }).notNull(),
     description: text('description').notNull(),
     flavorUrl: text('flavor_url').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     titleIdx: index('flavors_title_idx').on(table.title),
+    isActiveIdx: index('flavors_is_active_idx').on(table.isActive),
   }),
 );
 

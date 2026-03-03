@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { addons, orders, featuredCakeOrderItems } from '.';
+import { addons, orders, sweets, predesignedCakes, featuredCakes } from '.';
 
 export const orderItems = pgTable(
   'order_items',
@@ -21,9 +21,28 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
     addonId: uuid('addon_id').references(() => addons.id),
-    featuredCakeOrderItemId: uuid('featured_cake_order_item_id').references(
-      () => featuredCakeOrderItems.id,
-    ),
+    sweetId: uuid('sweet_id').references(() => sweets.id),
+    predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id),
+    featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id),
+
+    customCake: jsonb('custom_cake').$type<{
+      shapeId: string;
+      flavorId: string;
+      decorationId: string;
+      color: {
+        name: string;
+        hex: string;
+      };
+      extraLayers?: {
+        layer: number;
+        flavorId: string;
+      }[];
+      message?: string;
+      imageToPrint?: string;
+      snapshotFront?: string;
+      snapshotTop?: string;
+      snapshotSliced?: string;
+    }>(),
 
     quantity: integer('quantity').notNull().default(1),
     size: varchar('size', { length: 50 }),
@@ -40,6 +59,7 @@ export const orderItems = pgTable(
     >(),
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     orderIdIdx: index('order_items_order_id_idx').on(table.orderId),
@@ -55,8 +75,16 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.addonId],
     references: [addons.id],
   }),
-  featuredCakeOrderItem: one(featuredCakeOrderItems, {
-    fields: [orderItems.featuredCakeOrderItemId],
-    references: [featuredCakeOrderItems.id],
+  sweet: one(sweets, {
+    fields: [orderItems.sweetId],
+    references: [sweets.id],
+  }),
+  featuredCake: one(featuredCakes, {
+    fields: [orderItems.featuredCakeId],
+    references: [featuredCakes.id],
+  }),
+  predesignedCake: one(predesignedCakes, {
+    fields: [orderItems.predesignedCakeId],
+    references: [predesignedCakes.id],
   }),
 }));

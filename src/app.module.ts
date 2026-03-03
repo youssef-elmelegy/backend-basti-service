@@ -16,6 +16,9 @@ import { CustomCakesModule } from './modules/custom-cakes/custom-cakes.module';
 import { AdminExtractionMiddleware } from '@/common/middleware/admin-extraction.middleware';
 import { OrderModule } from './modules/order/order.module';
 import { CartModule } from './modules/cart/cart.module';
+import { LocationModule } from './modules/location/location.module';
+import { ConfigModule } from './modules/config/config.module';
+import { PaymentMethodModule } from './modules/payment-method/payment-method.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { CartModule } from './modules/cart/cart.module';
     OrderModule,
     CustomCakesModule,
     CartModule,
+    LocationModule,
+    ConfigModule,
+    PaymentMethodModule,
     // ReviewModule,
     SliderImageModule,
     TagsModule,

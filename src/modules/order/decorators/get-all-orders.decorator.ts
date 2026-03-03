@@ -8,7 +8,23 @@ export function GetAllOrdersDecorator() {
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Get all orders (admin)',
-      description: 'Retrieve all orders with pagination support. Accessible to admin users only.',
+      description:
+        'Retrieve all orders with optional filtering by region and/or status. Accessible to admin users only.',
+    }),
+    ApiQuery({
+      name: 'regionId',
+      required: false,
+      type: String,
+      description: 'Filter orders by region ID (UUID)',
+      example: '550e8400-e29b-41d4-a716-446655440000',
+    }),
+    ApiQuery({
+      name: 'status',
+      required: false,
+      type: String,
+      description:
+        'Filter orders by status. Can be a single status or comma-separated multiple statuses (pending, confirmed, preparing, ready, out_for_delivery, delivered, cancelled)',
+      example: 'pending,confirmed',
     }),
     ApiQuery({
       name: 'page',

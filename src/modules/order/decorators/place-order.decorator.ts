@@ -1,6 +1,6 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
-import { CreateOrderDto, OrderResponseDto } from '../dto';
+import { CreateOrderDto, CreateOrderResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 
 export function PlaceOrderDecorator() {
@@ -18,7 +18,7 @@ export function PlaceOrderDecorator() {
     ApiResponse({
       status: HttpStatus.CREATED,
       description: 'Order placed successfully',
-      type: OrderResponseDto,
+      type: CreateOrderResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,

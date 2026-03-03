@@ -26,6 +26,7 @@ import {
   UpdateShapeDecorator,
   DeleteShapeDecorator,
   CreateShapeRegionItemPriceDecorator,
+  ToggleShapeStatusDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -83,6 +84,17 @@ export class ShapeController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting shape: ${id}`);
     return this.shapeService.remove(id);
+  }
+
+  @Patch(':id/toggle-status')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleShapeStatusDecorator()
+  async toggleStatus(@Param('id', new ParseUUIDPipe()) id: string): Promise<any> {
+    this.logger.debug(`Toggling shape status: ${id}`);
+    const result = await this.shapeService.toggleStatus(id);
+    this.logger.log(`Shape status toggled: ${id}`);
+    return result;
   }
 
   @Post('region-pricing')

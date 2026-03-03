@@ -11,6 +11,7 @@ export const predesignedCakes = pgTable(
       .default(sql`gen_random_uuid()`),
     name: varchar('name', { length: 255 }).notNull(),
     description: text('description').notNull(),
+    thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
     isActive: boolean('is_active').default(true).notNull(),
     tagId: uuid('tag_id'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

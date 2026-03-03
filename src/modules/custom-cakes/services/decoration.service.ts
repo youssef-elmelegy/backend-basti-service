@@ -174,6 +174,11 @@ export class DecorationService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     let allDecorationsResult: Array<{
       decoration: typeof decorations.$inferSelect;
       image: typeof shapeVariantImages.$inferSelect;
@@ -184,7 +189,8 @@ export class DecorationService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       allDecorationsResult = await db
         .select({
@@ -197,17 +203,22 @@ export class DecorationService {
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
+      const whereConditionsCount: any[] = [];
+      whereConditionsCount.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+      if (query.isActive !== undefined) {
+        whereConditionsCount.push(eq(decorations.isActive, query.isActive));
+      }
       const [{ count: searchCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
-        .where(whereCondition);
+        .where(whereConditionsCount.length > 0 ? and(...whereConditionsCount) : undefined);
       total = Number(searchCount);
     } else {
       allDecorationsResult = await db
@@ -221,6 +232,7 @@ export class DecorationService {
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -229,7 +241,8 @@ export class DecorationService {
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
-        .innerJoin(regionItemPrices, and(...regionJoinConditions));
+        .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
       total = Number(combinedCount);
     }
 
@@ -248,7 +261,7 @@ export class DecorationService {
       if (decorationEntry && decorationEntry.variantImages) {
         decorationEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -297,6 +310,11 @@ export class DecorationService {
       eq(shapeVariantImages.shapeId, query.shapeId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     let allDecorationsResult: Array<{
       decoration: typeof decorations.$inferSelect;
       image: typeof shapeVariantImages.$inferSelect;
@@ -306,7 +324,8 @@ export class DecorationService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       allDecorationsResult = await db
         .select({
@@ -317,16 +336,21 @@ export class DecorationService {
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...joinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
+      const whereConditionsCount: any[] = [];
+      whereConditionsCount.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+      if (query.isActive !== undefined) {
+        whereConditionsCount.push(eq(decorations.isActive, query.isActive));
+      }
       const [{ count: searchCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...joinConditions))
-        .where(whereCondition);
+        .where(whereConditionsCount.length > 0 ? and(...whereConditionsCount) : undefined);
       total = Number(searchCount);
     } else {
       allDecorationsResult = await db
@@ -338,6 +362,7 @@ export class DecorationService {
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...joinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -345,7 +370,8 @@ export class DecorationService {
       const [{ count: shapeCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
-        .innerJoin(shapeVariantImages, and(...joinConditions));
+        .innerJoin(shapeVariantImages, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
       total = Number(shapeCount);
     }
 
@@ -363,7 +389,7 @@ export class DecorationService {
       if (decorationEntry && decorationEntry.variantImages) {
         decorationEntry.variantImages.push({
           id: row.image.id,
-          sideViewUrl: row.image.sideViewUrl,
+          slicedViewUrl: row.image.slicedViewUrl,
           frontViewUrl: row.image.frontViewUrl,
           topViewUrl: row.image.topViewUrl,
           createdAt: row.image.createdAt,
@@ -399,6 +425,11 @@ export class DecorationService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     let allDecorationsResult: Array<{
       decoration: typeof decorations.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
@@ -409,13 +440,14 @@ export class DecorationService {
     // If search is also provided, combine both filters
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      whereConditions.push(searchCondition);
 
       const [{ count: combinedCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .where(whereCondition);
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
       total = Number(combinedCount);
 
@@ -428,7 +460,7 @@ export class DecorationService {
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .where(whereCondition)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -437,7 +469,8 @@ export class DecorationService {
       const [{ count: regionCount }] = await db
         .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
         .from(decorations)
-        .innerJoin(regionItemPrices, and(...joinConditions));
+        .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
       total = Number(regionCount);
 
@@ -450,6 +483,7 @@ export class DecorationService {
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
@@ -479,10 +513,15 @@ export class DecorationService {
     total: number;
     totalPages: number;
   }> {
+    const whereConditions: any[] = [eq(decorations.tagId, query.tagId)];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     const [{ count: tagCount }] = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
       .from(decorations)
-      .where(eq(decorations.tagId, query.tagId));
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const total = Number(tagCount);
 
@@ -493,7 +532,7 @@ export class DecorationService {
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
-      .where(eq(decorations.tagId, query.tagId))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .orderBy(sortOrder(sortColumn))
       .limit(query.limit)
       .offset(offset);
@@ -523,10 +562,16 @@ export class DecorationService {
     totalPages: number;
   }> {
     const searchPattern = `%${query.search}%`;
+    const whereConditions: any[] = [];
+    whereConditions.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     const [{ count: searchCount }] = await db
       .select({ count: sql<number>`COUNT(DISTINCT ${decorations.id})` })
       .from(decorations)
-      .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const total = Number(searchCount);
 
@@ -537,7 +582,7 @@ export class DecorationService {
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
-      .where(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .orderBy(sortOrder(sortColumn))
       .limit(query.limit)
       .offset(offset);
@@ -566,9 +611,15 @@ export class DecorationService {
     total: number;
     totalPages: number;
   }> {
+    const whereConditions: any[] = [];
+    if (query.isActive !== undefined) {
+      whereConditions.push(eq(decorations.isActive, query.isActive));
+    }
+
     const [{ count: allCount }] = await db
       .select({ count: sql<number>`COUNT(*)` })
-      .from(decorations);
+      .from(decorations)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
 
     const total = Number(allCount);
 
@@ -579,6 +630,7 @@ export class DecorationService {
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .orderBy(sortOrder(sortColumn))
       .limit(query.limit)
       .offset(offset);
@@ -803,6 +855,74 @@ export class DecorationService {
     }
   }
 
+  async toggleStatus(id: string): Promise<SuccessResponse<Record<string, unknown>>> {
+    try {
+      const [existingDecoration] = await db
+        .select()
+        .from(decorations)
+        .where(eq(decorations.id, id))
+        .limit(1);
+
+      if (!existingDecoration) {
+        this.logger.warn(`Decoration not found for status toggle: ${id}`);
+        throw new NotFoundException(
+          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        );
+      }
+
+      const [updatedDecoration] = await db
+        .update(decorations)
+        .set({
+          isActive: !existingDecoration.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(decorations.id, id))
+        .returning();
+
+      const statusText = updatedDecoration.isActive ? 'activated' : 'deactivated';
+      this.logger.log(`Decoration status toggled (${statusText}): ${id}`);
+
+      let tagName: string;
+      if (updatedDecoration.tagId) {
+        const tagResult = await db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(eq(tags.id, updatedDecoration.tagId))
+          .limit(1);
+
+        tagName = tagResult[0]?.name || '';
+      }
+
+      return successResponse(
+        {
+          id: updatedDecoration.id,
+          title: updatedDecoration.title,
+          description: updatedDecoration.description,
+          decorationUrl: updatedDecoration.decorationUrl,
+          tag: tagName || null,
+          isActive: updatedDecoration.isActive,
+          createdAt: updatedDecoration.createdAt,
+          updatedAt: updatedDecoration.updatedAt,
+        },
+        `Decoration status ${statusText} successfully`,
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to toggle decoration status ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to toggle decoration status',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
   async createRegionItemPrice(
     createDto: CreateDecorationRegionItemPriceDto,
   ): Promise<SuccessResponse<any>> {
@@ -950,7 +1070,7 @@ export class DecorationService {
             shapeId: variant.shapeId,
             flavorId: null,
             decorationId: newDecoration.id,
-            sideViewUrl: variant.sideViewUrl,
+            slicedViewUrl: variant.slicedViewUrl,
             frontViewUrl: variant.frontViewUrl,
             topViewUrl: variant.topViewUrl,
           })),

@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsEnum, IsString, IsUUID, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum ShapeSortBy {
   CREATED_AT = 'createdAt',
@@ -40,4 +41,13 @@ export class GetShapesQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by active status',
+    example: true,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
 }

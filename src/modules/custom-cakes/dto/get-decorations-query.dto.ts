@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, Min, Max, IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
+import { IsInt, Min, Max, IsOptional, IsEnum, IsString, IsUUID, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum DecorationSortBy {
@@ -80,4 +80,13 @@ export class GetDecorationsQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by active status',
+    example: true,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
 }

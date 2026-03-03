@@ -29,6 +29,7 @@ import {
   DeletePredesignedCakeDecorator,
   CheckEntityRegionAvailabilityDecorator,
   CreatePredesignedCakeRegionItemPriceDecorator,
+  TogglePredesignedCakeStatusDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -88,6 +89,17 @@ export class PredesignedCakesController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting predesigned cake: ${id}`);
     return this.predesignedCakesService.remove(id);
+  }
+
+  @Patch(':id/toggle-status')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @TogglePredesignedCakeStatusDecorator()
+  async toggleStatus(@Param('id', new ParseUUIDPipe()) id: string): Promise<any> {
+    this.logger.debug(`Toggling predesigned cake status: ${id}`);
+    const result = await this.predesignedCakesService.toggleStatus(id);
+    this.logger.log(`Predesigned cake status toggled: ${id}`);
+    return result;
   }
 
   @Post('check-availability')

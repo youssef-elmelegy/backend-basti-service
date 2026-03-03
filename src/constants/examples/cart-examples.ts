@@ -474,4 +474,19 @@ export const CartExamples = {
       },
     },
   },
+  bulkDeleteCartItems: {
+    request: {
+      ids: [MOCK_IDS.cartItem, MOCK_IDS.addon],
+      regionId: MOCK_DATA.id.region,
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Cart items deleted successfully',
+        data: emptyCartData,
+        timestamp: MOCK_DATA.dates.default,
+      },
+    },
+  },
 } as const;
