@@ -7,6 +7,7 @@ import {
   text,
   index,
   jsonb,
+  varchar,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import {
@@ -27,6 +28,7 @@ export const orders = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
+    referenceNumber: varchar('reference_number', { length: 50 }).unique(),
     userId: uuid('user_id').references(() => users.id),
     userData: jsonb('user_data').$type<{
       email: string;

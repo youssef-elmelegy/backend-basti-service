@@ -70,8 +70,9 @@ export class OrderController {
     return successResponse(result, 'Orders retrieved successfully');
   }
 
-  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  // @AdminRoles('super_admin', 'admin')
+  @Public()
   @Get()
   @GetAllOrdersDecorator()
   async getAllOrders(

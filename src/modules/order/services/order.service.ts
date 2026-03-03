@@ -32,6 +32,7 @@ import {
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
+import { randomBytes } from 'crypto';
 
 import { CartService } from '@/modules/cart/services/cart.service';
 import { ConfigService } from '@/modules/config/services/config.service';
@@ -254,10 +255,13 @@ export class OrderService {
 
       finalPrice = totalPrice - discountAmount;
 
+      const referenceNumber = this.generateOrderReference();
+
       const { newOrder, newItems } = await db.transaction(async (tx) => {
         const [createdOrder] = await tx
           .insert(orders)
           .values({
+            referenceNumber,
             userId,
             userData: {
               email: userData?.email || user?.email || '',
@@ -1088,5 +1092,11 @@ export class OrderService {
     }
 
     return total;
+  }
+
+  private generateOrderReference(): string {
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomPart = randomBytes(3).toString('hex').toUpperCase();
+    return `ORD-${datePart}-${randomPart}`;
   }
 }
