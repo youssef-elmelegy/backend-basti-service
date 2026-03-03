@@ -5,6 +5,7 @@ import { SweetDataDto } from '@/modules/sweet/dto/sweet-response.dto';
 import { AddonDataDto } from '@/modules/addon/dto/addon-response.dto';
 import { PredesignedCakeDataDto } from '@/modules/custom-cakes/dto/predesigned-cake-response.dto';
 import { CustomCakeConfig } from '@/modules/cart/dto';
+import { ConfigResponseDto } from '@/modules/config/dto';
 
 export class CreateOrderItemResponseDto {
   id: string;
@@ -337,4 +338,38 @@ export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items']
     example: [],
   })
   customCakes: OrderItemResponseDto<CustomCakeConfig>[];
+}
+
+export class InvalidDeliveryDatesDto {
+  @ApiProperty({
+    description: 'Invalid date (weekend, holiday or an emergency)',
+    example: '2025-12-25T14:00:00.000Z',
+  })
+  date: Date;
+
+  @ApiProperty({
+    description: 'Reason for the date to be invalid',
+    example: 'A weekend',
+  })
+  reason: string;
+}
+
+export class GetDeliveryDateResponseDto {
+  @ApiProperty({
+    description: 'Nearest delivery date and time',
+    example: '2025-12-25T14:00:00.000Z',
+  })
+  nearestDeliveryDate: Date;
+
+  @ApiProperty({
+    description: 'Extra information / details on the delivery date',
+    example: '',
+  })
+  details: string;
+
+  @ApiProperty({
+    description: 'Configs of the bakeries',
+    type: () => ConfigResponseDto,
+  })
+  configs: ConfigResponseDto;
 }

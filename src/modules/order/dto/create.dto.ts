@@ -474,3 +474,38 @@ export class CreateOrderDto {
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
   type: ItemType;
 }
+
+export class GetDeliveryDateDto {
+  @ApiProperty({
+    name: 'type',
+    description: 'Type of item to add',
+    example: 'big_cakes',
+    enum: allowedTypes,
+  })
+  @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
+  type: ItemType;
+
+  @ApiProperty({
+    description: 'Number of the featured cakes in the order',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  numberOfFeaturedCakes?: number;
+
+  @ApiProperty({
+    description: 'Number of the pre-designed cakes in the order',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  numberOfPredesignedCakes?: number;
+
+  @ApiProperty({
+    description: 'Number of the custom cakes in the order',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  numberOfCustomCakes?: number;
+}

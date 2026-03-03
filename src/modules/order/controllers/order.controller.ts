@@ -14,12 +14,19 @@ import {
 import { OrderService } from '../services/order.service';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common/guards/';
-import { ChangeOrderStatusDto, CreateOrderDto, AssignBakeryDto, RegionFilterDto } from '../dto';
+import {
+  ChangeOrderStatusDto,
+  CreateOrderDto,
+  AssignBakeryDto,
+  RegionFilterDto,
+  GetDeliveryDateDto,
+} from '../dto';
 import {
   AssignBakeryDecorator,
   CancelOrderDecorator,
   ChangeOrderStatusDecorator,
   GetAllOrdersDecorator,
+  GetDeliveryTimeDecorator,
   GetMyOrdersDecorator,
   GetOrderByIdDecorator,
   PlaceOrderDecorator,
@@ -42,6 +49,16 @@ export class OrderController {
     const result = await this.orderService.create(orderData);
     this.logger.debug(`order placed with order id: ${result.id}`);
     return successResponse(result, 'Order placed successfully');
+  }
+
+  @Public()
+  @Post('delivery-time')
+  @GetDeliveryTimeDecorator()
+  async getDeliveryTime(@Body() deliveryDateDto: GetDeliveryDateDto) {
+    this.logger.debug(`getting delivery dates status`);
+    const result = await this.orderService.getDeliveryDate(deliveryDateDto);
+    this.logger.debug(`Retrived delivery dates status successfully`);
+    return successResponse(result, 'Retrived delivery dates status successfully');
   }
 
   @UseGuards(JwtAuthGuard)

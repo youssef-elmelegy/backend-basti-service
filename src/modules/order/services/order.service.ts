@@ -15,6 +15,8 @@ import {
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
+  GetDeliveryDateResponseDto,
+  GetDeliveryDateDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -750,6 +752,21 @@ export class OrderService {
         ),
       );
     }
+  }
+
+  async getDeliveryDate(
+    getDeliveryDateDto: GetDeliveryDateDto,
+  ): Promise<GetDeliveryDateResponseDto> {
+    const { type } = getDeliveryDateDto;
+
+    const res = await this.calculateTheExpectedDeliveryTime(type);
+    const configs = await this.configService.get();
+
+    return {
+      details: '',
+      nearestDeliveryDate: res,
+      configs,
+    };
   }
 
   private async calculateTheExpectedDeliveryTime(
