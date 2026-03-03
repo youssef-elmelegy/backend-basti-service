@@ -29,6 +29,8 @@ import {
   cartItems,
   bakeries,
   users,
+  featuredCakes,
+  shapes,
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
@@ -169,27 +171,28 @@ export class OrderService {
       // Initialize cart as empty array if undefined
       const cartItems$ = cart || [];
 
-      const addons = useOrderItemsData
+      const addonsItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.addonId)
         : cartItems$.filter((item) => item.addonId);
-      const sweets = useOrderItemsData
+      const sweetsItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.sweetId)
         : cartItems$.filter((item) => item.sweetId);
-      const featuredCakes = useOrderItemsData
+      const featuredCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.featuredCakeId)
         : cartItems$.filter((item) => item.featuredCakeId);
-      const predesignedCakes = useOrderItemsData
+      const predesignedCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.predesignedCakeId)
         : cartItems$.filter((item) => item.predesignedCakeId);
-      const customCakes = useOrderItemsData
+      const customCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.customCakeConfig)
         : cartItems$.filter((item) => item.customCake);
 
       const orderItemsDetails: Omit<typeof orderItems.$inferInsert, 'orderId'>[] = [];
 
       let totalPrice = 0;
+      let totalCapacity = 0;
 
-      for (const addon of addons) {
+      for (const addon of addonsItems) {
         const addonPrice = await this.caclulateAddonPrice(addon.addonId, regionId);
         totalPrice += addonPrice * addon.quantity;
         orderItemsDetails.push({
@@ -199,7 +202,7 @@ export class OrderService {
         });
       }
 
-      for (const sweet of sweets) {
+      for (const sweet of sweetsItems) {
         const sweetPrice = await this.caclulateSweetPrice(sweet.sweetId, regionId);
         totalPrice += sweetPrice * sweet.quantity;
         orderItemsDetails.push({
@@ -209,11 +212,20 @@ export class OrderService {
         });
       }
 
-      for (const featuredCake of featuredCakes) {
+      for (const featuredCake of featuredCakesItems) {
         const featuredCakePrice = await this.caclulateFeaturedCakePrice(
           featuredCake.featuredCakeId,
           regionId,
         );
+
+        const [res] = await db
+          .select({ capacity: featuredCakes.capacity })
+          .from(featuredCakes)
+          .where(eq(featuredCakes.id, featuredCake.featuredCakeId))
+          .limit(1);
+
+        totalCapacity += res.capacity;
+
         totalPrice += featuredCakePrice * featuredCake.quantity;
         orderItemsDetails.push({
           price: featuredCakePrice.toFixed(2),
@@ -222,12 +234,22 @@ export class OrderService {
         });
       }
 
-      for (const predesignedCake of predesignedCakes) {
+      for (const predesignedCake of predesignedCakesItems) {
         const predesignedCakePrice = await this.caclulatePredesignedCakePrice(
           predesignedCake.predesignedCakeId,
           regionId,
         );
         totalPrice += predesignedCakePrice * predesignedCake.quantity;
+
+        const [res] = await db
+          .select({ capacity: shapes.capacity })
+          .from(designedCakeConfigs)
+          .innerJoin(shapes, eq(shapes.id, designedCakeConfigs.shapeId))
+          .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCake.predesignedCakeId))
+          .limit(1);
+
+        totalCapacity += res.capacity;
+
         orderItemsDetails.push({
           price: predesignedCakePrice.toFixed(2),
           quantity: predesignedCake.quantity,
@@ -235,7 +257,7 @@ export class OrderService {
         });
       }
 
-      for (const customCake of customCakes) {
+      for (const customCake of customCakesItems) {
         const customCakeData =
           'customCake' in customCake ? customCake.customCake : customCake.customCakeConfig;
 
@@ -243,6 +265,15 @@ export class OrderService {
 
         const customCakePrice = await this.caclulateCustomCakePrice(customCakeData, regionId);
         totalPrice += customCakePrice * customCake.quantity;
+
+        const [res] = await db
+          .select({ capacity: shapes.capacity })
+          .from(shapes)
+          .where(eq(shapes.id, customCakeData.shapeId))
+          .limit(1);
+
+        totalCapacity += res.capacity;
+
         orderItemsDetails.push({
           price: customCakePrice.toFixed(2),
           quantity: customCake.quantity,
@@ -307,6 +338,7 @@ export class OrderService {
             wantedDeliveryTimeSlot,
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
+            totalCapacity,
             discountAmount: discountAmount.toFixed(2),
             willDeliverAt,
             cartType: type,
