@@ -33,6 +33,7 @@ import {
   shapes,
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 
@@ -224,7 +225,7 @@ export class OrderService {
           .where(eq(featuredCakes.id, featuredCake.featuredCakeId))
           .limit(1);
 
-        totalCapacity += res.capacity;
+        totalCapacity += res.capacity * featuredCake.quantity;
 
         totalPrice += featuredCakePrice * featuredCake.quantity;
         orderItemsDetails.push({
@@ -248,7 +249,7 @@ export class OrderService {
           .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCake.predesignedCakeId))
           .limit(1);
 
-        totalCapacity += res.capacity;
+        totalCapacity += res.capacity * predesignedCake.quantity;
 
         orderItemsDetails.push({
           price: predesignedCakePrice.toFixed(2),
@@ -272,7 +273,7 @@ export class OrderService {
           .where(eq(shapes.id, customCakeData.shapeId))
           .limit(1);
 
-        totalCapacity += res.capacity;
+        totalCapacity += res.capacity * customCake.quantity;
 
         orderItemsDetails.push({
           price: customCakePrice.toFixed(2),
@@ -994,57 +995,57 @@ export class OrderService {
     predesignedCakeId: string,
     regionId: string,
   ): Promise<number> {
-    const [basePrice] = await db
-      .select({ price: regionItemPrices.price })
-      .from(regionItemPrices)
-      .where(
+    const flavorPrices = alias(regionItemPrices, 'flavorPrices');
+    const decorationPrices = alias(regionItemPrices, 'decorationPrices');
+    const shapePrices = alias(regionItemPrices, 'shapePrices');
+
+    // Get all configs for this predesigned cake with their component prices
+    const configs = await db
+      .select({
+        flavorPrice: flavorPrices.price,
+        decorationPrice: decorationPrices.price,
+        shapePrice: shapePrices.price,
+      })
+      .from(designedCakeConfigs)
+      .leftJoin(
+        flavorPrices,
         and(
-          eq(regionItemPrices.predesignedCakeId, predesignedCakeId),
-          eq(regionItemPrices.regionId, regionId),
+          eq(flavorPrices.flavorId, designedCakeConfigs.flavorId),
+          eq(flavorPrices.regionId, regionId),
         ),
       )
-      .limit(1);
+      .leftJoin(
+        decorationPrices,
+        and(
+          eq(decorationPrices.decorationId, designedCakeConfigs.decorationId),
+          eq(decorationPrices.regionId, regionId),
+        ),
+      )
+      .leftJoin(
+        shapePrices,
+        and(
+          eq(shapePrices.shapeId, designedCakeConfigs.shapeId),
+          eq(shapePrices.regionId, regionId),
+        ),
+      )
+      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
 
-    if (!basePrice) {
+    if (configs.length === 0) {
       throw new NotFoundException(
         errorResponse(
-          `Price not found for predesigned cake ${predesignedCakeId} in region ${regionId}`,
+          `No configs found for predesigned cake ${predesignedCakeId}`,
           HttpStatus.NOT_FOUND,
           'NotFoundException',
         ),
       );
     }
 
-    let total = parseFloat(basePrice.price);
-
-    // Get all configs for this predesigned cake and sum their component prices
-    const configs = await db
-      .select({
-        shapeId: designedCakeConfigs.shapeId,
-        flavorId: designedCakeConfigs.flavorId,
-        decorationId: designedCakeConfigs.decorationId,
-      })
-      .from(designedCakeConfigs)
-      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
-
+    // Sum up all component prices from all configs
+    let total = 0;
     for (const config of configs) {
-      const componentIds = [
-        { column: regionItemPrices.shapeId, value: config.shapeId },
-        { column: regionItemPrices.flavorId, value: config.flavorId },
-        { column: regionItemPrices.decorationId, value: config.decorationId },
-      ];
-
-      for (const { column, value } of componentIds) {
-        const [componentPrice] = await db
-          .select({ price: regionItemPrices.price })
-          .from(regionItemPrices)
-          .where(and(eq(column, value), eq(regionItemPrices.regionId, regionId)))
-          .limit(1);
-
-        if (componentPrice) {
-          total += parseFloat(componentPrice.price);
-        }
-      }
+      total += parseFloat(config.flavorPrice || '0');
+      total += parseFloat(config.decorationPrice || '0');
+      total += parseFloat(config.shapePrice || '0');
     }
 
     return total;
