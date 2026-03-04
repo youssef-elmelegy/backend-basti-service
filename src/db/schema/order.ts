@@ -49,6 +49,9 @@ export const orders = pgTable(
       description: string;
     }>(),
 
+    regionId: uuid('region_id'),
+    regionName: varchar('region_name', { length: 100 }),
+
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
     finalPrice: decimal('final_price', { precision: 10, scale: 2 }).notNull(),

@@ -31,6 +31,7 @@ import {
   users,
   featuredCakes,
   shapes,
+  regions,
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -74,6 +75,8 @@ export class OrderService {
       let existingLocation: typeof locations.$inferInsert;
       let existingPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[];
+
+      const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
 
       if (!userId && !userData) {
         this.logger.warn(`User ID or user data must be provided to place an order`);
@@ -295,6 +298,8 @@ export class OrderService {
           .values({
             referenceNumber,
             userId,
+            regionId: region.id,
+            regionName: region.name,
             userData: {
               email: userData?.email || user?.email || '',
               firstName: userData?.firstName || user?.firstName || '',
@@ -529,6 +534,10 @@ export class OrderService {
       // Filter by status(es) if provided
       if (status && status.length > 0) {
         allOrders = allOrders.filter((order) => status.includes(order.orderStatus));
+      }
+
+      if (regionId) {
+        allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
       const response: OrderResponseDto[] = [];

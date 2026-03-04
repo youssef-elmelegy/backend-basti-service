@@ -116,6 +116,16 @@ export class CreateOrderResponseDto {
   bakeryId?: string;
 
   @ApiProperty({
+    description: 'Region ID',
+  })
+  regionId?: string;
+
+  @ApiProperty({
+    description: 'Region name',
+  })
+  regionName?: string;
+
+  @ApiProperty({
     description: 'Reference to the user saved location',
     example: '550e8400-e29b-41d4-a716-446655440003',
     required: false,
@@ -134,6 +144,12 @@ export class CreateOrderResponseDto {
     example: 150.0,
   })
   totalPrice: number;
+
+  @ApiProperty({
+    description: 'Total order items capacity',
+    example: 10,
+  })
+  totalCapacity: number;
 
   @ApiProperty({
     description: 'Discount amount applied to the order',
