@@ -90,7 +90,8 @@ export class OrderService {
       }
 
       if (userId) {
-        user = await db.select().from(users).where(eq(users.id, userId)).limit(1)[0];
+        const userResults = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        user = userResults[0];
       }
 
       // if (!locationId && !locationData) {
@@ -105,13 +106,13 @@ export class OrderService {
       // }
 
       if (userId && locationId) {
-        existingLocation = await db
+        const [location] = await db
           .select()
           .from(locations)
           .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-          .limit(1)[0];
+          .limit(1);
 
-        if (!existingLocation) {
+        if (!location) {
           this.logger.warn(
             `Location ID ${locationId} is invalid or does not belong to the user ${userId}`,
           );
@@ -123,6 +124,10 @@ export class OrderService {
             ),
           );
         }
+        /home/amor -
+          salama / Dev / pasty / backend / src / modules / order / services / order.service.ts;
+
+        existingLocation = location;
       }
 
       if (userId && paymentMethodId) {
