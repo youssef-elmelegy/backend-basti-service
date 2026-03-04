@@ -70,9 +70,8 @@ export class OrderController {
     return successResponse(result, 'Orders retrieved successfully');
   }
 
-  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  // @AdminRoles('super_admin', 'admin')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Get()
   @GetAllOrdersDecorator()
   async getAllOrders(
@@ -133,9 +132,8 @@ export class OrderController {
     return successResponse(result, 'Order refused successfully');
   }
 
-  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  // @AdminRoles('super_admin', 'admin')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Patch(':id/assign-bakery')
   @AssignBakeryDecorator()
   async assignBakery(

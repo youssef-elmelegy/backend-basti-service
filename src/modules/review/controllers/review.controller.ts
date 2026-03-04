@@ -15,7 +15,6 @@ import { CurrentUser } from '@/common';
 import { JwtAuthGuard, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common/guards';
 import { ReviewService } from '../services/review.service';
 import { CreateReviewDto, UpdateReviewDto } from '../dto';
-import { Public } from '@/common/decorators/public.decorator';
 import {
   CreateReviewDecorator,
   GetReviewsByBakeryDecorator,
@@ -44,7 +43,8 @@ export class ReviewController {
     return successResponse(result, 'Review created successfully');
   }
 
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Get('bakery/:bakeryId')
   @GetReviewsByBakeryDecorator()
   async findAllByBakery(@Param('bakeryId', ParseUUIDPipe) bakeryId: string) {
@@ -62,6 +62,8 @@ export class ReviewController {
     return successResponse(result, 'Reviews fetched successfully');
   }
 
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Get(':id')
   @GetReviewByIdDecorator()
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
