@@ -133,8 +133,9 @@ export class OrderController {
     return successResponse(result, 'Order refused successfully');
   }
 
-  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  // @AdminRoles('super_admin', 'admin')
+  @Public()
   @Patch(':id/assign-bakery')
   @AssignBakeryDecorator()
   async assignBakery(

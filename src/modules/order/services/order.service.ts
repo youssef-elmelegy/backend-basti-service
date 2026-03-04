@@ -110,7 +110,7 @@ export class OrderService {
           .select()
           .from(locations)
           .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-          .limit(1);
+          .limit(1)[0];
 
         if (!location) {
           this.logger.warn(
@@ -124,9 +124,6 @@ export class OrderService {
             ),
           );
         }
-        /home/amor -
-          salama / Dev / pasty / backend / src / modules / order / services / order.service.ts;
-
         existingLocation = location;
       }
 
