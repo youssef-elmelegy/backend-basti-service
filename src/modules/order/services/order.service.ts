@@ -835,7 +835,7 @@ export class OrderService {
 
     //?> Calculate minimum delivery date based on preparation time
     const minDeliveryDate = new Date();
-    let daysToAdd = isWorkingHours ? baseDays : baseDays + 1;
+    let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
 
     while (daysToAdd > 0) {
       minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);

@@ -25,9 +25,6 @@ export class ReviewService {
         .where(and(eq(orders.id, createDto.orderId), eq(orders.userId, userId)))
         .limit(1);
 
-      console.log('order:', order); // Debug log
-      console.log('user:', userId); // Debug log
-
       if (!order) {
         throw new BadRequestException(
           errorResponse(
