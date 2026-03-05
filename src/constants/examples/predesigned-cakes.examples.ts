@@ -359,12 +359,10 @@ export const PredesignedCakesExamples = {
       create: {
         predesignedCakeId: '123e4567-e89b-12d3-a456-426614174000',
         regionId: '550e8400-e29b-41d4-a716-446655440001',
-        price: 250.99,
       },
       update: {
         predesignedCakeId: '123e4567-e89b-12d3-a456-426614174000',
         regionId: '550e8400-e29b-41d4-a716-446655440001',
-        price: 275.5,
       },
     },
     response: {
