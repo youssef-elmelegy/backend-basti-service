@@ -29,8 +29,12 @@ import {
   cartItems,
   bakeries,
   users,
+  featuredCakes,
+  shapes,
+  regions,
 } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 
@@ -72,6 +76,8 @@ export class OrderService {
       let existingPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[];
 
+      const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+
       if (!userId && !userData) {
         this.logger.warn(`User ID or user data must be provided to place an order`);
         throw new BadRequestException(
@@ -84,7 +90,8 @@ export class OrderService {
       }
 
       if (userId) {
-        user = await db.select().from(users).where(eq(users.id, userId)).limit(1)[0];
+        const userResults = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        user = userResults[0];
       }
 
       // if (!locationId && !locationData) {
@@ -99,13 +106,13 @@ export class OrderService {
       // }
 
       if (userId && locationId) {
-        existingLocation = await db
+        const [location] = await db
           .select()
           .from(locations)
           .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
           .limit(1)[0];
 
-        if (!existingLocation) {
+        if (!location) {
           this.logger.warn(
             `Location ID ${locationId} is invalid or does not belong to the user ${userId}`,
           );
@@ -117,6 +124,7 @@ export class OrderService {
             ),
           );
         }
+        existingLocation = location;
       }
 
       if (userId && paymentMethodId) {
@@ -169,27 +177,28 @@ export class OrderService {
       // Initialize cart as empty array if undefined
       const cartItems$ = cart || [];
 
-      const addons = useOrderItemsData
+      const addonsItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.addonId)
         : cartItems$.filter((item) => item.addonId);
-      const sweets = useOrderItemsData
+      const sweetsItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.sweetId)
         : cartItems$.filter((item) => item.sweetId);
-      const featuredCakes = useOrderItemsData
+      const featuredCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.featuredCakeId)
         : cartItems$.filter((item) => item.featuredCakeId);
-      const predesignedCakes = useOrderItemsData
+      const predesignedCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.predesignedCakeId)
         : cartItems$.filter((item) => item.predesignedCakeId);
-      const customCakes = useOrderItemsData
+      const customCakesItems = useOrderItemsData
         ? orderItemsData.filter((item) => item.customCakeConfig)
         : cartItems$.filter((item) => item.customCake);
 
       const orderItemsDetails: Omit<typeof orderItems.$inferInsert, 'orderId'>[] = [];
 
       let totalPrice = 0;
+      let totalCapacity = 0;
 
-      for (const addon of addons) {
+      for (const addon of addonsItems) {
         const addonPrice = await this.caclulateAddonPrice(addon.addonId, regionId);
         totalPrice += addonPrice * addon.quantity;
         orderItemsDetails.push({
@@ -199,7 +208,7 @@ export class OrderService {
         });
       }
 
-      for (const sweet of sweets) {
+      for (const sweet of sweetsItems) {
         const sweetPrice = await this.caclulateSweetPrice(sweet.sweetId, regionId);
         totalPrice += sweetPrice * sweet.quantity;
         orderItemsDetails.push({
@@ -209,11 +218,20 @@ export class OrderService {
         });
       }
 
-      for (const featuredCake of featuredCakes) {
+      for (const featuredCake of featuredCakesItems) {
         const featuredCakePrice = await this.caclulateFeaturedCakePrice(
           featuredCake.featuredCakeId,
           regionId,
         );
+
+        const [res] = await db
+          .select({ capacity: featuredCakes.capacity })
+          .from(featuredCakes)
+          .where(eq(featuredCakes.id, featuredCake.featuredCakeId))
+          .limit(1);
+
+        totalCapacity += res.capacity * featuredCake.quantity;
+
         totalPrice += featuredCakePrice * featuredCake.quantity;
         orderItemsDetails.push({
           price: featuredCakePrice.toFixed(2),
@@ -222,12 +240,22 @@ export class OrderService {
         });
       }
 
-      for (const predesignedCake of predesignedCakes) {
+      for (const predesignedCake of predesignedCakesItems) {
         const predesignedCakePrice = await this.caclulatePredesignedCakePrice(
           predesignedCake.predesignedCakeId,
           regionId,
         );
         totalPrice += predesignedCakePrice * predesignedCake.quantity;
+
+        const [res] = await db
+          .select({ capacity: shapes.capacity })
+          .from(designedCakeConfigs)
+          .innerJoin(shapes, eq(shapes.id, designedCakeConfigs.shapeId))
+          .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCake.predesignedCakeId))
+          .limit(1);
+
+        totalCapacity += res.capacity * predesignedCake.quantity;
+
         orderItemsDetails.push({
           price: predesignedCakePrice.toFixed(2),
           quantity: predesignedCake.quantity,
@@ -235,7 +263,7 @@ export class OrderService {
         });
       }
 
-      for (const customCake of customCakes) {
+      for (const customCake of customCakesItems) {
         const customCakeData =
           'customCake' in customCake ? customCake.customCake : customCake.customCakeConfig;
 
@@ -243,6 +271,15 @@ export class OrderService {
 
         const customCakePrice = await this.caclulateCustomCakePrice(customCakeData, regionId);
         totalPrice += customCakePrice * customCake.quantity;
+
+        const [res] = await db
+          .select({ capacity: shapes.capacity })
+          .from(shapes)
+          .where(eq(shapes.id, customCakeData.shapeId))
+          .limit(1);
+
+        totalCapacity += res.capacity * customCake.quantity;
+
         orderItemsDetails.push({
           price: customCakePrice.toFixed(2),
           quantity: customCake.quantity,
@@ -263,6 +300,8 @@ export class OrderService {
           .values({
             referenceNumber,
             userId,
+            regionId: region.id,
+            regionName: region.name,
             userData: {
               email: userData?.email || user?.email || '',
               firstName: userData?.firstName || user?.firstName || '',
@@ -307,6 +346,7 @@ export class OrderService {
             wantedDeliveryTimeSlot,
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
+            totalCapacity,
             discountAmount: discountAmount.toFixed(2),
             willDeliverAt,
             cartType: type,
@@ -498,11 +538,35 @@ export class OrderService {
         allOrders = allOrders.filter((order) => status.includes(order.orderStatus));
       }
 
+      if (regionId) {
+        allOrders = allOrders.filter((order) => order.regionId === regionId);
+      }
+
+      // Process all orders with error handling
       const response: OrderResponseDto[] = [];
 
       for (const order of allOrders) {
-        const orderDetails = await this.getOrderById(order.id, regionId);
-        response.push(orderDetails);
+        try {
+          const orderDetails = await this.getOrderById(order.id, regionId);
+          response.push(orderDetails);
+        } catch {
+          this.logger.warn(
+            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+          );
+
+          // Return basic order data without item enrichment
+          response.push({
+            addons: [],
+            sweets: [],
+            featuredCakes: [],
+            predesignedCakes: [],
+            customCakes: [],
+            ...order,
+            totalPrice: parseFloat(order.totalPrice),
+            discountAmount: parseFloat(order.discountAmount),
+            finalPrice: parseFloat(order.finalPrice),
+          });
+        }
       }
 
       this.logger.log(`Retrieved all orders, count: ${response.length}`);
@@ -512,6 +576,77 @@ export class OrderService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async getBakeryOrders(
+    bakeryId: string,
+    regionId?: string,
+    status?: string[],
+  ): Promise<OrderResponseDto[]> {
+    try {
+      // Verify bakery exists
+      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+
+      if (!bakery) {
+        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+        throw new NotFoundException(
+          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      let bakeryOrders = await db.select().from(orders).where(eq(orders.bakeryId, bakeryId));
+
+      // Filter by status(es) if provided
+      if (status && status.length > 0) {
+        bakeryOrders = bakeryOrders.filter((order) => status.includes(order.orderStatus));
+      }
+
+      if (regionId) {
+        bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
+      }
+
+      // Process all orders with error handling
+      const response: OrderResponseDto[] = [];
+
+      for (const order of bakeryOrders) {
+        try {
+          const orderDetails = await this.getOrderById(order.id, regionId);
+          response.push(orderDetails);
+        } catch {
+          this.logger.warn(
+            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+          );
+
+          // Return basic order data without item enrichment
+          response.push({
+            addons: [],
+            sweets: [],
+            featuredCakes: [],
+            predesignedCakes: [],
+            customCakes: [],
+            ...order,
+            totalPrice: parseFloat(order.totalPrice),
+            discountAmount: parseFloat(order.discountAmount),
+            finalPrice: parseFloat(order.finalPrice),
+          });
+        }
+      }
+
+      this.logger.log(`Retrieved orders for bakery ${bakeryId}, count: ${response.length}`);
+      return response;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve bakery orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -724,38 +859,85 @@ export class OrderService {
     orderId: string,
     { bakeryId }: AssignBakeryDto,
   ): Promise<AssignBakeryResponseDto> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+
+    if (!bakery) {
+      this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+      throw new NotFoundException(
+        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
     try {
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-
-      if (!order) {
-        this.logger.warn(`Order with id: ${orderId} not found`);
-        throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
-
-      if (!bakery) {
-        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-        throw new NotFoundException(
-          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
       const [updatedOrder] = await db
         .update(orders)
         .set({ bakeryId: bakeryId === undefined ? null : bakeryId })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
-      this.logger.log(`Order ${orderId}bakeryId: orders.bakeryId successfully`);
-      return updatedOrder;
-    } catch {
-      this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}`);
+      this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
+      return {
+        id: updatedOrder.id,
+        bakeryId: updatedOrder.bakeryId || '',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}:`, error);
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to assign order to bakery',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async unassignFromBakery(
+    orderId: string,
+    reason?: string,
+  ): Promise<{ id: string; bakeryId: string | null }> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Log the reason if provided
+    if (reason) {
+      this.logger.log(`Unassigning order ${orderId} from bakery. Reason: ${reason}`);
+    } else {
+      this.logger.log(`Unassigning order ${orderId} from bakery`);
+    }
+
+    try {
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({ bakeryId: null })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
+      return {
+        id: updatedOrder.id,
+        bakeryId: updatedOrder.bakeryId,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to unassign order from bakery',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -791,7 +973,7 @@ export class OrderService {
 
     //?> Calculate minimum delivery date based on preparation time
     const minDeliveryDate = new Date();
-    let daysToAdd = isWorkingHours ? baseDays : baseDays + 1;
+    let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
 
     while (daysToAdd > 0) {
       minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
@@ -962,57 +1144,57 @@ export class OrderService {
     predesignedCakeId: string,
     regionId: string,
   ): Promise<number> {
-    const [basePrice] = await db
-      .select({ price: regionItemPrices.price })
-      .from(regionItemPrices)
-      .where(
+    const flavorPrices = alias(regionItemPrices, 'flavorPrices');
+    const decorationPrices = alias(regionItemPrices, 'decorationPrices');
+    const shapePrices = alias(regionItemPrices, 'shapePrices');
+
+    // Get all configs for this predesigned cake with their component prices
+    const configs = await db
+      .select({
+        flavorPrice: flavorPrices.price,
+        decorationPrice: decorationPrices.price,
+        shapePrice: shapePrices.price,
+      })
+      .from(designedCakeConfigs)
+      .leftJoin(
+        flavorPrices,
         and(
-          eq(regionItemPrices.predesignedCakeId, predesignedCakeId),
-          eq(regionItemPrices.regionId, regionId),
+          eq(flavorPrices.flavorId, designedCakeConfigs.flavorId),
+          eq(flavorPrices.regionId, regionId),
         ),
       )
-      .limit(1);
+      .leftJoin(
+        decorationPrices,
+        and(
+          eq(decorationPrices.decorationId, designedCakeConfigs.decorationId),
+          eq(decorationPrices.regionId, regionId),
+        ),
+      )
+      .leftJoin(
+        shapePrices,
+        and(
+          eq(shapePrices.shapeId, designedCakeConfigs.shapeId),
+          eq(shapePrices.regionId, regionId),
+        ),
+      )
+      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
 
-    if (!basePrice) {
+    if (configs.length === 0) {
       throw new NotFoundException(
         errorResponse(
-          `Price not found for predesigned cake ${predesignedCakeId} in region ${regionId}`,
+          `No configs found for predesigned cake ${predesignedCakeId}`,
           HttpStatus.NOT_FOUND,
           'NotFoundException',
         ),
       );
     }
 
-    let total = parseFloat(basePrice.price);
-
-    // Get all configs for this predesigned cake and sum their component prices
-    const configs = await db
-      .select({
-        shapeId: designedCakeConfigs.shapeId,
-        flavorId: designedCakeConfigs.flavorId,
-        decorationId: designedCakeConfigs.decorationId,
-      })
-      .from(designedCakeConfigs)
-      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
-
+    // Sum up all component prices from all configs
+    let total = 0;
     for (const config of configs) {
-      const componentIds = [
-        { column: regionItemPrices.shapeId, value: config.shapeId },
-        { column: regionItemPrices.flavorId, value: config.flavorId },
-        { column: regionItemPrices.decorationId, value: config.decorationId },
-      ];
-
-      for (const { column, value } of componentIds) {
-        const [componentPrice] = await db
-          .select({ price: regionItemPrices.price })
-          .from(regionItemPrices)
-          .where(and(eq(column, value), eq(regionItemPrices.regionId, regionId)))
-          .limit(1);
-
-        if (componentPrice) {
-          total += parseFloat(componentPrice.price);
-        }
-      }
+      total += parseFloat(config.flavorPrice || '0');
+      total += parseFloat(config.decorationPrice || '0');
+      total += parseFloat(config.shapePrice || '0');
     }
 
     return total;

@@ -19,6 +19,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { LocationModule } from './modules/location/location.module';
 import { ConfigModule } from './modules/config/config.module';
 import { PaymentMethodModule } from './modules/payment-method/payment-method.module';
+import { ReviewModule } from './modules/review/review.module';
 
 @Module({
   imports: [
@@ -37,7 +38,7 @@ import { PaymentMethodModule } from './modules/payment-method/payment-method.mod
     LocationModule,
     ConfigModule,
     PaymentMethodModule,
-    // ReviewModule,
+    ReviewModule,
     SliderImageModule,
     TagsModule,
   ],

@@ -8,6 +8,7 @@ import {
   index,
   jsonb,
   varchar,
+  integer,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import {
@@ -48,9 +49,14 @@ export const orders = pgTable(
       description: string;
     }>(),
 
+    regionId: uuid('region_id'),
+    regionName: varchar('region_name', { length: 100 }),
+
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
     finalPrice: decimal('final_price', { precision: 10, scale: 2 }).notNull(),
+
+    totalCapacity: integer('total_capacity').default(0),
 
     paymentMethodId: uuid('payment_method_id').references(() => paymentMethods.id),
     paymentMethodType: paymentMethodTypeEnum('payment_method_type').notNull(),

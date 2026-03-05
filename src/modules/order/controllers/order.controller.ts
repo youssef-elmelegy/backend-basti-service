@@ -18,11 +18,13 @@ import {
   ChangeOrderStatusDto,
   CreateOrderDto,
   AssignBakeryDto,
+  UnassignBakeryDto,
   RegionFilterDto,
   GetDeliveryDateDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
+  UnassignBakeryDecorator,
   CancelOrderDecorator,
   ChangeOrderStatusDecorator,
   GetAllOrdersDecorator,
@@ -32,6 +34,7 @@ import {
   PlaceOrderDecorator,
   RefuseOrderDecorator,
   GetOrderByIdForUserDecorator,
+  GetBakeryOrdersDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 
@@ -70,9 +73,8 @@ export class OrderController {
     return successResponse(result, 'Orders retrieved successfully');
   }
 
-  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  // @AdminRoles('super_admin', 'admin')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Get()
   @GetAllOrdersDecorator()
   async getAllOrders(
@@ -84,6 +86,22 @@ export class OrderController {
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
     const result = await this.orderService.getAllOrders(regionId, statusArray);
     return successResponse(result, 'Orders retrieved successfully');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin', 'manager')
+  @Get('bakery/:bakeryId')
+  @GetBakeryOrdersDecorator()
+  async getBakeryOrders(
+    @Param('bakeryId', ParseUUIDPipe) bakeryId: string,
+    @Query('regionId') regionId?: string,
+    @Query('status') status?: string | string[],
+  ) {
+    this.logger.debug(`getting orders for bakery: ${bakeryId}`);
+    // Normalize status to array format
+    const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
+    const result = await this.orderService.getBakeryOrders(bakeryId, regionId, statusArray);
+    return successResponse(result, 'Bakery orders retrieved successfully');
   }
 
   @UseGuards(JwtAuthGuard)
@@ -148,7 +166,21 @@ export class OrderController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  @AdminRoles('super_admin', 'admin', 'manager')
+  @Patch(':id/unassign-bakery')
+  @UnassignBakeryDecorator()
+  async unassignBakery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() unassignBakeryDto?: UnassignBakeryDto,
+  ) {
+    this.logger.debug(`unassigning order from bakery: ${id}`);
+    const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason);
+    this.logger.debug(`order unassigned from bakery: ${id}`);
+    return successResponse(result, 'Order unassigned from bakery successfully');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin', 'manager')
   @Patch(':id/status')
   @ChangeOrderStatusDecorator()
   async changeOrderStatus(
