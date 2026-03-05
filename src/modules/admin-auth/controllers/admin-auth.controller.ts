@@ -69,15 +69,17 @@ export class AdminAuthController {
       res.cookie('accessToken', result.data.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
       });
 
       res.cookie('refreshToken', result.data.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
       });
     }
 
@@ -129,8 +131,9 @@ export class AdminAuthController {
     res.cookie('resetToken', result.data.resetToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000, // TODO: update this and the other to don't be hard coded
+      path: '/',
     });
 
     this.logger.log(`OTP verified for: ${verifyOtpDto.email}`);
@@ -247,15 +250,17 @@ export class AdminAuthController {
           res.cookie('accessToken', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
           });
 
           res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
           });
         }
 
