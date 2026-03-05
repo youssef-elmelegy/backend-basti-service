@@ -542,11 +542,31 @@ export class OrderService {
         allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
+      // Process all orders with error handling
       const response: OrderResponseDto[] = [];
 
       for (const order of allOrders) {
-        const orderDetails = await this.getOrderById(order.id, regionId);
-        response.push(orderDetails);
+        try {
+          const orderDetails = await this.getOrderById(order.id, regionId);
+          response.push(orderDetails);
+        } catch {
+          this.logger.warn(
+            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+          );
+
+          // Return basic order data without item enrichment
+          response.push({
+            addons: [],
+            sweets: [],
+            featuredCakes: [],
+            predesignedCakes: [],
+            customCakes: [],
+            ...order,
+            totalPrice: parseFloat(order.totalPrice),
+            discountAmount: parseFloat(order.discountAmount),
+            finalPrice: parseFloat(order.finalPrice),
+          });
+        }
       }
 
       this.logger.log(`Retrieved all orders, count: ${response.length}`);
@@ -556,6 +576,77 @@ export class OrderService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve orders',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async getBakeryOrders(
+    bakeryId: string,
+    regionId?: string,
+    status?: string[],
+  ): Promise<OrderResponseDto[]> {
+    try {
+      // Verify bakery exists
+      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+
+      if (!bakery) {
+        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+        throw new NotFoundException(
+          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      let bakeryOrders = await db.select().from(orders).where(eq(orders.bakeryId, bakeryId));
+
+      // Filter by status(es) if provided
+      if (status && status.length > 0) {
+        bakeryOrders = bakeryOrders.filter((order) => status.includes(order.orderStatus));
+      }
+
+      if (regionId) {
+        bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
+      }
+
+      // Process all orders with error handling
+      const response: OrderResponseDto[] = [];
+
+      for (const order of bakeryOrders) {
+        try {
+          const orderDetails = await this.getOrderById(order.id, regionId);
+          response.push(orderDetails);
+        } catch {
+          this.logger.warn(
+            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+          );
+
+          // Return basic order data without item enrichment
+          response.push({
+            addons: [],
+            sweets: [],
+            featuredCakes: [],
+            predesignedCakes: [],
+            customCakes: [],
+            ...order,
+            totalPrice: parseFloat(order.totalPrice),
+            discountAmount: parseFloat(order.discountAmount),
+            finalPrice: parseFloat(order.finalPrice),
+          });
+        }
+      }
+
+      this.logger.log(`Retrieved orders for bakery ${bakeryId}, count: ${response.length}`);
+      return response;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve bakery orders',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -768,38 +859,85 @@ export class OrderService {
     orderId: string,
     { bakeryId }: AssignBakeryDto,
   ): Promise<AssignBakeryResponseDto> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+
+    if (!bakery) {
+      this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+      throw new NotFoundException(
+        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
     try {
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-
-      if (!order) {
-        this.logger.warn(`Order with id: ${orderId} not found`);
-        throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
-
-      if (!bakery) {
-        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-        throw new NotFoundException(
-          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
       const [updatedOrder] = await db
         .update(orders)
         .set({ bakeryId: bakeryId === undefined ? null : bakeryId })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
-      this.logger.log(`Order ${orderId}bakeryId: orders.bakeryId successfully`);
-      return updatedOrder;
-    } catch {
-      this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}`);
+      this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
+      return {
+        id: updatedOrder.id,
+        bakeryId: updatedOrder.bakeryId || '',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}:`, error);
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to assign order to bakery',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async unassignFromBakery(
+    orderId: string,
+    reason?: string,
+  ): Promise<{ id: string; bakeryId: string | null }> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Log the reason if provided
+    if (reason) {
+      this.logger.log(`Unassigning order ${orderId} from bakery. Reason: ${reason}`);
+    } else {
+      this.logger.log(`Unassigning order ${orderId} from bakery`);
+    }
+
+    try {
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({ bakeryId: null })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
+      return {
+        id: updatedOrder.id,
+        bakeryId: updatedOrder.bakeryId,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to unassign order from bakery',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
