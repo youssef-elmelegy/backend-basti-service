@@ -1,1 +1,1 @@
-web: cd backend-basti-service && node dist/main
+web: node dist/main
