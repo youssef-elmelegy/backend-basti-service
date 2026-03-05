@@ -1,1 +1,1 @@
-web: npm run start:prod
+web: cd backend-basti-service && node dist/main
