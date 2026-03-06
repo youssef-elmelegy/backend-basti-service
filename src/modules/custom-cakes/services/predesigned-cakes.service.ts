@@ -245,7 +245,7 @@ export class PredesignedCakesService {
         allCakesResult.map(
           async (result: { cake: typeof predesignedCakes.$inferSelect; price?: string }) => {
             const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
-            const configs = await this.getConfigsWithObjects(result.cake.id);
+            const configs = await this.getConfigIds(result.cake.id);
             const item = {
               ...result.cake,
               tagName,
@@ -795,6 +795,20 @@ export class PredesignedCakesService {
     });
 
     return Array.from(configMap.values());
+  }
+
+  private async getConfigIds(predesignedCakeId: string) {
+    const configs = await db
+      .select({
+        id: designedCakeConfigs.id,
+        flavorId: designedCakeConfigs.flavorId,
+        decorationId: designedCakeConfigs.decorationId,
+        shapeId: designedCakeConfigs.shapeId,
+      })
+      .from(designedCakeConfigs)
+      .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
+
+    return configs;
   }
 
   private async getTagName(tagId: string): Promise<string> {

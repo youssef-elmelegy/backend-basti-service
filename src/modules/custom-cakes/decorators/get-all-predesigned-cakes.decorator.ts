@@ -8,7 +8,7 @@ export function GetAllPredesignedCakesDecorator() {
     ApiOperation({
       summary: 'Retrieve all predesigned cakes with filtering and pagination',
       description:
-        'Retrieve all predesigned cakes with optional filtering by tag, active status, region, and search. When isActive is specified, only active or inactive predesigned cakes are returned. Pagination supported.',
+        'Retrieve all predesigned cakes with optional filtering by tag, active status, region, and search. Returns lightweight config data with only flavor, decoration, and shape IDs. When isActive is specified, only active or inactive predesigned cakes are returned. Pagination supported.',
     }),
     ApiResponse({
       status: HttpStatus.OK,
