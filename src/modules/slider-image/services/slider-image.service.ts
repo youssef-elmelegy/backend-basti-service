@@ -49,6 +49,7 @@ export class SliderImageService {
       const imagesToInsert = images.map((item) => ({
         title: item.title,
         imageUrl: item.imageUrl,
+        displayOrder: item.displayOrder,
       }));
 
       const insertedImages = await db.insert(sliderImages).values(imagesToInsert).returning();

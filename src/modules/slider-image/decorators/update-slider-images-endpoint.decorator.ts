@@ -7,12 +7,37 @@ const updateRequestExample = [
   {
     title: 'Summer Collection',
     imageUrl: 'https://api.example.com/images/sliders/summer-collection.jpg',
+    displayOrder: 1,
   },
   {
     title: 'Winter Special',
     imageUrl: 'https://api.example.com/images/sliders/winter-special.jpg',
+    displayOrder: 2,
   },
 ];
+
+const updateResponseExample = {
+  code: 200,
+  success: true,
+  message: 'Slider images updated successfully',
+  data: [
+    {
+      id: 'bb0e8400-e29b-41d4-a716-446655440007',
+      title: 'Summer Collection',
+      imageUrl: 'https://api.example.com/images/sliders/summer-collection.jpg',
+      displayOrder: 1,
+      createdAt: '2025-11-27T10:00:00.000Z',
+    },
+    {
+      id: 'bb0e8400-e29b-41d4-a716-446655440008',
+      title: 'Winter Special',
+      imageUrl: 'https://api.example.com/images/sliders/winter-special.jpg',
+      displayOrder: 2,
+      createdAt: '2025-11-27T10:05:00.000Z',
+    },
+  ],
+  timestamp: '2025-11-27T10:10:00.000Z',
+};
 
 export function UpdateSliderImagesDecorator() {
   return applyDecorators(
@@ -20,12 +45,12 @@ export function UpdateSliderImagesDecorator() {
     ApiOperation({
       summary: 'Update slider images',
       description:
-        'Updates the slider images by deleting all existing images and creating new ones with the provided titles and image URLs. This operation is performed in bulk for efficiency.',
+        'Updates the slider images by deleting all existing images and creating new ones with the provided titles, image URLs, and display order. This operation is performed in bulk for efficiency.',
     }),
     ApiBody({
       type: [SliderImageItemDto],
       description:
-        'Array of slider images with title and URL to replace all existing slider images',
+        'Array of slider images with title, URL, and display order to replace all existing slider images',
       examples: {
         success: {
           summary: 'Valid slider images update request',
@@ -37,10 +62,12 @@ export function UpdateSliderImagesDecorator() {
       status: HttpStatus.OK,
       description: 'Slider images successfully updated',
       type: SuccessSliderImagesResponseDto,
+      example: updateResponseExample,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
-      description: 'Invalid input data (validation failed, empty array, or invalid URLs/titles)',
+      description:
+        'Invalid input data (validation failed, empty array, invalid URLs/titles, or invalid displayOrder)',
       type: ErrorResponseDto,
     }),
     ApiResponse({
