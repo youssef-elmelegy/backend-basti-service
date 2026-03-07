@@ -13,7 +13,7 @@ export function CreateAddonDecorator() {
     }),
     ApiBody({
       type: CreateAddonDto,
-      description: 'Required: name, description, images, category, price, tags. Optional: isActive',
+      description: 'Required: name, description, images, category, tagId. Optional: isActive',
       examples: {
         success: {
           summary: 'Valid add-on creation request',

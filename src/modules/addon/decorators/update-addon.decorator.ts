@@ -9,7 +9,7 @@ export function UpdateAddonDecorator() {
     ApiOperation({
       summary: 'Update an add-on',
       description:
-        'Update add-on details including images, category, price, and tags. All fields are optional.',
+        'Update add-on details including images, category, and tags. All fields are optional.',
     }),
     ApiParam({
       name: 'id',
