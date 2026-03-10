@@ -1,10 +1,8 @@
 import {
   IsString,
   IsArray,
-  IsNumber,
   IsBoolean,
   IsUUID,
-  Min,
   IsOptional,
   IsEnum,
   MinLength,
@@ -70,17 +68,6 @@ export class UpdateAddonDto {
   @IsString()
   @IsEnum(AddonCategory)
   category?: 'balloons' | 'cards' | 'candles' | 'decorations' | 'other';
-
-  @ApiProperty({
-    description: 'Price of the add-on',
-    example: 50,
-    minimum: 0,
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0, { message: 'Price must be greater than or equal to 0' })
-  price?: number;
 
   @ApiProperty({
     description: 'Tag ID to assign to this add-on',

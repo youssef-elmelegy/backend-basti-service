@@ -20,6 +20,12 @@ export class SliderImageResponseDto {
   imageUrl: string;
 
   @ApiProperty({
+    description: 'Display order of the slider image',
+    example: 1,
+  })
+  displayOrder: number;
+
+  @ApiProperty({
     description: 'Creation timestamp',
     example: '2025-11-27T10:00:00.000Z',
   })
