@@ -7,7 +7,7 @@ interface AuthenticatedRequest extends Request {
   admin?: {
     id: string;
     email: string;
-    role: 'super_admin' | 'admin' | 'manager';
+    role: 'super_admin' | 'admin' | 'manager' | 'driver';
   };
 }
 
