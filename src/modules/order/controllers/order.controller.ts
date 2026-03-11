@@ -44,12 +44,12 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
   private readonly logger = new Logger(OrderController.name);
 
-  @Public()
+  @UseGuards(JwtAuthGuard)
   @Post('place')
   @PlaceOrderDecorator()
-  async placeOrder(@Body() orderData: CreateOrderDto) {
+  async placeOrder(@Body() orderData: CreateOrderDto, @CurrentUser('sub') userId: string) {
     this.logger.debug(`processing order`);
-    const result = await this.orderService.create(orderData);
+    const result = await this.orderService.create(orderData, userId);
     this.logger.debug(`order placed with order id: ${result.id}`);
     return successResponse(result, 'Order placed successfully');
   }

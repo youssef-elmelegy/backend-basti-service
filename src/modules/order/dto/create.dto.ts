@@ -325,24 +325,24 @@ export class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  @ApiProperty({
-    description:
-      'The ID of the user placing the order. If not provided, the order will be placed for a guest user.',
-    required: false,
-  })
-  @IsUUID()
-  @IsOptional()
-  userId?: string;
+  // @ApiProperty({
+  //   description:
+  //     'The ID of the user placing the order. If not provided, the order will be placed for a guest user.',
+  //   required: false,
+  // })
+  // @IsUUID()
+  // @IsOptional()
+  // userId?: string;
 
-  @ApiProperty({
-    description: 'User data to be used for the order. If userId is provided, this will be ignored.',
-    type: () => UserDto,
-    required: false,
-  })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => UserDto)
-  userData?: UserDto;
+  // @ApiProperty({
+  //   description: 'User data to be used for the order. If userId is provided, this will be ignored.',
+  //   type: () => UserDto,
+  //   required: false,
+  // })
+  // @IsOptional()
+  // @ValidateNested()
+  // @Type(() => UserDto)
+  // userData?: UserDto;
 
   @ApiProperty({
     description: 'The ID of the location where the order will be placed.',
