@@ -24,6 +24,7 @@ import {
   CreateDecorationDecorator,
   GetAllDecorationsDecorator,
   GetDecorationByIdDecorator,
+  GetDecorationVariantImagesDecorator,
   UpdateDecorationDecorator,
   DeleteDecorationDecorator,
   ForceDeleteDecorationDecorator,
@@ -66,6 +67,14 @@ export class DecorationController {
   async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Retrieving decoration: ${id}`);
     return this.decorationService.findOne(id);
+  }
+
+  @Get(':id/variant-images')
+  @Public()
+  @GetDecorationVariantImagesDecorator()
+  async findVariantImages(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Retrieving variant images for decoration: ${id}`);
+    return this.decorationService.findVariantImages(id);
   }
 
   @Patch(':id')

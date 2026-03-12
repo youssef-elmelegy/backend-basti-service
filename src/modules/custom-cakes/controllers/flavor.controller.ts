@@ -24,6 +24,7 @@ import {
   CreateFlavorDecorator,
   GetAllFlavorsDecorator,
   GetFlavorByIdDecorator,
+  GetFlavorVariantImagesDecorator,
   UpdateFlavorDecorator,
   DeleteFlavorDecorator,
   ForceDeleteFlavorDecorator,
@@ -66,6 +67,14 @@ export class FlavorController {
   async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Retrieving flavor: ${id}`);
     return this.flavorService.findOne(id);
+  }
+
+  @Get(':id/variant-images')
+  @Public()
+  @GetFlavorVariantImagesDecorator()
+  async findVariantImages(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Retrieving variant images for flavor: ${id}`);
+    return this.flavorService.findVariantImages(id);
   }
 
   @Patch(':id')

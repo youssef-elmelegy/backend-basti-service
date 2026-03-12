@@ -1078,4 +1078,48 @@ export class FlavorService {
       );
     }
   }
+
+  async findVariantImages(id: string): Promise<SuccessResponse<any[]>> {
+    try {
+      const [flavorExists] = await db
+        .select({ id: flavors.id })
+        .from(flavors)
+        .where(eq(flavors.id, id))
+        .limit(1);
+
+      if (!flavorExists) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const variants = await db
+        .select()
+        .from(shapeVariantImages)
+        .where(eq(shapeVariantImages.flavorId, id));
+
+      const data = variants.map((v) => ({
+        id: v.id,
+        shapeId: v.shapeId,
+        slicedViewUrl: v.slicedViewUrl,
+        frontViewUrl: v.frontViewUrl,
+        topViewUrl: v.topViewUrl,
+        createdAt: v.createdAt,
+        updatedAt: v.updatedAt,
+      }));
+
+      return successResponse(data, 'Flavor variant images retrieved successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve flavor variant images ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve flavor variant images',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
 }

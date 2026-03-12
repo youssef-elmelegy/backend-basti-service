@@ -1224,4 +1224,52 @@ export class DecorationService {
       );
     }
   }
+
+  async findVariantImages(id: string): Promise<SuccessResponse<any[]>> {
+    try {
+      const [decorationExists] = await db
+        .select({ id: decorations.id })
+        .from(decorations)
+        .where(eq(decorations.id, id))
+        .limit(1);
+
+      if (!decorationExists) {
+        throw new NotFoundException(
+          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const variants = await db
+        .select()
+        .from(shapeVariantImages)
+        .where(eq(shapeVariantImages.decorationId, id));
+
+      const data = variants.map((v) => ({
+        id: v.id,
+        shapeId: v.shapeId,
+        slicedViewUrl: v.slicedViewUrl,
+        frontViewUrl: v.frontViewUrl,
+        topViewUrl: v.topViewUrl,
+        createdAt: v.createdAt,
+        updatedAt: v.updatedAt,
+      }));
+
+      return successResponse(
+        data,
+        'Decoration variant images retrieved successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve decoration variant images ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve decoration variant images',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
 }

@@ -49,6 +49,28 @@ export class VariantImageDto {
   updatedAt: Date;
 }
 
+export class VariantImageWithShapeDto extends VariantImageDto {
+  @ApiProperty({ example: '223e4567-e89b-12d3-a456-426614174000', description: 'Shape ID' })
+  shapeId: string;
+}
+
+export class GetFlavorVariantImagesResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Flavor variant images retrieved successfully' })
+  message: string;
+
+  @ApiProperty({ example: 200 })
+  code: number;
+
+  @ApiHideProperty()
+  data: VariantImageWithShapeDto[];
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  timestamp: string;
+}
+
 export class FlavorWithVariantImagesDto extends FlavorDataDto {
   @ApiProperty({ type: [VariantImageDto], required: false })
   variantImages?: VariantImageDto[];

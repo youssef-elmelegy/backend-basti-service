@@ -236,4 +236,40 @@ export const FlavorExamples = {
       },
     },
   },
+  getVariantImages: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Flavor variant images retrieved successfully',
+        data: [
+          {
+            id: '223e4567-e89b-12d3-a456-426614174000',
+            shapeId: '323e4567-e89b-12d3-a456-426614174001',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+          {
+            id: '323e4567-e89b-12d3-a456-426614174002',
+            shapeId: '423e4567-e89b-12d3-a456-426614174003',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+        ],
+        timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
 } as const;

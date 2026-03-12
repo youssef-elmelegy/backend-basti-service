@@ -1,6 +1,7 @@
 export * from './create-flavor.decorator';
 export * from './get-all-flavors.decorator';
 export * from './get-flavor-by-id.decorator';
+export * from './get-flavor-variant-images.decorator';
 export * from './update-flavor.decorator';
 export * from './delete-flavor.decorator';
 export * from './force-delete-flavor.decorator';
@@ -20,6 +21,7 @@ export * from './toggle-shape-status.decorator';
 export * from './create-decoration.decorator';
 export * from './get-all-decorations.decorator';
 export * from './get-decoration-by-id.decorator';
+export * from './get-decoration-variant-images.decorator';
 export * from './update-decoration.decorator';
 export * from './delete-decoration.decorator';
 export * from './force-delete-decoration.decorator';
