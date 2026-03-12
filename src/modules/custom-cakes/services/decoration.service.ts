@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   CreateDecorationDto,
@@ -23,6 +24,7 @@ import {
   regions,
   shapeVariantImages,
   shapes,
+  designedCakeConfigs,
 } from '@/db/schema';
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
@@ -789,6 +791,44 @@ export class DecorationService {
         .where(eq(decorations.id, id))
         .returning();
 
+      // Replace variant images if provided
+      if (updateDto.variantImages !== undefined) {
+        if (updateDto.variantImages.length > 0) {
+          const shapeIds = updateDto.variantImages.map((v) => v.shapeId);
+          const existingShapes = await db
+            .select({ id: shapes.id })
+            .from(shapes)
+            .where(inArray(shapes.id, shapeIds));
+
+          if (existingShapes.length !== shapeIds.length) {
+            const existing = existingShapes.map((s) => s.id);
+            const missing = shapeIds.filter((sid) => !existing.includes(sid));
+            throw new BadRequestException(
+              errorResponse(
+                `Shape(s) not found: ${missing.join(', ')}`,
+                HttpStatus.BAD_REQUEST,
+                'BadRequestException',
+              ),
+            );
+          }
+        }
+
+        await db.delete(shapeVariantImages).where(eq(shapeVariantImages.decorationId, id));
+
+        if (updateDto.variantImages.length > 0) {
+          await db.insert(shapeVariantImages).values(
+            updateDto.variantImages.map((variant) => ({
+              shapeId: variant.shapeId,
+              flavorId: null,
+              decorationId: id,
+              slicedViewUrl: variant.slicedViewUrl,
+              frontViewUrl: variant.frontViewUrl,
+              topViewUrl: variant.topViewUrl,
+            })),
+          );
+        }
+      }
+
       let tagName: string;
       if (updatedDecoration.tagId) {
         const [tag] = await db
@@ -835,12 +875,37 @@ export class DecorationService {
         );
       }
 
+      // Check if any predesigned cake config uses this decoration
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.decorationId, id));
+
+      if (relatedConfigs.length > 0) {
+        const uniquePredesignedCakeIds = [
+          ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+        ];
+        throw new ConflictException({
+          ...errorResponse(
+            'Cannot delete decoration because it is used in predesigned cake configurations',
+            HttpStatus.CONFLICT,
+            'ConflictException',
+          ),
+          relatedConfigsCount: relatedConfigs.length,
+          affectedPredesignedCakesCount: uniquePredesignedCakeIds.length,
+          affectedPredesignedCakeIds: uniquePredesignedCakeIds,
+        });
+      }
+
       await db.delete(decorations).where(eq(decorations.id, id));
 
       this.logger.log(`Decoration deleted: ${id}`);
       return successResponse(null, 'Decoration deleted successfully', HttpStatus.OK);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -848,6 +913,65 @@ export class DecorationService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete decoration',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Force-delete a decoration along with all its predesigned cake configs.
+   * Use this after the regular DELETE returns a 409 Conflict.
+   */
+  async forceDelete(id: string): Promise<SuccessResponse<null>> {
+    try {
+      const existingDecoration = await db
+        .select({ id: decorations.id })
+        .from(decorations)
+        .where(eq(decorations.id, id))
+        .limit(1);
+
+      if (!existingDecoration.length) {
+        throw new NotFoundException(
+          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Collect all related configs
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.decorationId, id));
+
+      // Delete configs that use this decoration (DB restrict prevents cascade)
+      if (relatedConfigs.length > 0) {
+        const configIds = relatedConfigs.map((c) => c.configId);
+        await db.delete(designedCakeConfigs).where(inArray(designedCakeConfigs.id, configIds));
+        this.logger.log(`Deleted ${configIds.length} designed cake configs for decoration ${id}`);
+      }
+
+      // Delete decoration (shapeVariantImages with decorationId cascade automatically)
+      await db.delete(decorations).where(eq(decorations.id, id));
+
+      this.logger.log(`Force-deleted decoration ${id}`);
+      return successResponse(
+        null,
+        'Decoration and related records deleted successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to force-delete decoration ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to force-delete decoration',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

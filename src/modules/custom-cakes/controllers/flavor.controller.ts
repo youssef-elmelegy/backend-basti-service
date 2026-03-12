@@ -26,6 +26,7 @@ import {
   GetFlavorByIdDecorator,
   UpdateFlavorDecorator,
   DeleteFlavorDecorator,
+  ForceDeleteFlavorDecorator,
   CreateFlavorRegionItemPriceDecorator,
   CreateFlavorWithVariantImagesDecorator,
   ToggleFlavorStatusDecorator,
@@ -86,6 +87,15 @@ export class FlavorController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting flavor: ${id}`);
     return this.flavorService.remove(id);
+  }
+
+  @Delete(':id/force')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ForceDeleteFlavorDecorator()
+  async forceDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Force-deleting flavor: ${id}`);
+    return this.flavorService.forceDelete(id);
   }
 
   @Patch(':id/toggle-status')

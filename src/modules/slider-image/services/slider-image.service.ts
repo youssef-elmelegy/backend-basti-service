@@ -6,8 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { sliderImages } from '@/db/schema';
-import { SliderImageResponseDto, SliderImageItemDto } from '../dto';
+import { sliderImages, tags } from '@/db/schema';
+import { SliderImageWithTagsResponseDto, SliderImageResponseDto, SliderImageItemDto } from '../dto';
+import { TagDto } from '@/modules/tags/dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { eq } from 'drizzle-orm';
 
@@ -16,11 +17,56 @@ export class SliderImageService {
   private readonly logger = new Logger(SliderImageService.name);
 
   /**
-   * Get all slider images
+   * Get all slider images with tags matching the same display order
    */
-  async findAll(): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+  async findAll(): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
     try {
-      const images = await db.select().from(sliderImages);
+      const rows = await db
+        .select({
+          id: sliderImages.id,
+          title: sliderImages.title,
+          imageUrl: sliderImages.imageUrl,
+          displayOrder: sliderImages.displayOrder,
+          createdAt: sliderImages.createdAt,
+          tagId: tags.id,
+          tagName: tags.name,
+          tagDisplayOrder: tags.displayOrder,
+          tagCreatedAt: tags.createdAt,
+          tagUpdatedAt: tags.updatedAt,
+        })
+        .from(sliderImages)
+        .leftJoin(tags, eq(sliderImages.displayOrder, tags.displayOrder))
+        .orderBy(sliderImages.displayOrder);
+
+      const imageMap = new Map<string, Omit<SliderImageWithTagsResponseDto, 'tags'>>();
+      const tagsMap = new Map<string, TagDto[]>();
+
+      for (const row of rows) {
+        if (!imageMap.has(row.id)) {
+          imageMap.set(row.id, {
+            id: row.id,
+            title: row.title,
+            imageUrl: row.imageUrl,
+            displayOrder: row.displayOrder,
+            createdAt: row.createdAt,
+          });
+          tagsMap.set(row.id, []);
+        }
+        if (row.tagId) {
+          const tag: TagDto = {
+            id: row.tagId,
+            name: row.tagName,
+            displayOrder: row.tagDisplayOrder,
+            createdAt: row.tagCreatedAt,
+            updatedAt: row.tagUpdatedAt,
+          };
+          tagsMap.get(row.id)?.push(tag);
+        }
+      }
+
+      const images: SliderImageWithTagsResponseDto[] = Array.from(imageMap.entries()).map(
+        ([id, image]) => ({ ...image, tags: tagsMap.get(id) ?? [] }),
+      );
 
       this.logger.log(`Retrieved ${images.length} slider images`);
 

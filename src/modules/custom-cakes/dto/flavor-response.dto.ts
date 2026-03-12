@@ -124,3 +124,43 @@ export class DeleteFlavorResponseDto {
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   timestamp: string;
 }
+
+export class FlavorConflictDataDto {
+  @ApiProperty({
+    example: 3,
+    description: 'Number of designed cake configs that use this flavor',
+  })
+  relatedConfigsCount: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Number of predesigned cakes affected',
+  })
+  affectedPredesignedCakesCount: number;
+
+  @ApiProperty({
+    example: ['uuid-1', 'uuid-2'],
+    description: 'IDs of affected predesigned cakes',
+    type: [String],
+  })
+  affectedPredesignedCakeIds: string[];
+}
+
+export class DeleteFlavorConflictResponseDto {
+  @ApiProperty({ example: false })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Cannot delete flavor because it is used in predesigned cake configurations',
+  })
+  message: string;
+
+  @ApiProperty({ example: 409 })
+  code: number;
+
+  @ApiProperty({ type: FlavorConflictDataDto })
+  data: FlavorConflictDataDto;
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  timestamp: string;
+}

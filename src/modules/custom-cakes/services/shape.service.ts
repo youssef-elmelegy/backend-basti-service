@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   CreateShapeDto,
@@ -15,8 +16,14 @@ import {
   ShapeSortBy,
 } from '../dto';
 import { db } from '@/db';
-import { shapes, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, asc, sql, and } from 'drizzle-orm';
+import {
+  shapes,
+  regionItemPrices,
+  regions,
+  shapeVariantImages,
+  designedCakeConfigs,
+} from '@/db/schema';
+import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -270,12 +277,40 @@ export class ShapeService {
         );
       }
 
+      // Check if any predesigned cake config uses this shape
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.shapeId, id));
+
+      if (relatedConfigs.length > 0) {
+        const uniquePredesignedCakeIds = [
+          ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+        ];
+        throw new ConflictException({
+          ...errorResponse(
+            'Cannot delete shape because it is used in predesigned cake configurations',
+            HttpStatus.CONFLICT,
+            'ConflictException',
+          ),
+          relatedConfigsCount: relatedConfigs.length,
+          affectedPredesignedCakesCount: uniquePredesignedCakeIds.length,
+          affectedPredesignedCakeIds: uniquePredesignedCakeIds,
+        });
+      }
+
+      // Delete related variant images first
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.shapeId, id));
+
       await db.delete(shapes).where(eq(shapes.id, id));
 
       this.logger.log(`Shape deleted: ${id}`);
       return successResponse(null, 'Shape deleted successfully', HttpStatus.OK);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -283,6 +318,62 @@ export class ShapeService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete shape',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Force-delete a shape along with all its predesigned cake configs.
+   * Use this after the regular DELETE returns a 409 Conflict.
+   */
+  async forceDelete(id: string): Promise<SuccessResponse<null>> {
+    try {
+      const existingShape = await db
+        .select({ id: shapes.id })
+        .from(shapes)
+        .where(eq(shapes.id, id))
+        .limit(1);
+
+      if (!existingShape.length) {
+        throw new NotFoundException(
+          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Collect all related configs
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.shapeId, id));
+
+      // Delete configs that use this shape (DB restrict prevents cascade)
+      if (relatedConfigs.length > 0) {
+        const configIds = relatedConfigs.map((c) => c.configId);
+        await db.delete(designedCakeConfigs).where(inArray(designedCakeConfigs.id, configIds));
+        this.logger.log(`Deleted ${configIds.length} designed cake configs for shape ${id}`);
+      }
+
+      // Delete variant images then the shape itself
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.shapeId, id));
+      await db.delete(shapes).where(eq(shapes.id, id));
+
+      this.logger.log(`Force-deleted shape ${id}`);
+      return successResponse(null, 'Shape and related records deleted successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to force-delete shape ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to force-delete shape',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -1,29 +1,25 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { DeleteDecorationResponseDto, DeleteDecorationConflictResponseDto } from '../dto';
+import { DeleteDecorationResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { DecorationExamples } from '@/constants/examples';
 
-export function DeleteDecorationDecorator() {
+export function ForceDeleteDecorationDecorator() {
+  const forceDeleteExample = DecorationExamples.forceDelete.response
+    .success as unknown as DeleteDecorationResponseDto;
   return applyDecorators(
     ApiOperation({
-      summary: 'Delete a decoration',
+      summary: 'Force-delete a decoration and its predesigned cake configs',
       description:
-        'Deletes a decoration by ID. Returns 409 Conflict with relation details if the decoration is ' +
-        'referenced by predesigned cake configurations. Use DELETE /:id/force to override.',
+        'Deletes a decoration and all predesigned cake configurations that reference it. ' +
+        'Use this endpoint after the regular DELETE returns a 409 Conflict and the admin ' +
+        'has confirmed they want to remove all related records.',
     }),
     ApiResponse({
       status: HttpStatus.OK,
-      description: 'Decoration successfully deleted',
+      description: 'Decoration and all related records successfully deleted',
       type: DeleteDecorationResponseDto,
-      example: DecorationExamples.delete.response.success,
-    }),
-    ApiResponse({
-      status: HttpStatus.CONFLICT,
-      description:
-        'Decoration is used in predesigned cake configurations — contains relation counts and IDs',
-      type: DeleteDecorationConflictResponseDto,
-      example: DecorationExamples.delete.response.conflict,
+      example: forceDeleteExample,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,
@@ -47,7 +43,7 @@ export function DeleteDecorationDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      description: 'Failed to delete decoration due to server error',
+      description: 'Failed to force-delete decoration due to server error',
       type: ErrorResponseDto,
     }),
   );

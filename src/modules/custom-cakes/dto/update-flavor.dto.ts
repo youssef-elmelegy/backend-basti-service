@@ -1,5 +1,14 @@
-import { IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { ShapeVariantImageDto } from './create-flavor-with-variant-images.dto';
 
 export class UpdateFlavorDto {
   @ApiProperty({
@@ -35,4 +44,15 @@ export class UpdateFlavorDto {
   @IsOptional()
   @IsString()
   flavorUrl?: string;
+
+  @ApiProperty({
+    description: 'Array of shape variant images to replace existing ones',
+    type: [ShapeVariantImageDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShapeVariantImageDto)
+  variantImages?: ShapeVariantImageDto[];
 }

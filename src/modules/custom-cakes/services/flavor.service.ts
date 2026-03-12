@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   CreateFlavorDto,
@@ -17,7 +18,14 @@ import {
   FlavorWithVariantImagesDto,
 } from '../dto';
 import { db } from '@/db';
-import { flavors, regionItemPrices, regions, shapeVariantImages, shapes } from '@/db/schema';
+import {
+  flavors,
+  regionItemPrices,
+  regions,
+  shapeVariantImages,
+  shapes,
+  designedCakeConfigs,
+} from '@/db/schema';
 import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
@@ -664,6 +672,44 @@ export class FlavorService {
         .where(eq(flavors.id, id))
         .returning();
 
+      // Replace variant images if provided
+      if (updateDto.variantImages !== undefined) {
+        if (updateDto.variantImages.length > 0) {
+          const shapeIds = updateDto.variantImages.map((v) => v.shapeId);
+          const existingShapes = await db
+            .select({ id: shapes.id })
+            .from(shapes)
+            .where(inArray(shapes.id, shapeIds));
+
+          if (existingShapes.length !== shapeIds.length) {
+            const existing = existingShapes.map((s) => s.id);
+            const missing = shapeIds.filter((sid) => !existing.includes(sid));
+            throw new BadRequestException(
+              errorResponse(
+                `Shape(s) not found: ${missing.join(', ')}`,
+                HttpStatus.BAD_REQUEST,
+                'BadRequestException',
+              ),
+            );
+          }
+        }
+
+        await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+
+        if (updateDto.variantImages.length > 0) {
+          await db.insert(shapeVariantImages).values(
+            updateDto.variantImages.map((variant) => ({
+              shapeId: variant.shapeId,
+              flavorId: id,
+              decorationId: null,
+              slicedViewUrl: variant.slicedViewUrl,
+              frontViewUrl: variant.frontViewUrl,
+              topViewUrl: variant.topViewUrl,
+            })),
+          );
+        }
+      }
+
       this.logger.log(`Flavor updated: ${id}`);
       return successResponse(
         this.mapToFlavorResponse(updatedFlavor),
@@ -700,12 +746,40 @@ export class FlavorService {
         );
       }
 
+      // Check if any predesigned cake config uses this flavor
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.flavorId, id));
+
+      if (relatedConfigs.length > 0) {
+        const uniquePredesignedCakeIds = [
+          ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+        ];
+        throw new ConflictException({
+          ...errorResponse(
+            'Cannot delete flavor because it is used in predesigned cake configurations',
+            HttpStatus.CONFLICT,
+            'ConflictException',
+          ),
+          relatedConfigsCount: relatedConfigs.length,
+          affectedPredesignedCakesCount: uniquePredesignedCakeIds.length,
+          affectedPredesignedCakeIds: uniquePredesignedCakeIds,
+        });
+      }
+
+      // Delete related variant images first (guards against missing DB cascade)
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+
       await db.delete(flavors).where(eq(flavors.id, id));
 
       this.logger.log(`Flavor deleted: ${id}`);
       return successResponse(null, 'Flavor deleted successfully', HttpStatus.OK);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -713,6 +787,73 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete flavor',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Force-delete a flavor along with all its predesigned cake configs (and their parent
+   * predesigned cakes when the config is the only config for that cake).
+   * Use this after the admin has been warned via the normal delete endpoint (409 Conflict).
+   */
+  async forceDelete(id: string): Promise<SuccessResponse<null>> {
+    try {
+      const existingFlavor = await db
+        .select({ id: flavors.id })
+        .from(flavors)
+        .where(eq(flavors.id, id))
+        .limit(1);
+
+      if (!existingFlavor.length) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Collect all predesigned cake IDs that will lose configs
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.flavorId, id));
+
+      const affectedPredesignedCakeIds = [
+        ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+      ];
+
+      // Delete configs that use this flavor (DB restrict prevents cascade)
+      if (relatedConfigs.length > 0) {
+        const configIds = relatedConfigs.map((c) => c.configId);
+        await db.delete(designedCakeConfigs).where(inArray(designedCakeConfigs.id, configIds));
+        this.logger.log(`Deleted ${configIds.length} designed cake configs for flavor ${id}`);
+      }
+
+      // Delete variant images then the flavor itself
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+      await db.delete(flavors).where(eq(flavors.id, id));
+
+      this.logger.log(
+        `Force-deleted flavor ${id}. Affected predesigned cakes: ${affectedPredesignedCakeIds.length}`,
+      );
+      return successResponse(
+        null,
+        'Flavor and related records deleted successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to force-delete flavor ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to force-delete flavor',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

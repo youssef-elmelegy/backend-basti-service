@@ -119,6 +119,31 @@ export const ShapeExamples = {
         data: null,
         timestamp: '2024-02-07T12:00:00Z',
       },
+      conflict: {
+        code: 409,
+        success: false,
+        message: 'Cannot delete shape because it is used in predesigned cake configurations',
+        data: {
+          relatedConfigsCount: 3,
+          affectedPredesignedCakesCount: 2,
+          affectedPredesignedCakeIds: [
+            '550e8400-e29b-41d4-a716-446655440010',
+            '550e8400-e29b-41d4-a716-446655440011',
+          ],
+        },
+        timestamp: '2024-02-07T12:00:00Z',
+      },
+    },
+  },
+  forceDelete: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Shape and related records deleted successfully',
+        data: null,
+        timestamp: '2024-02-07T12:00:00Z',
+      },
     },
   },
   createRegionItemPrice: {

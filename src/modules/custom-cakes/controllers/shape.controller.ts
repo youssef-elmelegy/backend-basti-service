@@ -25,6 +25,7 @@ import {
   GetShapeByIdDecorator,
   UpdateShapeDecorator,
   DeleteShapeDecorator,
+  ForceDeleteShapeDecorator,
   CreateShapeRegionItemPriceDecorator,
   ToggleShapeStatusDecorator,
 } from '../decorators';
@@ -84,6 +85,15 @@ export class ShapeController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting shape: ${id}`);
     return this.shapeService.remove(id);
+  }
+
+  @Delete(':id/force')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ForceDeleteShapeDecorator()
+  async forceDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Force-deleting shape: ${id}`);
+    return this.shapeService.forceDelete(id);
   }
 
   @Patch(':id/toggle-status')

@@ -73,6 +73,46 @@ export class GetAllDecorationsResponseDto {
   timestamp: string;
 }
 
+export class DecorationConflictDataDto {
+  @ApiProperty({
+    example: 3,
+    description: 'Number of designed cake configs that use this decoration',
+  })
+  relatedConfigsCount: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Number of predesigned cakes affected',
+  })
+  affectedPredesignedCakesCount: number;
+
+  @ApiProperty({
+    example: ['uuid-1', 'uuid-2'],
+    description: 'IDs of affected predesigned cakes',
+    type: [String],
+  })
+  affectedPredesignedCakeIds: string[];
+}
+
+export class DeleteDecorationConflictResponseDto {
+  @ApiProperty({ example: false })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Cannot delete decoration because it is used in predesigned cake configurations',
+  })
+  message: string;
+
+  @ApiProperty({ example: 409 })
+  code: number;
+
+  @ApiProperty({ type: DecorationConflictDataDto })
+  data: DecorationConflictDataDto;
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  timestamp: string;
+}
+
 export class DeleteDecorationResponseDto {
   @ApiProperty({ example: true })
   success: boolean;

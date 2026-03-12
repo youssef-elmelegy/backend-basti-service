@@ -1,5 +1,5 @@
 import { applyDecorators, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AdminResetPasswordDto } from '../dto';
 import { SuccessAdminResetPasswordResponseDto, AdminErrorResponseDto } from '../dto';
 import { AdminAuthExamples } from '@/constants/examples';
@@ -7,15 +7,14 @@ import { AdminAuthExamples } from '@/constants/examples';
 export function AdminResetPasswordEndpoint() {
   return applyDecorators(
     HttpCode(HttpStatus.OK),
-    ApiBearerAuth('access-token'),
     ApiOperation({
       summary: 'Reset Password',
       description:
-        'Reset password using temporary token from OTP verification. Requires temporary reset token in Authorization header.',
+        'Reset password using temporary token from OTP verification. The temporary reset token can be provided in an HTTP-only cookie or in the request body (`resetToken`).',
     }),
     ApiBody({
       type: AdminResetPasswordDto,
-      description: 'New password and confirmation',
+      description: 'Reset token and new password',
     }),
     ApiResponse({
       status: HttpStatus.OK,
@@ -25,9 +24,9 @@ export function AdminResetPasswordEndpoint() {
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
-      description: 'Validation error or passwords do not match',
+      description: 'Validation error or invalid password',
       type: AdminErrorResponseDto,
-      example: AdminAuthExamples.resetPassword.response.passwordMismatch,
+      example: AdminAuthExamples.resetPassword.response.validationError,
     }),
     ApiResponse({
       status: HttpStatus.UNAUTHORIZED,

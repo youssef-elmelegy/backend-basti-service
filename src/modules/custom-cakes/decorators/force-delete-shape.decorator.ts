@@ -1,29 +1,25 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { DeleteShapeResponseDto, DeleteShapeConflictResponseDto } from '../dto';
+import { DeleteShapeResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { ShapeExamples } from '@/constants/examples';
 
-export function DeleteShapeDecorator() {
+export function ForceDeleteShapeDecorator() {
+  const forceDeleteExample = ShapeExamples.forceDelete.response
+    .success as unknown as DeleteShapeResponseDto;
   return applyDecorators(
     ApiOperation({
-      summary: 'Delete a shape',
+      summary: 'Force-delete a shape and its predesigned cake configs',
       description:
-        'Deletes a shape by ID. Returns 409 Conflict with relation details if the shape is ' +
-        'referenced by predesigned cake configurations. Use DELETE /:id/force to override.',
+        'Deletes a shape and all predesigned cake configurations that reference it. ' +
+        'Use this endpoint after the regular DELETE returns a 409 Conflict and the admin ' +
+        'has confirmed they want to remove all related records.',
     }),
     ApiResponse({
       status: HttpStatus.OK,
-      description: 'Shape successfully deleted',
+      description: 'Shape and all related records successfully deleted',
       type: DeleteShapeResponseDto,
-      example: ShapeExamples.delete.response.success,
-    }),
-    ApiResponse({
-      status: HttpStatus.CONFLICT,
-      description:
-        'Shape is used in predesigned cake configurations — contains relation counts and IDs',
-      type: DeleteShapeConflictResponseDto,
-      example: ShapeExamples.delete.response.conflict,
+      example: forceDeleteExample,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,
@@ -47,7 +43,7 @@ export function DeleteShapeDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      description: 'Failed to delete shape due to server error',
+      description: 'Failed to force-delete shape due to server error',
       type: ErrorResponseDto,
     }),
   );

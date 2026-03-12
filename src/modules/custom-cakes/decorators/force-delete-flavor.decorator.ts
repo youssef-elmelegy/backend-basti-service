@@ -1,29 +1,23 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { DeleteFlavorResponseDto, DeleteFlavorConflictResponseDto } from '../dto';
+import { DeleteFlavorResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 import { FlavorExamples } from '@/constants/examples';
 
-export function DeleteFlavorDecorator() {
+export function ForceDeleteFlavorDecorator() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Delete a flavor',
+      summary: 'Force-delete a flavor and its predesigned cake configs',
       description:
-        'Deletes a flavor by ID. Returns 409 Conflict with relation details if the flavor is ' +
-        'referenced by predesigned cake configurations. Use DELETE /:id/force to override.',
+        'Deletes a flavor and all predesigned cake configurations that reference it. ' +
+        'Use this endpoint after the regular DELETE returns a 409 Conflict and the admin ' +
+        'has confirmed they want to remove all related records.',
     }),
     ApiResponse({
       status: HttpStatus.OK,
-      description: 'Flavor successfully deleted',
+      description: 'Flavor and all related records successfully deleted',
       type: DeleteFlavorResponseDto,
-      example: FlavorExamples.delete.response.success,
-    }),
-    ApiResponse({
-      status: HttpStatus.CONFLICT,
-      description:
-        'Flavor is used in predesigned cake configurations — contains relation counts and IDs',
-      type: DeleteFlavorConflictResponseDto,
-      example: FlavorExamples.delete.response.conflict,
+      example: FlavorExamples.forceDelete.response.success,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,
@@ -47,7 +41,7 @@ export function DeleteFlavorDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      description: 'Failed to delete flavor due to server error',
+      description: 'Failed to force-delete flavor due to server error',
       type: ErrorResponseDto,
     }),
   );

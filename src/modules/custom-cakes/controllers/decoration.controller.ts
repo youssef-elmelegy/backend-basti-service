@@ -26,6 +26,7 @@ import {
   GetDecorationByIdDecorator,
   UpdateDecorationDecorator,
   DeleteDecorationDecorator,
+  ForceDeleteDecorationDecorator,
   CreateDecorationRegionItemPriceDecorator,
   CreateDecorationWithVariantImagesDecorator,
   ToggleDecorationStatusDecorator,
@@ -86,6 +87,15 @@ export class DecorationController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting decoration: ${id}`);
     return this.decorationService.remove(id);
+  }
+
+  @Delete(':id/force')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ForceDeleteDecorationDecorator()
+  async forceDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Force-deleting decoration: ${id}`);
+    return this.decorationService.forceDelete(id);
   }
 
   @Patch(':id/toggle-status')
