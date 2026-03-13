@@ -496,8 +496,11 @@ export class OrderService {
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
       };
-    } catch {
-      this.logger.error(`Failed to retrieve order ${orderId} for user ${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to retrieve order ${orderId} for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : '',
+      );
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve the order',
@@ -638,6 +641,8 @@ export class OrderService {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
 
+      this.logger.log(`Fetching order details for order ID: ${orderId} with ${items.length} items`);
+
       const customCakeItems: OrderResponseDto['customCakes'] = [];
       const predesignedCakeItems: OrderResponseDto['predesignedCakes'] = [];
       const featuredCakeItems: OrderResponseDto['featuredCakes'] = [];
@@ -652,7 +657,12 @@ export class OrderService {
       }
 
       for (const item of items) {
+        this.logger.log(`Processing item with ID: ${item.id} for order ID: ${orderId}`);
+        this.logger.log(`items list: ${JSON.stringify(items)}`);
         if (item.customCake) {
+          this.logger.log(
+            `Fetching custom cake components for item ID: ${item.id} in order ID: ${orderId}`,
+          );
           const cc = await this.cartService.getCustomCakeComponents(item.customCake, regionId);
           customCakeItems.push({
             ...item,
@@ -692,6 +702,7 @@ export class OrderService {
             data: sweet,
           });
         }
+        this.logger.log(`Processed item with ID: ${item.id} for order ID: ${orderId}`);
       }
 
       this.logger.log(`Retrieved order: ${orderId}`);
@@ -706,8 +717,11 @@ export class OrderService {
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
       };
-    } catch {
-      this.logger.error(`Failed to retrieve order ${orderId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to retrieve order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : '',
+      );
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve the order',

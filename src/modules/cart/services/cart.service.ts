@@ -424,6 +424,9 @@ export class CartService {
   }
 
   async getCustomCakeComponents(customCake: CustomCakeConfigDto, regionId: string) {
+    this.logger.debug(
+      `Fetching components for custom cake with decoration ID: ${customCake.decorationId}, flavor ID: ${customCake.flavorId}, shape ID: ${customCake.shapeId}, and ${customCake.extraLayers.length} extra layers in region ID: ${regionId}`,
+    );
     const [decoration] = await db
       .select({
         ...getTableColumns(decorations),
@@ -442,6 +445,14 @@ export class CartService {
       .where(eq(decorations.id, customCake.decorationId))
       .limit(1);
 
+    if (!decoration) {
+      this.logger.error(`Decoration with ID: ${customCake.decorationId} not found`);
+      throw new NotFoundException(
+        errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+    this.logger.log(`Fetched decoration with ID: ${decoration.id} for custom cake`);
+
     const [flavor] = await db
       .select({
         ...getTableColumns(flavors),
@@ -455,6 +466,14 @@ export class CartService {
       .where(eq(flavors.id, customCake.flavorId))
       .limit(1);
 
+    if (!flavor) {
+      this.logger.error(`Flavor with ID: ${customCake.flavorId} not found`);
+      throw new NotFoundException(
+        errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+    this.logger.log(`Fetched flavor with ID: ${flavor.id} for custom cake`);
+
     const [shape] = await db
       .select({
         ...getTableColumns(shapes),
@@ -467,6 +486,13 @@ export class CartService {
       )
       .where(eq(shapes.id, customCake.shapeId))
       .limit(1);
+
+    if (!shape) {
+      this.logger.error(`Shape with ID: ${customCake.shapeId} not found`);
+      throw new NotFoundException(
+        errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
 
     type ExtraLayerExpandedType = {
       layer: number;
@@ -484,7 +510,7 @@ export class CartService {
 
     const extraLayersExpanded: ExtraLayerExpandedType[] = [];
 
-    if (customCake.extraLayers.length > 0) {
+    if (customCake.extraLayers && customCake.extraLayers.length > 0) {
       for (const layer of customCake.extraLayers) {
         const [flavorLayers] = await db
           .select({
@@ -498,6 +524,17 @@ export class CartService {
           )
           .where(eq(flavors.id, layer.flavorId))
           .limit(1);
+
+        if (!flavorLayers) {
+          this.logger.error(`Flavor with ID: ${layer.flavorId} not found for extra layer`);
+          throw new NotFoundException(
+            errorResponse(
+              'Flavor not found for extra layer',
+              HttpStatus.NOT_FOUND,
+              'NotFoundException',
+            ),
+          );
+        }
         extraLayersExpanded.push({
           layer: layer.layer,
           flavor: flavorLayers,
