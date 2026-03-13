@@ -15,6 +15,7 @@ import { RegionService } from '../services/region.service';
 import {
   CreateRegionDto,
   UpdateRegionDto,
+  ChangeRegionOrderDto,
   GetRegionsQueryDto,
   GetRegionalProductsQueryDto,
 } from '../dto';
@@ -24,6 +25,7 @@ import {
   GetRegionDecorator,
   UpdateRegionDecorator,
   DeleteRegionDecorator,
+  ChangeRegionOrderDecorator,
   GetRegionalProductsDecorator,
   DeleteRegionalItemPriceDecorator,
 } from '../decorators';
@@ -31,6 +33,7 @@ import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { Public } from '@/common';
+import { SuccessResponse } from '@/utils';
 
 @ApiTags('region')
 @Controller('regions')
@@ -77,6 +80,17 @@ export class RegionController {
     return result;
   }
 
+  @Patch(':id/order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ChangeRegionOrderDecorator()
+  async changeRegionOrder(@Param('id') id: string, @Body() changeOrderDto: ChangeRegionOrderDto) {
+    this.logger.debug(`Changing region order: ${id} to ${changeOrderDto.order}`);
+    const result = await this.regionService.changeRegionOrder(id, changeOrderDto);
+    this.logger.log(`Region order changed: ${id}`);
+    return result;
+  }
+
   @Delete(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -93,7 +107,12 @@ export class RegionController {
   async getRegionalProducts(
     @Param('id') regionId: string,
     @Query() query: GetRegionalProductsQueryDto,
-  ): Promise<any> {
+  ): Promise<
+    SuccessResponse<{
+      items: Record<string, unknown>[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>
+  > {
     this.logger.debug(`Retrieving products for region: ${regionId}`);
     const result = await this.regionService.getRegionalProducts(regionId, query);
     this.logger.log(`Regional products retrieved for region: ${regionId}`);

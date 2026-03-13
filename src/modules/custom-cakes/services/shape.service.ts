@@ -13,6 +13,7 @@ import {
   GetShapesQueryDto,
   ShapeDataDto,
   CreateShapeRegionItemPriceDto,
+  ChangeShapeOrderDto,
   ShapeSortBy,
 } from '../dto';
 import { db } from '@/db';
@@ -23,7 +24,7 @@ import {
   shapeVariantImages,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, inArray, gte, gt, lt, lte } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -41,6 +42,7 @@ export class ShapeService {
       shapeUrl: shape.shapeUrl,
       size: shape.size,
       capacity: shape.capacity,
+      order: shape.order,
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
     };
@@ -54,6 +56,13 @@ export class ShapeService {
 
   async create(createDto: CreateShapeDto): Promise<SuccessResponse<ShapeDataDto>> {
     try {
+      // Get the max order to assign the new shape an incremental order
+      const [maxOrderRecord] = await db
+        .select({ maxOrder: sql<number>`MAX(${shapes.order})` })
+        .from(shapes);
+
+      const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
+
       const [newShape] = await db
         .insert(shapes)
         .values({
@@ -62,6 +71,7 @@ export class ShapeService {
           shapeUrl: createDto.shapeUrl,
           size: createDto.size,
           capacity: createDto.capacity,
+          order: nextOrder,
         })
         .returning();
 
@@ -525,6 +535,137 @@ export class ShapeService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to create shape region price',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async changeShapeOrder(
+    id: string,
+    changeOrderDto: ChangeShapeOrderDto,
+  ): Promise<SuccessResponse<ShapeDataDto[]>> {
+    const { order: newOrder } = changeOrderDto;
+
+    try {
+      // Check if shape exists
+      const [shape] = await db.select().from(shapes).where(eq(shapes.id, id)).limit(1);
+
+      if (!shape) {
+        throw new NotFoundException(
+          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      if (newOrder < 1) {
+        throw new BadRequestException(
+          errorResponse('Order must be at least 1', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
+
+      const currentOrder = shape.order;
+      const now = new Date();
+
+      if (currentOrder !== newOrder) {
+        if (newOrder < currentOrder) {
+          // Moving up: shapes from newOrder to currentOrder-1 shift down by 1
+          await db.transaction(async (tx) => {
+            // Update shapes that need to shift down (move them out of the way first with +100000)
+            await tx
+              .update(shapes)
+              .set({
+                order: sql`${shapes.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gte(shapes.order, newOrder), lt(shapes.order, currentOrder)));
+
+            // Now move them from temp positions to final positions (shifted down by 1)
+            await tx
+              .update(shapes)
+              .set({
+                order: sql`${shapes.order} - 100000 + 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(gte(shapes.order, newOrder + 100000), lt(shapes.order, currentOrder + 100000)),
+              );
+
+            // Move target shape to newOrder
+            await tx
+              .update(shapes)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(shapes.id, id));
+          });
+        } else {
+          // Moving down: shapes from currentOrder+1 to newOrder shift up by 1
+          await db.transaction(async (tx) => {
+            // Update shapes that need to shift up (move them out of the way first with +100000)
+            await tx
+              .update(shapes)
+              .set({
+                order: sql`${shapes.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gt(shapes.order, currentOrder), lte(shapes.order, newOrder)));
+
+            // Now move them from temp positions to final positions (shifted up by 1)
+            await tx
+              .update(shapes)
+              .set({
+                order: sql`${shapes.order} - 100000 - 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(gt(shapes.order, currentOrder + 100000), lte(shapes.order, newOrder + 100000)),
+              );
+
+            // Move target shape to newOrder
+            await tx
+              .update(shapes)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(shapes.id, id));
+          });
+        }
+        this.logger.log(`Shape order changed: ${id} from order ${currentOrder} to ${newOrder}`);
+      } else {
+        this.logger.debug(`Shape order unchanged: ${id} (order: ${currentOrder})`);
+      }
+
+      // Fetch all shapes sorted by order
+      const allShapes = await db.select().from(shapes).orderBy(asc(shapes.order));
+
+      return successResponse(
+        allShapes.map((shape) => ({
+          id: shape.id,
+          title: shape.title,
+          description: shape.description,
+          shapeUrl: shape.shapeUrl,
+          size: shape.size,
+          capacity: shape.capacity,
+          order: shape.order,
+          createdAt: shape.createdAt,
+          updatedAt: shape.updatedAt,
+        })),
+        'Shape order updated successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Shape order change error for ${id}:`);
+      this.logger.error(errMsg);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to change shape order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

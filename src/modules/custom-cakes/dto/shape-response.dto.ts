@@ -21,6 +21,9 @@ export class ShapeDataDto {
   @ApiProperty({ example: 20 })
   capacity: number;
 
+  @ApiProperty({ example: 1 })
+  order: number;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 

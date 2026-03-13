@@ -16,6 +16,9 @@ export class FlavorDataDto {
   })
   flavorUrl: string;
 
+  @ApiProperty({ example: 1 })
+  order: number;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 

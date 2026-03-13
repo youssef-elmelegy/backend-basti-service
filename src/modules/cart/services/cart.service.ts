@@ -476,6 +476,7 @@ export class CartService {
         title: string;
         description: string;
         flavorUrl: string;
+        order: number;
         createdAt: Date;
         updatedAt: Date;
       };

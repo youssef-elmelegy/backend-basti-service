@@ -19,6 +19,7 @@ import {
   GetFlavorsQueryDto,
   CreateFlavorRegionItemPriceDto,
   CreateFlavorWithVariantImagesDto,
+  ChangeFlavorOrderDto,
 } from '../dto';
 import {
   CreateFlavorDecorator,
@@ -31,6 +32,7 @@ import {
   CreateFlavorRegionItemPriceDecorator,
   CreateFlavorWithVariantImagesDecorator,
   ToggleFlavorStatusDecorator,
+  ChangeFlavorOrderDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -115,6 +117,20 @@ export class FlavorController {
     this.logger.debug(`Toggling flavor status: ${id}`);
     const result = await this.flavorService.toggleStatus(id);
     this.logger.log(`Flavor status toggled: ${id}`);
+    return result;
+  }
+
+  @Patch(':id/order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ChangeFlavorOrderDecorator()
+  async changeFlavorOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() changeOrderDto: ChangeFlavorOrderDto,
+  ) {
+    this.logger.debug(`Changing flavor order: ${id} to ${changeOrderDto.order}`);
+    const result = await this.flavorService.changeFlavorOrder(id, changeOrderDto);
+    this.logger.log(`Flavor order changed: ${id}`);
     return result;
   }
 

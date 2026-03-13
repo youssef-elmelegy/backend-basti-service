@@ -18,6 +18,7 @@ import {
   UpdateShapeDto,
   GetShapesQueryDto,
   CreateShapeRegionItemPriceDto,
+  ChangeShapeOrderDto,
 } from '../dto';
 import {
   CreateShapeDecorator,
@@ -28,6 +29,7 @@ import {
   ForceDeleteShapeDecorator,
   CreateShapeRegionItemPriceDecorator,
   ToggleShapeStatusDecorator,
+  ChangeShapeOrderDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -104,6 +106,20 @@ export class ShapeController {
     this.logger.debug(`Toggling shape status: ${id}`);
     const result = await this.shapeService.toggleStatus(id);
     this.logger.log(`Shape status toggled: ${id}`);
+    return result;
+  }
+
+  @Patch(':id/order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ChangeShapeOrderDecorator()
+  async changeShapeOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() changeOrderDto: ChangeShapeOrderDto,
+  ) {
+    this.logger.debug(`Changing shape order: ${id} to ${changeOrderDto.order}`);
+    const result = await this.shapeService.changeShapeOrder(id, changeOrderDto);
+    this.logger.log(`Shape order changed: ${id}`);
     return result;
   }
 

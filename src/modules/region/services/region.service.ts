@@ -5,13 +5,15 @@ import {
   InternalServerErrorException,
   HttpStatus,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { db } from '@/db';
 import { regions, regionItemPrices } from '@/db/schema';
-import { eq, asc, desc, SQL, and } from 'drizzle-orm';
+import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql } from 'drizzle-orm';
 import {
   CreateRegionDto,
   UpdateRegionDto,
+  ChangeRegionOrderDto,
   RegionResponse,
   GetRegionsQueryDto,
   GetRegionalProductsQueryDto,
@@ -65,9 +67,21 @@ export class RegionService {
     }
 
     try {
-      const [newRegion] = await db.insert(regions).values({ name, image, isAvailable }).returning();
+      // Get the max order to calculate the next order
+      const [maxOrderResult] = await db
+        .select({
+          maxOrder: sql<number | null>`max("order")`,
+        })
+        .from(regions);
 
-      this.logger.log(`Region created: ${newRegion.id} (${name})`);
+      const nextOrder = (maxOrderResult?.maxOrder || 0) + 1;
+
+      const [newRegion] = await db
+        .insert(regions)
+        .values({ name, image, isAvailable, order: nextOrder })
+        .returning();
+
+      this.logger.log(`Region created: ${newRegion.id} (${name}) with order: ${nextOrder}`);
 
       return successResponse(
         {
@@ -75,6 +89,7 @@ export class RegionService {
           name: newRegion.name,
           image: newRegion.image,
           isAvailable: newRegion.isAvailable,
+          order: newRegion.order,
           createdAt: newRegion.createdAt,
           updatedAt: newRegion.updatedAt,
         },
@@ -105,19 +120,25 @@ export class RegionService {
         }
       }
 
+      // Always order by region order (primary or secondary sort)
+      orderByConditions.push(asc(regions.order));
+
       const filter: SQL[] = [];
-      if (query.isAvailable !== undefined && query.isAvailable !== null) {
+      if (query?.isAvailable !== undefined && query.isAvailable !== null) {
         filter.push(eq(regions.isAvailable, query.isAvailable));
       }
 
       const allRegions =
-        orderByConditions.length > 0
+        filter.length > 0
           ? await db
               .select()
               .from(regions)
               .where(and(...filter))
               .orderBy(...orderByConditions)
-          : await db.select().from(regions);
+          : await db
+              .select()
+              .from(regions)
+              .orderBy(...orderByConditions);
 
       this.logger.debug(`Retrieved ${allRegions.length} regions`);
 
@@ -127,6 +148,7 @@ export class RegionService {
           name: region.name,
           image: region.image,
           isAvailable: region.isAvailable,
+          order: region.order,
           createdAt: region.createdAt,
           updatedAt: region.updatedAt,
         })),
@@ -163,6 +185,7 @@ export class RegionService {
         name: region.name,
         image: region.image,
         isAvailable: region.isAvailable,
+        order: region.order,
         createdAt: region.createdAt,
         updatedAt: region.updatedAt,
       },
@@ -225,6 +248,7 @@ export class RegionService {
           name: updatedRegion.name,
           image: updatedRegion.image,
           isAvailable: updatedRegion.isAvailable,
+          order: updatedRegion.order,
           createdAt: updatedRegion.createdAt,
           updatedAt: updatedRegion.updatedAt,
         },
@@ -254,9 +278,23 @@ export class RegionService {
     }
 
     try {
+      const deletedRegionOrder = existingRegion.order;
+
+      // Delete the region
       await db.delete(regions).where(eq(regions.id, id));
 
-      this.logger.log(`Region deleted: ${id}`);
+      // Reorder all regions after the deleted one - decrease their order by 1
+      await db
+        .update(regions)
+        .set({
+          order: sql`"order" - 1`,
+          updatedAt: new Date(),
+        })
+        .where(gt(regions.order, deletedRegionOrder));
+
+      this.logger.log(
+        `Region deleted: ${id} (was at order: ${deletedRegionOrder}), reordered subsequent regions`,
+      );
 
       return successResponse(
         { message: 'Region deleted successfully' },
@@ -274,6 +312,159 @@ export class RegionService {
       );
     }
   }
+
+  async changeRegionOrder(
+    id: string,
+    changeOrderDto: ChangeRegionOrderDto,
+  ): Promise<SuccessResponse<RegionResponse[]>> {
+    const { order: newOrder } = changeOrderDto;
+
+    // Get the region to update
+    const [region] = await db.select().from(regions).where(eq(regions.id, id)).limit(1);
+
+    if (!region) {
+      this.logger.warn(`Region order change failed: Region not found - ${id}`);
+      throw new NotFoundException(
+        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Get total count of regions to validate the new order
+    const totalRegions = await db
+      .select({
+        count: sql<number>`count(*)`,
+      })
+      .from(regions);
+
+    const totalCount = Number(totalRegions[0]?.count) || 0;
+
+    // Validate new order is within valid range
+    if (newOrder < 1 || newOrder > totalCount) {
+      this.logger.warn(
+        `Region order change failed: Invalid order position - ${newOrder} (valid range: 1-${totalCount})`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Invalid order position. Must be between 1 and ${totalCount}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    try {
+      const currentOrder = region.order;
+
+      const now = new Date();
+
+      if (currentOrder !== newOrder) {
+        if (newOrder < currentOrder) {
+          // Moving up: regions from newOrder to currentOrder-1 shift down by 1
+          await db.transaction(async (tx) => {
+            // Update regions that need to shift down (move them out of the way first with +100000)
+            await tx
+              .update(regions)
+              .set({
+                order: sql`${regions.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gte(regions.order, newOrder), lt(regions.order, currentOrder)));
+
+            // Now move them from temp positions to final positions (shifted down by 1)
+            await tx
+              .update(regions)
+              .set({
+                order: sql`${regions.order} - 100000 + 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gte(regions.order, newOrder + 100000),
+                  lt(regions.order, currentOrder + 100000),
+                ),
+              );
+
+            // Move target region to newOrder
+            await tx
+              .update(regions)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(regions.id, id));
+          });
+        } else {
+          // Moving down: regions from currentOrder+1 to newOrder shift up by 1
+          await db.transaction(async (tx) => {
+            // Update regions that need to shift up (move them out of the way first with +100000)
+            await tx
+              .update(regions)
+              .set({
+                order: sql`${regions.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gt(regions.order, currentOrder), lte(regions.order, newOrder)));
+
+            // Now move them from temp positions to final positions (shifted up by 1)
+            await tx
+              .update(regions)
+              .set({
+                order: sql`${regions.order} - 100000 - 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gt(regions.order, currentOrder + 100000),
+                  lte(regions.order, newOrder + 100000),
+                ),
+              );
+
+            // Move target region to newOrder
+            await tx
+              .update(regions)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(regions.id, id));
+          });
+        }
+        this.logger.log(`Region order changed: ${id} from order ${currentOrder} to ${newOrder}`);
+      } else {
+        this.logger.debug(`Region order unchanged: ${id} (order: ${currentOrder})`);
+      }
+
+      // Fetch all regions sorted by order
+      const allRegions = await db.select().from(regions).orderBy(asc(regions.order));
+
+      return successResponse(
+        allRegions.map((region) => ({
+          id: region.id,
+          name: region.name,
+          image: region.image,
+          isAvailable: region.isAvailable,
+          order: region.order,
+          createdAt: region.createdAt,
+          updatedAt: region.updatedAt,
+        })),
+        'Region order updated successfully',
+        HttpStatus.OK,
+      );
+    } catch (err) {
+      if (err instanceof BadRequestException || err instanceof NotFoundException) {
+        throw err;
+      }
+      this.logger.error(`Region order change error for ${id}:`, err);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to change region order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
   async getRegionalProducts(
     regionId: string,
     query: GetRegionalProductsQueryDto,

@@ -8,6 +8,7 @@ export * from './force-delete-flavor.decorator';
 export * from './create-flavor-region-item-price.decorator';
 export * from './create-flavor-with-variant-images.decorator';
 export * from './toggle-flavor-status.decorator';
+export * from './change-flavor-order.decorator';
 
 export * from './create-shape.decorator';
 export * from './get-all-shapes.decorator';
@@ -17,6 +18,7 @@ export * from './delete-shape.decorator';
 export * from './force-delete-shape.decorator';
 export * from './create-shape-region-item-price.decorator';
 export * from './toggle-shape-status.decorator';
+export * from './change-shape-order.decorator';
 
 export * from './create-decoration.decorator';
 export * from './get-all-decorations.decorator';

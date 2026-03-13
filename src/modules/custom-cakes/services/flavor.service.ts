@@ -16,6 +16,7 @@ import {
   FlavorSortBy,
   CreateFlavorWithVariantImagesDto,
   FlavorWithVariantImagesDto,
+  ChangeFlavorOrderDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -26,7 +27,7 @@ import {
   shapes,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, inArray, gte, gt, lt, lte } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -42,6 +43,7 @@ export class FlavorService {
       title: flavor.title,
       description: flavor.description,
       flavorUrl: flavor.flavorUrl,
+      order: flavor.order,
       createdAt: flavor.createdAt,
       updatedAt: flavor.updatedAt,
     };
@@ -49,12 +51,20 @@ export class FlavorService {
 
   async create(createDto: CreateFlavorDto): Promise<SuccessResponse<FlavorDataDto>> {
     try {
+      // Get the max order to assign the new flavor an incremental order
+      const [maxOrderRecord] = await db
+        .select({ maxOrder: sql<number>`MAX(${flavors.order})` })
+        .from(flavors);
+
+      const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
           title: createDto.title,
           description: createDto.description,
           flavorUrl: createDto.flavorUrl,
+          order: nextOrder,
         })
         .returning();
 
@@ -1033,12 +1043,19 @@ export class FlavorService {
       }
 
       // Create flavor
+      const [maxOrderRecord] = await db
+        .select({ maxOrder: sql<number>`MAX(${flavors.order})` })
+        .from(flavors);
+
+      const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
           title: createDto.title,
           description: createDto.description,
           flavorUrl: createDto.flavorUrl,
+          order: nextOrder,
         })
         .returning();
 
@@ -1116,6 +1133,129 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to retrieve flavor variant images',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async changeFlavorOrder(
+    id: string,
+    changeOrderDto: ChangeFlavorOrderDto,
+  ): Promise<SuccessResponse<FlavorDataDto[]>> {
+    const { order: newOrder } = changeOrderDto;
+
+    try {
+      // Check if flavor exists
+      const [flavor] = await db.select().from(flavors).where(eq(flavors.id, id)).limit(1);
+
+      if (!flavor) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      if (newOrder < 1) {
+        throw new BadRequestException(
+          errorResponse('Order must be at least 1', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
+
+      const currentOrder = flavor.order;
+      const now = new Date();
+
+      if (currentOrder !== newOrder) {
+        if (newOrder < currentOrder) {
+          // Moving up: flavors from newOrder to currentOrder-1 shift down by 1
+          await db.transaction(async (tx) => {
+            // Update flavors that need to shift down (move them out of the way first with +100000)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gte(flavors.order, newOrder), lt(flavors.order, currentOrder)));
+
+            // Now move them from temp positions to final positions (shifted down by 1)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} - 100000 + 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gte(flavors.order, newOrder + 100000),
+                  lt(flavors.order, currentOrder + 100000),
+                ),
+              );
+
+            // Move target flavor to newOrder
+            await tx
+              .update(flavors)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(flavors.id, id));
+          });
+        } else {
+          // Moving down: flavors from currentOrder+1 to newOrder shift up by 1
+          await db.transaction(async (tx) => {
+            // Update flavors that need to shift up (move them out of the way first with +100000)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gt(flavors.order, currentOrder), lte(flavors.order, newOrder)));
+
+            // Now move them from temp positions to final positions (shifted up by 1)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} - 100000 - 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gt(flavors.order, currentOrder + 100000),
+                  lte(flavors.order, newOrder + 100000),
+                ),
+              );
+
+            // Move target flavor to newOrder
+            await tx
+              .update(flavors)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(flavors.id, id));
+          });
+        }
+      }
+
+      // Return all flavors sorted by order
+      const allFlavors = await db.select().from(flavors).orderBy(asc(flavors.order));
+
+      return successResponse(
+        allFlavors.map((f) => this.mapToFlavorResponse(f)),
+        'Flavor order successfully changed, returns all flavors sorted by order',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Flavor order change error for ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to change flavor order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
