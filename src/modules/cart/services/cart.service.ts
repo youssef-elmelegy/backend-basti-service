@@ -425,7 +425,7 @@ export class CartService {
 
   async getCustomCakeComponents(customCake: CustomCakeConfigDto, regionId: string) {
     this.logger.debug(
-      `Fetching components for custom cake with decoration ID: ${customCake.decorationId}, flavor ID: ${customCake.flavorId}, shape ID: ${customCake.shapeId}, and ${customCake.extraLayers.length} extra layers in region ID: ${regionId}`,
+      `Fetching components for custom cake with decoration ID: ${customCake.decorationId}, flavor ID: ${customCake.flavorId}, shape ID: ${customCake.shapeId}, and ${(customCake.extraLayers ?? []).length} extra layers in region ID: ${regionId}`,
     );
     const [decoration] = await db
       .select({
@@ -510,7 +510,7 @@ export class CartService {
 
     const extraLayersExpanded: ExtraLayerExpandedType[] = [];
 
-    if (customCake.extraLayers && customCake.extraLayers.length > 0) {
+    if ((customCake.extraLayers ?? []).length > 0) {
       for (const layer of customCake.extraLayers) {
         const [flavorLayers] = await db
           .select({

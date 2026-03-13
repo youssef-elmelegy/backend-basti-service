@@ -804,6 +804,7 @@ export class PredesignedCakesService {
         flavorId: designedCakeConfigs.flavorId,
         decorationId: designedCakeConfigs.decorationId,
         shapeId: designedCakeConfigs.shapeId,
+        frostColorValue: designedCakeConfigs.frostColorValue,
       })
       .from(designedCakeConfigs)
       .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCakeId));
