@@ -17,6 +17,7 @@ export const CartTypeEnum = pgEnum('cart_type_enum', ['big_cakes', 'small_cakes'
 export const orderStatusEnum = pgEnum('order_status_enum', [
   'pending',
   'confirmed',
+  'assigned',
   'preparing',
   'ready',
   'out_for_delivery',

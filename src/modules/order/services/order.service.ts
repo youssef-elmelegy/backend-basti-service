@@ -71,7 +71,7 @@ export class OrderService {
     try {
       let existingLocation: typeof locations.$inferInsert;
       let existingPaymentMethod: typeof paymentMethods.$inferInsert;
-      let cart: (typeof cartItems.$inferSelect)[];
+      let cart: (typeof cartItems.$inferSelect)[] = [];
 
       const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
 
@@ -604,6 +604,22 @@ export class OrderService {
             `Failed to retrieve full details for order ${order.id}, returning basic order data`,
           );
 
+          if (
+            order.orderStatus === 'assigned' &&
+            order.bakeryId &&
+            order.assigningDate &&
+            new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+          ) {
+            this.logger.warn(
+              `Order with id: ${order.id} has been assigned to the bakery for more than 1 hour, it cannot be unassigned, now changing its status to preparing`,
+            );
+            db.update(orders)
+              .set({
+                orderStatus: 'preparing',
+              })
+              .where(eq(orders.id, order.id));
+          }
+
           // Return basic order data without item enrichment
           response.push({
             addons: [],
@@ -861,6 +877,19 @@ export class OrderService {
       );
     }
 
+    if (order.orderStatus !== 'confirmed') {
+      this.logger.warn(
+        `Order with id: ${orderId} must be in confirmed status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} must be in confirmed status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
     const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
 
     if (!bakery) {
@@ -873,7 +902,11 @@ export class OrderService {
     try {
       const [updatedOrder] = await db
         .update(orders)
-        .set({ bakeryId: bakeryId === undefined ? null : bakeryId })
+        .set({
+          bakeryId: bakeryId === undefined ? null : bakeryId,
+          assigningDate: new Date(),
+          orderStatus: 'assigned',
+        })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
@@ -907,6 +940,46 @@ export class OrderService {
       );
     }
 
+    if (!order.bakeryId) {
+      this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} is not assigned to a bakery`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (order.orderStatus !== 'assigned') {
+      this.logger.warn(
+        `Order with id: ${orderId} is not assigned yet or already unassigned. Current status: ${order.orderStatus}`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} is not assigned yet or already unassigned. Current status: ${order.orderStatus}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (
+      order.assigningDate &&
+      new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+    ) {
+      this.logger.warn(
+        `Order with id: ${orderId} has been assigned to the bakery for more than 1 hour, it cannot be unassigned`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          'Order cannot be assigned to the bakery because it has been assigned for more than 1 hour',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
     // Log the reason if provided
     if (reason) {
       this.logger.log(`Unassigning order ${orderId} from bakery. Reason: ${reason}`);
@@ -917,14 +990,18 @@ export class OrderService {
     try {
       const [updatedOrder] = await db
         .update(orders)
-        .set({ bakeryId: null })
+        .set({
+          bakeryId: null,
+          assigningDate: null,
+          orderStatus: 'confirmed',
+        })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
       return {
         id: updatedOrder.id,
-        bakeryId: updatedOrder.bakeryId,
+        bakeryId: updatedOrder.bakeryId || '',
       };
     } catch (error) {
       this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);

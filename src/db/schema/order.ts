@@ -72,6 +72,7 @@ export const orders = pgTable(
     deliveryNote: text('delivery_note'),
     keepAnonymous: boolean('keep_anonymous').default(false).notNull(),
     cartType: CartTypeEnum('type').notNull(),
+    assigningDate: timestamp('assigning_date', { mode: 'date' }),
 
     cardMessage: jsonb('card_message').$type<{
       to: string;
