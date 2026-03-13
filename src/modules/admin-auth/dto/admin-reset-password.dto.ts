@@ -16,30 +16,8 @@ export class AdminResetPasswordDto {
     example: 'NewSecurePass123',
     minLength: 8,
   })
-  @IsString({ message: 'Password must be a string' })
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @MaxLength(255, { message: 'Password must not exceed 255 characters' })
-  password?: string;
-
-  @ApiProperty({
-    description: 'New password (when coming from API client)',
-    example: 'NewSecurePass123',
-    minLength: 8,
-  })
-  @IsOptional()
   @IsString({ message: 'New password must be a string' })
   @MinLength(8, { message: 'New password must be at least 8 characters long' })
   @MaxLength(255, { message: 'New password must not exceed 255 characters' })
-  newPassword?: string;
-
-  @ApiProperty({
-    description: 'Password confirmation (must match password)',
-    example: 'NewSecurePass123',
-    minLength: 8,
-  })
-  @IsOptional()
-  @IsString({ message: 'Confirm password must be a string' })
-  @MinLength(8, { message: 'Confirm password must be at least 8 characters long' })
-  @MaxLength(255, { message: 'Confirm password must not exceed 255 characters' })
-  confirmPassword?: string;
+  newPassword: string;
 }

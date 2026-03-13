@@ -7,7 +7,7 @@ export const sliderImages = pgTable('slider_images', {
     .default(sql`gen_random_uuid()`),
   title: text('title').notNull(),
   imageUrl: text('image_url').notNull(),
-  displayOrder: integer('display_order').notNull(),
+  displayOrder: integer('display_order').notNull().unique(),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
 

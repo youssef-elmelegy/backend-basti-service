@@ -152,6 +152,31 @@ export const DecorationExamples = {
         data: null,
         timestamp: '2024-02-07T12:00:00Z',
       },
+      conflict: {
+        code: 409,
+        success: false,
+        message: 'Cannot delete decoration because it is used in predesigned cake configurations',
+        data: {
+          relatedConfigsCount: 3,
+          affectedPredesignedCakesCount: 2,
+          affectedPredesignedCakeIds: [
+            '550e8400-e29b-41d4-a716-446655440010',
+            '550e8400-e29b-41d4-a716-446655440011',
+          ],
+        },
+        timestamp: '2024-02-07T12:00:00Z',
+      },
+    },
+  },
+  forceDelete: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Decoration and related records deleted successfully',
+        data: null,
+        timestamp: '2024-02-07T12:00:00Z',
+      },
     },
   },
   createRegionItemPrice: {
@@ -221,6 +246,42 @@ export const DecorationExamples = {
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
+        timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
+  getVariantImages: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Decoration variant images retrieved successfully',
+        data: [
+          {
+            id: '223e4567-e89b-12d3-a456-426614174000',
+            shapeId: '323e4567-e89b-12d3-a456-426614174001',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-round-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+          {
+            id: '323e4567-e89b-12d3-a456-426614174002',
+            shapeId: '423e4567-e89b-12d3-a456-426614174003',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/roses-square-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+        ],
         timestamp: '2024-02-07T10:00:00Z',
       },
     },

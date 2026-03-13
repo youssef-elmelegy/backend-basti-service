@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   CreateFlavorDto,
@@ -15,10 +16,18 @@ import {
   FlavorSortBy,
   CreateFlavorWithVariantImagesDto,
   FlavorWithVariantImagesDto,
+  ChangeFlavorOrderDto,
 } from '../dto';
 import { db } from '@/db';
-import { flavors, regionItemPrices, regions, shapeVariantImages, shapes } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
+import {
+  flavors,
+  regionItemPrices,
+  regions,
+  shapeVariantImages,
+  shapes,
+  designedCakeConfigs,
+} from '@/db/schema';
+import { eq, desc, asc, sql, and, inArray, gte, gt, lt, lte } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -34,6 +43,7 @@ export class FlavorService {
       title: flavor.title,
       description: flavor.description,
       flavorUrl: flavor.flavorUrl,
+      order: flavor.order,
       createdAt: flavor.createdAt,
       updatedAt: flavor.updatedAt,
     };
@@ -41,12 +51,20 @@ export class FlavorService {
 
   async create(createDto: CreateFlavorDto): Promise<SuccessResponse<FlavorDataDto>> {
     try {
+      // Get the max order to assign the new flavor an incremental order
+      const [maxOrderRecord] = await db
+        .select({ maxOrder: sql<number>`MAX(${flavors.order})` })
+        .from(flavors);
+
+      const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
           title: createDto.title,
           description: createDto.description,
           flavorUrl: createDto.flavorUrl,
+          order: nextOrder,
         })
         .returning();
 
@@ -664,6 +682,44 @@ export class FlavorService {
         .where(eq(flavors.id, id))
         .returning();
 
+      // Replace variant images if provided
+      if (updateDto.variantImages !== undefined) {
+        if (updateDto.variantImages.length > 0) {
+          const shapeIds = updateDto.variantImages.map((v) => v.shapeId);
+          const existingShapes = await db
+            .select({ id: shapes.id })
+            .from(shapes)
+            .where(inArray(shapes.id, shapeIds));
+
+          if (existingShapes.length !== shapeIds.length) {
+            const existing = existingShapes.map((s) => s.id);
+            const missing = shapeIds.filter((sid) => !existing.includes(sid));
+            throw new BadRequestException(
+              errorResponse(
+                `Shape(s) not found: ${missing.join(', ')}`,
+                HttpStatus.BAD_REQUEST,
+                'BadRequestException',
+              ),
+            );
+          }
+        }
+
+        await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+
+        if (updateDto.variantImages.length > 0) {
+          await db.insert(shapeVariantImages).values(
+            updateDto.variantImages.map((variant) => ({
+              shapeId: variant.shapeId,
+              flavorId: id,
+              decorationId: null,
+              slicedViewUrl: variant.slicedViewUrl,
+              frontViewUrl: variant.frontViewUrl,
+              topViewUrl: variant.topViewUrl,
+            })),
+          );
+        }
+      }
+
       this.logger.log(`Flavor updated: ${id}`);
       return successResponse(
         this.mapToFlavorResponse(updatedFlavor),
@@ -700,12 +756,40 @@ export class FlavorService {
         );
       }
 
+      // Check if any predesigned cake config uses this flavor
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.flavorId, id));
+
+      if (relatedConfigs.length > 0) {
+        const uniquePredesignedCakeIds = [
+          ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+        ];
+        throw new ConflictException({
+          ...errorResponse(
+            'Cannot delete flavor because it is used in predesigned cake configurations',
+            HttpStatus.CONFLICT,
+            'ConflictException',
+          ),
+          relatedConfigsCount: relatedConfigs.length,
+          affectedPredesignedCakesCount: uniquePredesignedCakeIds.length,
+          affectedPredesignedCakeIds: uniquePredesignedCakeIds,
+        });
+      }
+
+      // Delete related variant images first (guards against missing DB cascade)
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+
       await db.delete(flavors).where(eq(flavors.id, id));
 
       this.logger.log(`Flavor deleted: ${id}`);
       return successResponse(null, 'Flavor deleted successfully', HttpStatus.OK);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -713,6 +797,73 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete flavor',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Force-delete a flavor along with all its predesigned cake configs (and their parent
+   * predesigned cakes when the config is the only config for that cake).
+   * Use this after the admin has been warned via the normal delete endpoint (409 Conflict).
+   */
+  async forceDelete(id: string): Promise<SuccessResponse<null>> {
+    try {
+      const existingFlavor = await db
+        .select({ id: flavors.id })
+        .from(flavors)
+        .where(eq(flavors.id, id))
+        .limit(1);
+
+      if (!existingFlavor.length) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Collect all predesigned cake IDs that will lose configs
+      const relatedConfigs = await db
+        .select({
+          configId: designedCakeConfigs.id,
+          predesignedCakeId: designedCakeConfigs.predesignedCakeId,
+        })
+        .from(designedCakeConfigs)
+        .where(eq(designedCakeConfigs.flavorId, id));
+
+      const affectedPredesignedCakeIds = [
+        ...new Set(relatedConfigs.map((c) => c.predesignedCakeId)),
+      ];
+
+      // Delete configs that use this flavor (DB restrict prevents cascade)
+      if (relatedConfigs.length > 0) {
+        const configIds = relatedConfigs.map((c) => c.configId);
+        await db.delete(designedCakeConfigs).where(inArray(designedCakeConfigs.id, configIds));
+        this.logger.log(`Deleted ${configIds.length} designed cake configs for flavor ${id}`);
+      }
+
+      // Delete variant images then the flavor itself
+      await db.delete(shapeVariantImages).where(eq(shapeVariantImages.flavorId, id));
+      await db.delete(flavors).where(eq(flavors.id, id));
+
+      this.logger.log(
+        `Force-deleted flavor ${id}. Affected predesigned cakes: ${affectedPredesignedCakeIds.length}`,
+      );
+      return successResponse(
+        null,
+        'Flavor and related records deleted successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to force-delete flavor ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to force-delete flavor',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -892,12 +1043,19 @@ export class FlavorService {
       }
 
       // Create flavor
+      const [maxOrderRecord] = await db
+        .select({ maxOrder: sql<number>`MAX(${flavors.order})` })
+        .from(flavors);
+
+      const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
           title: createDto.title,
           description: createDto.description,
           flavorUrl: createDto.flavorUrl,
+          order: nextOrder,
         })
         .returning();
 
@@ -931,6 +1089,173 @@ export class FlavorService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to create flavor with variant images',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async findVariantImages(id: string): Promise<SuccessResponse<any[]>> {
+    try {
+      const [flavorExists] = await db
+        .select({ id: flavors.id })
+        .from(flavors)
+        .where(eq(flavors.id, id))
+        .limit(1);
+
+      if (!flavorExists) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const variants = await db
+        .select()
+        .from(shapeVariantImages)
+        .where(eq(shapeVariantImages.flavorId, id));
+
+      const data = variants.map((v) => ({
+        id: v.id,
+        shapeId: v.shapeId,
+        slicedViewUrl: v.slicedViewUrl,
+        frontViewUrl: v.frontViewUrl,
+        topViewUrl: v.topViewUrl,
+        createdAt: v.createdAt,
+        updatedAt: v.updatedAt,
+      }));
+
+      return successResponse(data, 'Flavor variant images retrieved successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve flavor variant images ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve flavor variant images',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async changeFlavorOrder(
+    id: string,
+    changeOrderDto: ChangeFlavorOrderDto,
+  ): Promise<SuccessResponse<FlavorDataDto[]>> {
+    const { order: newOrder } = changeOrderDto;
+
+    try {
+      // Check if flavor exists
+      const [flavor] = await db.select().from(flavors).where(eq(flavors.id, id)).limit(1);
+
+      if (!flavor) {
+        throw new NotFoundException(
+          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      if (newOrder < 1) {
+        throw new BadRequestException(
+          errorResponse('Order must be at least 1', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
+
+      const currentOrder = flavor.order;
+      const now = new Date();
+
+      if (currentOrder !== newOrder) {
+        if (newOrder < currentOrder) {
+          // Moving up: flavors from newOrder to currentOrder-1 shift down by 1
+          await db.transaction(async (tx) => {
+            // Update flavors that need to shift down (move them out of the way first with +100000)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gte(flavors.order, newOrder), lt(flavors.order, currentOrder)));
+
+            // Now move them from temp positions to final positions (shifted down by 1)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} - 100000 + 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gte(flavors.order, newOrder + 100000),
+                  lt(flavors.order, currentOrder + 100000),
+                ),
+              );
+
+            // Move target flavor to newOrder
+            await tx
+              .update(flavors)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(flavors.id, id));
+          });
+        } else {
+          // Moving down: flavors from currentOrder+1 to newOrder shift up by 1
+          await db.transaction(async (tx) => {
+            // Update flavors that need to shift up (move them out of the way first with +100000)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gt(flavors.order, currentOrder), lte(flavors.order, newOrder)));
+
+            // Now move them from temp positions to final positions (shifted up by 1)
+            await tx
+              .update(flavors)
+              .set({
+                order: sql`${flavors.order} - 100000 - 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gt(flavors.order, currentOrder + 100000),
+                  lte(flavors.order, newOrder + 100000),
+                ),
+              );
+
+            // Move target flavor to newOrder
+            await tx
+              .update(flavors)
+              .set({
+                order: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(flavors.id, id));
+          });
+        }
+      }
+
+      // Return all flavors sorted by order
+      const allFlavors = await db.select().from(flavors).orderBy(asc(flavors.order));
+
+      return successResponse(
+        allFlavors.map((f) => this.mapToFlavorResponse(f)),
+        'Flavor order successfully changed, returns all flavors sorted by order',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Flavor order change error for ${id}: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to change flavor order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

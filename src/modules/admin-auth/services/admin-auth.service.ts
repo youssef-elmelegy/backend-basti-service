@@ -173,15 +173,10 @@ export class AdminAuthService {
   }
 
   async resetPassword(resetToken: string, resetPasswordDto: AdminResetPasswordDto) {
-    const password = resetPasswordDto.newPassword || resetPasswordDto.password;
-    const confirmPassword = resetPasswordDto.confirmPassword;
+    const password = resetPasswordDto.newPassword;
 
     if (!password) {
       throw new BadRequestException('Password is required');
-    }
-
-    if (confirmPassword && password !== confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
     }
 
     try {

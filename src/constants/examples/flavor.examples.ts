@@ -17,6 +17,7 @@ export const FlavorExamples = {
           description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
           flavorUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+          order: 1,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -38,6 +39,7 @@ export const FlavorExamples = {
               description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
               flavorUrl:
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+              order: 1,
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
               price: '500',
@@ -61,6 +63,7 @@ export const FlavorExamples = {
               description: 'Classic vanilla flavor with sweet and aromatic notes',
               flavorUrl:
                 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/vanilla.jpg',
+              order: 2,
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
               price: '450',
@@ -102,6 +105,7 @@ export const FlavorExamples = {
           description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
           flavorUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+          order: 1,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -125,6 +129,7 @@ export const FlavorExamples = {
           description: 'Premium dark chocolate flavor with intense cocoa taste',
           flavorUrl:
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+          order: 1,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T11:00:00Z',
         },
@@ -138,6 +143,31 @@ export const FlavorExamples = {
         code: 200,
         success: true,
         message: 'Flavor deleted successfully',
+        data: null,
+        timestamp: '2024-02-07T12:00:00Z',
+      },
+      conflict: {
+        code: 409,
+        success: false,
+        message: 'Cannot delete flavor because it is used in predesigned cake configurations',
+        data: {
+          relatedConfigsCount: 3,
+          affectedPredesignedCakesCount: 2,
+          affectedPredesignedCakeIds: [
+            '550e8400-e29b-41d4-a716-446655440010',
+            '550e8400-e29b-41d4-a716-446655440011',
+          ],
+        },
+        timestamp: '2024-02-07T12:00:00Z',
+      },
+    },
+  },
+  forceDelete: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Flavor and related records deleted successfully',
         data: null,
         timestamp: '2024-02-07T12:00:00Z',
       },
@@ -208,6 +238,101 @@ export const FlavorExamples = {
           updatedAt: '2024-02-07T10:00:00Z',
         },
         timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
+  getVariantImages: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Flavor variant images retrieved successfully',
+        data: [
+          {
+            id: '223e4567-e89b-12d3-a456-426614174000',
+            shapeId: '323e4567-e89b-12d3-a456-426614174001',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-round-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+          {
+            id: '323e4567-e89b-12d3-a456-426614174002',
+            shapeId: '423e4567-e89b-12d3-a456-426614174003',
+            slicedViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-sliced.jpg',
+            frontViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-front.jpg',
+            topViewUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/views/chocolate-square-top.jpg',
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T10:00:00Z',
+          },
+        ],
+        timestamp: '2024-02-07T10:00:00Z',
+      },
+    },
+  },
+  changeOrder: {
+    request: {
+      order: 3,
+    } as const,
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Flavor order successfully changed, returns all flavors sorted by order',
+        data: [
+          {
+            id: '123e4567-e89b-12d3-a456-426614174001',
+            title: 'Vanilla',
+            description: 'Classic vanilla flavor with sweet and aromatic notes',
+            flavorUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/vanilla.jpg',
+            order: 1,
+            createdAt: '2024-02-07T09:00:00Z',
+            updatedAt: '2024-02-07T09:00:00Z',
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174002',
+            title: 'Strawberry',
+            description: 'Fresh strawberry flavor with fruity notes',
+            flavorUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/strawberry.jpg',
+            order: 2,
+            createdAt: '2024-02-07T08:00:00Z',
+            updatedAt: '2024-02-07T08:00:00Z',
+          },
+          {
+            id: '123e4567-e89b-12d3-a456-426614174000',
+            title: 'Chocolate',
+            description: 'Rich chocolate flavor with smooth texture and deep cocoa notes',
+            flavorUrl:
+              'https://res.cloudinary.com/example/image/upload/v1234567890/basti/flavors/chocolate.jpg',
+            order: 3,
+            createdAt: '2024-02-07T10:00:00Z',
+            updatedAt: '2024-02-07T11:00:00Z',
+          },
+        ],
+        timestamp: '2024-02-07T11:00:00Z',
+      },
+      badRequest: {
+        code: 400,
+        success: false,
+        message: 'Invalid order position',
+        data: null,
+        timestamp: '2024-02-07T11:00:00Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'Flavor not found',
+        data: null,
+        timestamp: '2024-02-07T11:00:00Z',
       },
     },
   },

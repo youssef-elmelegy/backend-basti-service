@@ -5,7 +5,7 @@ export interface JwtPayload {
   sub?: string;
   id?: string;
   email: string;
-  role?: 'super_admin' | 'admin' | 'manager';
+  role?: 'super_admin' | 'admin' | 'manager' | 'driver';
   iat?: number;
   exp?: number;
 }

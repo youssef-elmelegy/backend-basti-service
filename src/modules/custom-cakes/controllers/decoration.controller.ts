@@ -24,8 +24,10 @@ import {
   CreateDecorationDecorator,
   GetAllDecorationsDecorator,
   GetDecorationByIdDecorator,
+  GetDecorationVariantImagesDecorator,
   UpdateDecorationDecorator,
   DeleteDecorationDecorator,
+  ForceDeleteDecorationDecorator,
   CreateDecorationRegionItemPriceDecorator,
   CreateDecorationWithVariantImagesDecorator,
   ToggleDecorationStatusDecorator,
@@ -67,6 +69,14 @@ export class DecorationController {
     return this.decorationService.findOne(id);
   }
 
+  @Get(':id/variant-images')
+  @Public()
+  @GetDecorationVariantImagesDecorator()
+  async findVariantImages(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Retrieving variant images for decoration: ${id}`);
+    return this.decorationService.findVariantImages(id);
+  }
+
   @Patch(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -86,6 +96,15 @@ export class DecorationController {
   async remove(@Param('id', new ParseUUIDPipe()) id: string) {
     this.logger.debug(`Deleting decoration: ${id}`);
     return this.decorationService.remove(id);
+  }
+
+  @Delete(':id/force')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ForceDeleteDecorationDecorator()
+  async forceDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Force-deleting decoration: ${id}`);
+    return this.decorationService.forceDelete(id);
   }
 
   @Patch(':id/toggle-status')

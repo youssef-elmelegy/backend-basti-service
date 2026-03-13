@@ -32,6 +32,7 @@ export interface SeedRegion {
   name: string;
   image: string;
   isAvailable: boolean;
+  order: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -167,6 +168,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038898/basti/general/1771038895856-sirte.png',
       isAvailable: true,
+      order: 1,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -176,6 +178,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038923/basti/general/1771038922064-tobruk.png',
       isAvailable: true,
+      order: 2,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -185,6 +188,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038949/basti/general/1771038947054-tripoli.png',
       isAvailable: true,
+      order: 3,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -194,6 +198,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038986/basti/general/1771038984241-zawiya.png',
       isAvailable: true,
+      order: 4,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -203,6 +208,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771039011/basti/general/1771039007741-zliten.png',
       isAvailable: true,
+      order: 5,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -212,6 +218,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038842/basti/general/1771038840893-misrata.png',
       isAvailable: false,
+      order: 6,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -221,6 +228,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038752/basti/general/1771038750497-al_khums.png',
       isAvailable: false,
+      order: 7,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -230,6 +238,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038664/basti/general/1771038660147-ajdabiya.png',
       isAvailable: true,
+      order: 8,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -239,6 +248,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038726/basti/general/1771038724571-al_bayda.png',
       isAvailable: true,
+      order: 9,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -248,6 +258,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038771/basti/general/1771038769396-benghazi.png',
       isAvailable: true,
+      order: 10,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -257,6 +268,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038809/basti/general/1771038806822-derna.png',
       isAvailable: true,
+      order: 11,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },
@@ -266,6 +278,7 @@ export function getSeedRegions(): SeedRegion[] {
       image:
         'http://res.cloudinary.com/dzyxpwpcb/image/upload/v1771038871/basti/general/1771038869481-sabha.png',
       isAvailable: true,
+      order: 12,
       createdAt: new Date('2026-02-13T09:54:17.554Z'),
       updatedAt: new Date('2026-02-13T09:54:17.554Z'),
     },

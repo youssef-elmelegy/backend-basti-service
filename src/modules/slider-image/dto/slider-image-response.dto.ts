@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TagDto } from '@/modules/tags/dto/tag.dto';
 
 export class SliderImageResponseDto {
   @ApiProperty({
@@ -30,4 +31,12 @@ export class SliderImageResponseDto {
     example: '2025-11-27T10:00:00.000Z',
   })
   createdAt: Date;
+}
+
+export class SliderImageWithTagsResponseDto extends SliderImageResponseDto {
+  @ApiProperty({
+    description: 'Tags associated with this slider image (matching display order)',
+    type: [TagDto],
+  })
+  tags: TagDto[];
 }

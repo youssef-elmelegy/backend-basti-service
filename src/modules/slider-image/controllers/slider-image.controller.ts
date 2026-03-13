@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SliderImageService } from '../services/slider-image.service';
-import { SliderImageResponseDto, SliderImageItemDto } from '../dto';
+import { SliderImageResponseDto, SliderImageItemDto, SliderImageWithTagsResponseDto } from '../dto';
 import {
   GetSliderImagesDecorator,
   UpdateSliderImagesDecorator,
@@ -33,7 +33,7 @@ export class SliderImageController {
   @Public()
   @Get()
   @GetSliderImagesDecorator()
-  async findAll(): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+  async findAll(): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
     this.logger.debug('Retrieving all slider images');
     return this.sliderImageService.findAll();
   }

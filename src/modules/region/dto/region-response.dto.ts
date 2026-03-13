@@ -27,6 +27,12 @@ export class RegionDataDto {
   isAvailable: boolean;
 
   @ApiProperty({
+    example: 1,
+    description: 'Region display order (starting from 1)',
+  })
+  order: number;
+
+  @ApiProperty({
     example: MOCK_DATA.dates.default,
     description: 'Region creation timestamp',
   })

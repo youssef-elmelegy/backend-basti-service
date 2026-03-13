@@ -50,10 +50,8 @@ export class OrderService {
 
   private readonly logger = new Logger(OrderService.name);
 
-  async create(orderData: CreateOrderDto): Promise<CreateOrderResponseDto> {
+  async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
     const {
-      userId,
-      userData,
       locationId,
       locationData,
       paymentMethodId,
@@ -71,41 +69,22 @@ export class OrderService {
     } = orderData;
 
     try {
-      let user: typeof users.$inferInsert;
       let existingLocation: typeof locations.$inferInsert;
       let existingPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[];
 
       const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
 
-      if (!userId && !userData) {
-        this.logger.warn(`User ID or user data must be provided to place an order`);
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        this.logger.warn(`User not found`);
         throw new BadRequestException(
-          errorResponse(
-            'User ID or user data must be provided',
-            HttpStatus.BAD_REQUEST,
-            'BadRequestException',
-          ),
+          errorResponse('User not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
-      if (userId) {
-        const userResults = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-        user = userResults[0];
-      }
-
-      // if (!locationId && !locationData) {
-      //   this.logger.warn(`Location ID or location data must be provided to place an order`);
-      //   throw new BadRequestException(
-      //     errorResponse(
-      //       'Location ID or location data must be provided',
-      //       HttpStatus.BAD_REQUEST,
-      //       'BadRequestException',
-      //     ),
-      //   );
-      // }
-
-      if (userId && locationId) {
+      if (locationId) {
         const [location] = await db
           .select()
           .from(locations)
@@ -127,7 +106,7 @@ export class OrderService {
         existingLocation = location;
       }
 
-      if (userId && paymentMethodId) {
+      if (paymentMethodId) {
         existingPaymentMethod = await db
           .select()
           .from(paymentMethods)
@@ -148,7 +127,7 @@ export class OrderService {
         }
       }
 
-      if (userId && (!orderItemsData || orderItemsData.length === 0)) {
+      if (!orderItemsData || orderItemsData.length === 0) {
         cart = await db
           .select()
           .from(cartItems)
@@ -303,10 +282,10 @@ export class OrderService {
             regionId: region.id,
             regionName: region.name,
             userData: {
-              email: userData?.email || user?.email || '',
-              firstName: userData?.firstName || user?.firstName || '',
-              lastName: userData?.lastName || user?.lastName || '',
-              phoneNumber: userData?.phoneNumber || user?.phoneNumber || '',
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              phoneNumber: user.phoneNumber,
             },
             locationId,
             locationData: {
@@ -904,7 +883,7 @@ export class OrderService {
   async unassignFromBakery(
     orderId: string,
     reason?: string,
-  ): Promise<{ id: string; bakeryId: string | null }> {
+  ): Promise<{ id: string; bakeryId: string }> {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
     if (!order) {

@@ -98,6 +98,7 @@ export const AdminAuthExamples = {
         message: 'OTP verified successfully',
         data: {
           email: 'admin@example.com',
+          resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
         timestamp: '2025-01-11T10:00:00.000Z',
       },
@@ -134,8 +135,8 @@ export const AdminAuthExamples = {
 
   resetPassword: {
     request: {
-      password: 'NewSecurePass123',
-      confirmPassword: 'NewSecurePass123',
+      resetToken: 'eyJhbGciOiJIUzI1NiIs...',
+      newPassword: 'NewSecurePass123',
     },
     response: {
       success: {
@@ -145,13 +146,6 @@ export const AdminAuthExamples = {
         data: {
           message: 'Password reset successfully',
         },
-        timestamp: '2025-01-11T10:00:00.000Z',
-      },
-      passwordMismatch: {
-        code: 400,
-        success: false,
-        message: 'Passwords do not match',
-        error: 'BadRequestException',
         timestamp: '2025-01-11T10:00:00.000Z',
       },
       weakPassword: {
@@ -172,10 +166,7 @@ export const AdminAuthExamples = {
       validationError: {
         code: 400,
         success: false,
-        message: [
-          'password must be at least 8 characters long',
-          'confirmPassword must be at least 8 characters long',
-        ],
+        message: ['newPassword must be at least 8 characters long'],
         error: 'BadRequestException',
         timestamp: '2025-01-11T10:00:00.000Z',
       },

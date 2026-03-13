@@ -142,28 +142,35 @@ export class AdminAuthController {
       message: result.message,
       data: {
         email: result.data.email,
+        resetToken: result.data.resetToken,
       },
       timestamp: new Date().toISOString(),
     });
   }
 
+  @Public()
   @Post('reset-password')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
   @AdminResetPasswordEndpoint()
   async resetPassword(
     @Body() resetPasswordDto: AdminResetPasswordDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const adminId = req.user.id;
-    this.logger.debug(`Reset password request for admin: ${adminId}`);
+    this.logger.debug('Reset password request');
 
-    const result = await this.adminAuthService.resetPassword(adminId, resetPasswordDto);
+    // Prefer token from body, fallback to cookie
+    const resetTokenFromBody = resetPasswordDto.resetToken;
+    const resetTokenFromCookie = (req.cookies as Record<string, unknown>)?.resetToken as
+      | string
+      | undefined;
+    const resetToken = resetTokenFromBody || resetTokenFromCookie || '';
 
+    const result = await this.adminAuthService.resetPassword(resetToken, resetPasswordDto);
+
+    // Clear cookie if present
     res.clearCookie('resetToken');
 
-    this.logger.log(`Password reset for admin: ${adminId}`);
+    this.logger.log('Password reset completed');
     return res.json({
       ...result,
       timestamp: new Date().toISOString(),

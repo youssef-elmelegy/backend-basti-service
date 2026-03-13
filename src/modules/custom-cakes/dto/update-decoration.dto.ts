@@ -1,5 +1,15 @@
-import { IsString, IsUUID, MinLength, MaxLength, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { DecorationShapeVariantImageDto } from './create-decoration-with-variant-images.dto';
 
 export class UpdateDecorationDto {
   @ApiProperty({
@@ -43,4 +53,15 @@ export class UpdateDecorationDto {
   @IsOptional()
   @IsUUID()
   tagId?: string;
+
+  @ApiProperty({
+    description: 'Array of shape variant images to replace existing ones',
+    type: [DecorationShapeVariantImageDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DecorationShapeVariantImageDto)
+  variantImages?: DecorationShapeVariantImageDto[];
 }

@@ -16,6 +16,9 @@ export class FlavorDataDto {
   })
   flavorUrl: string;
 
+  @ApiProperty({ example: 1 })
+  order: number;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 
@@ -47,6 +50,28 @@ export class VariantImageDto {
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   updatedAt: Date;
+}
+
+export class VariantImageWithShapeDto extends VariantImageDto {
+  @ApiProperty({ example: '223e4567-e89b-12d3-a456-426614174000', description: 'Shape ID' })
+  shapeId: string;
+}
+
+export class GetFlavorVariantImagesResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Flavor variant images retrieved successfully' })
+  message: string;
+
+  @ApiProperty({ example: 200 })
+  code: number;
+
+  @ApiHideProperty()
+  data: VariantImageWithShapeDto[];
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  timestamp: string;
 }
 
 export class FlavorWithVariantImagesDto extends FlavorDataDto {
@@ -120,6 +145,46 @@ export class DeleteFlavorResponseDto {
 
   @ApiHideProperty()
   data: null;
+
+  @ApiProperty({ example: '2024-02-07T10:00:00Z' })
+  timestamp: string;
+}
+
+export class FlavorConflictDataDto {
+  @ApiProperty({
+    example: 3,
+    description: 'Number of designed cake configs that use this flavor',
+  })
+  relatedConfigsCount: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Number of predesigned cakes affected',
+  })
+  affectedPredesignedCakesCount: number;
+
+  @ApiProperty({
+    example: ['uuid-1', 'uuid-2'],
+    description: 'IDs of affected predesigned cakes',
+    type: [String],
+  })
+  affectedPredesignedCakeIds: string[];
+}
+
+export class DeleteFlavorConflictResponseDto {
+  @ApiProperty({ example: false })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Cannot delete flavor because it is used in predesigned cake configurations',
+  })
+  message: string;
+
+  @ApiProperty({ example: 409 })
+  code: number;
+
+  @ApiProperty({ type: FlavorConflictDataDto })
+  data: FlavorConflictDataDto;
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   timestamp: string;

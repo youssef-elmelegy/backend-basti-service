@@ -2,7 +2,12 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 
 export const genderEnum = pgEnum('gender_enum', ['male', 'female']);
 
-export const adminRoleEnum = pgEnum('admin_role_enum', ['super_admin', 'admin', 'manager']);
+export const adminRoleEnum = pgEnum('admin_role_enum', [
+  'super_admin',
+  'admin',
+  'manager',
+  'driver',
+]);
 
 export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'others']);
 

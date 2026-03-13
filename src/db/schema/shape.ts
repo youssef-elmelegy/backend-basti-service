@@ -22,6 +22,7 @@ export const shapes = pgTable(
     shapeUrl: text('shape_url').notNull(),
     size: varchar('size', { length: 50 }).notNull().default('medium'),
     capacity: integer('capacity'),
+    order: integer('order').notNull(),
     isActive: boolean('is_active').default(true).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

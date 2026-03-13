@@ -19,16 +19,20 @@ import {
   GetFlavorsQueryDto,
   CreateFlavorRegionItemPriceDto,
   CreateFlavorWithVariantImagesDto,
+  ChangeFlavorOrderDto,
 } from '../dto';
 import {
   CreateFlavorDecorator,
   GetAllFlavorsDecorator,
   GetFlavorByIdDecorator,
+  GetFlavorVariantImagesDecorator,
   UpdateFlavorDecorator,
   DeleteFlavorDecorator,
+  ForceDeleteFlavorDecorator,
   CreateFlavorRegionItemPriceDecorator,
   CreateFlavorWithVariantImagesDecorator,
   ToggleFlavorStatusDecorator,
+  ChangeFlavorOrderDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -67,6 +71,14 @@ export class FlavorController {
     return this.flavorService.findOne(id);
   }
 
+  @Get(':id/variant-images')
+  @Public()
+  @GetFlavorVariantImagesDecorator()
+  async findVariantImages(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Retrieving variant images for flavor: ${id}`);
+    return this.flavorService.findVariantImages(id);
+  }
+
   @Patch(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -88,6 +100,15 @@ export class FlavorController {
     return this.flavorService.remove(id);
   }
 
+  @Delete(':id/force')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ForceDeleteFlavorDecorator()
+  async forceDelete(@Param('id', new ParseUUIDPipe()) id: string) {
+    this.logger.debug(`Force-deleting flavor: ${id}`);
+    return this.flavorService.forceDelete(id);
+  }
+
   @Patch(':id/toggle-status')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -96,6 +117,20 @@ export class FlavorController {
     this.logger.debug(`Toggling flavor status: ${id}`);
     const result = await this.flavorService.toggleStatus(id);
     this.logger.log(`Flavor status toggled: ${id}`);
+    return result;
+  }
+
+  @Patch(':id/order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ChangeFlavorOrderDecorator()
+  async changeFlavorOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() changeOrderDto: ChangeFlavorOrderDto,
+  ) {
+    this.logger.debug(`Changing flavor order: ${id} to ${changeOrderDto.order}`);
+    const result = await this.flavorService.changeFlavorOrder(id, changeOrderDto);
+    this.logger.log(`Flavor order changed: ${id}`);
     return result;
   }
 

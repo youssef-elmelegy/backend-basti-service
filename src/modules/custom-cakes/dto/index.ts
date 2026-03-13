@@ -4,12 +4,14 @@ export * from './get-flavors-query.dto';
 export * from './flavor-response.dto';
 export * from './create-flavor-region-item-price.dto';
 export * from './create-flavor-with-variant-images.dto';
+export * from './change-flavor-order.dto';
 
 export * from './create-shape.dto';
 export * from './update-shape.dto';
 export * from './get-shapes-query.dto';
 export * from './shape-response.dto';
 export * from './create-shape-region-item-price.dto';
+export * from './change-shape-order.dto';
 
 export * from './create-decoration.dto';
 export * from './update-decoration.dto';
