@@ -306,7 +306,7 @@ export class OrderService {
               latitude: Number(connectedLocation?.latitude || locationData?.latitude || 0),
               longitude: Number(connectedLocation?.longitude || locationData?.longitude || 0),
             },
-            paymentMethodId: connectedPaymentMethod?.id || paymentMethodId || '',
+            paymentMethodId: connectedPaymentMethod?.id || paymentMethodId || null,
             paymentMethodType: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
             paymentData: {
               type: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
