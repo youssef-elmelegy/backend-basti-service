@@ -605,7 +605,7 @@ export class OrderService {
           );
 
           if (
-            order.orderStatus === 'assigned' &&
+            order.orderStatus === 'confirmed' &&
             order.bakeryId &&
             order.assigningDate &&
             new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
@@ -877,13 +877,13 @@ export class OrderService {
       );
     }
 
-    if (order.orderStatus !== 'confirmed') {
+    if (order.orderStatus !== 'pending') {
       this.logger.warn(
-        `Order with id: ${orderId} must be in confirmed status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+        `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} must be in confirmed status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+          `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
         ),
@@ -905,7 +905,7 @@ export class OrderService {
         .set({
           bakeryId: bakeryId === undefined ? null : bakeryId,
           assigningDate: new Date(),
-          orderStatus: 'assigned',
+          orderStatus: 'confirmed',
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
@@ -951,7 +951,7 @@ export class OrderService {
       );
     }
 
-    if (order.orderStatus !== 'assigned') {
+    if (order.orderStatus !== 'confirmed') {
       this.logger.warn(
         `Order with id: ${orderId} is not assigned yet or already unassigned. Current status: ${order.orderStatus}`,
       );
@@ -993,7 +993,7 @@ export class OrderService {
         .set({
           bakeryId: null,
           assigningDate: null,
-          orderStatus: 'confirmed',
+          orderStatus: 'pending',
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
