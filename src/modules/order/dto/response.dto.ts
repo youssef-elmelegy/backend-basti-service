@@ -293,10 +293,11 @@ export class ChangeOrderStatusResponseDto {
   id: string;
 
   @ApiProperty({
-    enum: orderStatusEnum.enumValues,
+    enum: [...orderStatusEnum.enumValues, null],
+    nullable: true,
     description: 'The new status of the order.',
   })
-  status: (typeof orderStatusEnum.enumValues)[number];
+  status!: (typeof orderStatusEnum.enumValues)[number] | null;
 }
 
 export class OrderItemSelectedOptions {

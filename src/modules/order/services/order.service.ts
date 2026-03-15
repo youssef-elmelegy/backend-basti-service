@@ -803,7 +803,7 @@ export class OrderService {
         );
       }
 
-      if (order.orderStatus !== 'pending') {
+      if (order.orderStatus !== 'pending' && order.orderStatus !== null) {
         this.logger.warn(
           `Order with id: ${orderId} cannot be cancelled. Status: ${order.orderStatus}`,
         );
@@ -824,11 +824,19 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} cancelled successfully`);
       return updatedOrder;
-    } catch {
-      this.logger.error(`Failed to cancel order ${orderId} for user ${userId}`);
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : '';
+      this.logger.error(`Error cancelling the order: ${errMsg}`);
+      this.logger.error(`Stack trace: ${stack}`);
+
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to cancel order',
+          'Failed to cancel the order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
