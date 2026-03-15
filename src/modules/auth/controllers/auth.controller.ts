@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Logger, Get, Patch, Delete } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   AuthService,
@@ -18,6 +18,11 @@ import {
   ResetPasswordDto,
   AuthResponse,
   RefreshTokenResponse,
+  GetProfileResponseDto,
+  UpdateProfileDto,
+  UpdateProfileResponseDto,
+  DeleteProfileDto,
+  DeleteProfileResponseDto,
 } from '../dto';
 import { Public, CurrentUser, RefreshTokenGuard, JwtAuthGuard } from '@/common';
 import {
@@ -32,6 +37,9 @@ import {
   AuthForgotPasswordDecorator,
   AuthVerifyResetOtpDecorator,
   AuthResetPasswordDecorator,
+  AuthGetProfileDecorator,
+  AuthUpdateProfileDecorator,
+  AuthDeleteProfileDecorator,
 } from '../decorators';
 import { SuccessResponse } from '@/utils';
 
@@ -155,5 +163,44 @@ export class AuthController {
       resetPasswordDto.resetToken,
       resetPasswordDto.newPassword,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @AuthGetProfileDecorator()
+  async getProfile(
+    @CurrentUser('sub') userId: string,
+  ): Promise<SuccessResponse<GetProfileResponseDto>> {
+    this.logger.debug(`Get profile attempt: ${userId}`);
+    const result = await this.authService.getProfile(userId);
+    this.logger.log(`Profile retrieved for user: ${userId}`);
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @AuthUpdateProfileDecorator()
+  async updateProfile(
+    @CurrentUser('sub') userId: string,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<SuccessResponse<UpdateProfileResponseDto>> {
+    this.logger.debug(`Update profile attempt: ${userId}`);
+    const result = await this.authService.updateProfile(userId, updateProfileDto);
+    this.logger.log(`Profile updated for user: ${userId}`);
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('profile')
+  @AuthDeleteProfileDecorator()
+  async deleteProfile(
+    @CurrentUser('sub') userId: string,
+    @Body() deleteProfileDto: DeleteProfileDto,
+  ): Promise<SuccessResponse<DeleteProfileResponseDto>> {
+    this.logger.debug(`Delete profile attempt: ${userId}`);
+    const password: string = deleteProfileDto.password;
+    const result = await this.authService.deleteProfile(userId, password);
+    this.logger.log(`Account deleted for user: ${userId}`);
+    return result;
   }
 }

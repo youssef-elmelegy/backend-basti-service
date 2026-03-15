@@ -23,6 +23,10 @@ import {
   VerifyOtpDto,
   SetupProfileDto,
   ResendOtpDto,
+  GetProfileResponseDto,
+  UpdateProfileDto,
+  UpdateProfileResponseDto,
+  DeleteProfileResponseDto,
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { EmailService } from '@/common/services/email.service';
@@ -781,6 +785,152 @@ export class AuthService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to reset password',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Get user profile information
+   */
+  async getProfile(userId: string): Promise<SuccessResponse<GetProfileResponseDto>> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        this.logger.warn(`Get profile failed: User not found - ${userId}`);
+        throw new NotFoundException(
+          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      this.logger.log(`Profile retrieved for user: ${userId}`);
+      const profileData: GetProfileResponseDto = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        profileImage: user.profileImage,
+        isEmailVerified: user.isEmailVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+      return successResponse(profileData, 'Profile retrieved successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Get profile error for ${userId}`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to retrieve profile',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Update user profile information
+   */
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<SuccessResponse<UpdateProfileResponseDto>> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        this.logger.warn(`Update profile failed: User not found - ${userId}`);
+        throw new NotFoundException(
+          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const updateData: Partial<{
+        firstName: string;
+        lastName: string;
+        phoneNumber: string;
+        profileImage: string;
+        updatedAt: Date;
+      }> = { updatedAt: new Date() };
+
+      if (updateProfileDto.firstName) updateData.firstName = updateProfileDto.firstName;
+      if (updateProfileDto.lastName) updateData.lastName = updateProfileDto.lastName;
+      if (updateProfileDto.phoneNumber) updateData.phoneNumber = updateProfileDto.phoneNumber;
+      if (updateProfileDto.profileImage) updateData.profileImage = updateProfileDto.profileImage;
+
+      await db.update(users).set(updateData).where(eq(users.id, userId));
+
+      this.logger.log(`Profile updated for user: ${userId}`);
+      const responseData: UpdateProfileResponseDto = {
+        message: 'Profile updated successfully',
+        userId,
+        updatedAt: updateData.updatedAt,
+      };
+      return successResponse(responseData, 'Profile updated successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Update profile error for ${userId}`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to update profile',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Delete user account (requires password verification)
+   */
+  async deleteProfile(
+    userId: string,
+    password: string,
+  ): Promise<SuccessResponse<DeleteProfileResponseDto>> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        this.logger.warn(`Delete profile failed: User not found - ${userId}`);
+        throw new NotFoundException(
+          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (!isPasswordValid) {
+        this.logger.warn(`Delete profile failed: Invalid password - ${userId}`);
+        throw new UnauthorizedException(
+          errorResponse('Invalid password', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        );
+      }
+
+      await db.delete(users).where(eq(users.id, userId));
+
+      this.logger.log(`Account deleted for user: ${userId} (${user.email})`);
+      const responseData: DeleteProfileResponseDto = {
+        message: 'Account deleted successfully',
+        email: user.email,
+        deletedAt: new Date(),
+      };
+      return successResponse(responseData, 'Account deleted successfully', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Delete profile error for ${userId}`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to delete account',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
