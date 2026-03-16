@@ -335,6 +335,7 @@ export class OrderService {
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
+            orderStatus: 'pending',
           })
           .returning();
 
@@ -387,7 +388,7 @@ export class OrderService {
         deliveredAt: null,
         discountAmount: parseFloat(newOrder.discountAmount),
         finalPrice: parseFloat(newOrder.finalPrice),
-        orderStatus: null,
+        orderStatus: newOrder.orderStatus || 'pending',
         items: newItems.map((item) => ({
           id: item.id,
           orderId: item.orderId,
