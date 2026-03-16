@@ -11,7 +11,12 @@ import { db } from '@/db';
 import { reviews, users, orders, bakeries } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
-import { CreateReviewDto, UpdateReviewDto, ReviewResponseDto } from '../dto';
+import {
+  CreateReviewDto,
+  UpdateReviewDto,
+  ReviewResponseDto,
+  BakeyReviewsResponseDto,
+} from '../dto';
 
 @Injectable()
 export class ReviewService {
@@ -35,10 +40,30 @@ export class ReviewService {
         );
       }
 
+      if (order.orderStatus && order.orderStatus !== 'delivered') {
+        throw new BadRequestException(
+          errorResponse(
+            'Order is not delivered yet',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      if (!order.bakeryId) {
+        throw new BadRequestException(
+          errorResponse(
+            'Order does not belong to a bakery',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
       const [bakery] = await db
         .select()
         .from(bakeries)
-        .where(eq(bakeries.id, createDto.bakeryId))
+        .where(eq(bakeries.id, order.bakeryId))
         .limit(1);
 
       if (!bakery) {
@@ -68,7 +93,7 @@ export class ReviewService {
         .values({
           userId,
           orderId: createDto.orderId,
-          bakeryId: createDto.bakeryId,
+          bakeryId: order.bakeryId,
           rating: createDto.rating,
           reviewText: createDto.reviewText,
         })
@@ -93,7 +118,7 @@ export class ReviewService {
     }
   }
 
-  async findAllByBakery(bakeryId: string): Promise<ReviewResponseDto[]> {
+  async findAllByBakery(bakeryId: string): Promise<BakeyReviewsResponseDto> {
     try {
       const bakeryReviews = await db
         .select({
@@ -114,7 +139,12 @@ export class ReviewService {
 
       this.logger.debug(`Retrieved ${bakeryReviews.length} reviews for bakery: ${bakeryId}`);
 
-      return bakeryReviews;
+      return {
+        reviews: bakeryReviews,
+        averageRating:
+          bakeryReviews.reduce((sum, review) => sum + review.rating, 0) /
+          (bakeryReviews.length || 1),
+      };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve reviews: ${errMsg}`);

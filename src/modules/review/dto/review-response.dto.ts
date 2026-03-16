@@ -33,3 +33,26 @@ export class ReviewDeleteResponseDto {
   })
   message: string;
 }
+
+export class BakeyReviewsResponseDto {
+  @ApiProperty({
+    type: [ReviewResponseDto],
+    example: [
+      {
+        orderId: '550e8400-e29b-41d4-a716-446655440000',
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        bakeryId: '550e8400-e29b-41d4-a716-446655440002',
+        rating: 5,
+        reviewText: 'The cake was delicious and beautifully decorated!',
+      },
+    ],
+    description: 'List of reviews for the bakery',
+  })
+  reviews!: ReviewResponseDto[];
+
+  @ApiProperty({
+    example: 1,
+    description: 'Total number of stars for the bakery',
+  })
+  averageRating!: number;
+}
