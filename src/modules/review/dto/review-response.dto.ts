@@ -34,7 +34,7 @@ export class ReviewDeleteResponseDto {
   message: string;
 }
 
-export class BakeyReviewsResponseDto {
+export class PaginatedBakeyReviewsResponseDto {
   @ApiProperty({
     type: [ReviewResponseDto],
     example: [
@@ -52,7 +52,28 @@ export class BakeyReviewsResponseDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Total number of stars for the bakery',
+    description: 'Average rating for the bakery',
   })
   averageRating!: number;
+
+  @ApiProperty({
+    example: 10,
+    description: 'Total number of reviews for the bakery',
+  })
+  totalReviews!: number;
+
+  @ApiProperty({
+    example: {
+      total: 10,
+      totalPages: 2,
+      page: 1,
+      limit: 10,
+    },
+  })
+  pagination: {
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  };
 }

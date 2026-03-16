@@ -5,6 +5,7 @@ import {
   ReviewResponseDto,
   ReviewDeleteResponseDto,
   UpdateReviewDto,
+  PaginatedBakeyReviewsResponseDto,
 } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 
@@ -57,7 +58,7 @@ export function GetReviewsByBakeryDecorator() {
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Reviews retrieved successfully',
-      type: [ReviewResponseDto],
+      type: PaginatedBakeyReviewsResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
