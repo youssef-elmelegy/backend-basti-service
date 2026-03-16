@@ -6,6 +6,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  HttpException,
 } from '@nestjs/common';
 import { db } from '@/db';
 import { reviews, users, orders, bakeries } from '@/db/schema';
@@ -152,8 +153,21 @@ export class ReviewService {
         .limit(1);
 
       if (!bakery) {
-        throw new BadRequestException(
-          errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        this.logger.debug(`Bakery not found: ${bakeryId}, returning empty reviews`);
+        return successResponse(
+          {
+            reviews: [],
+            averageRating: 0,
+            totalReviews: 0,
+            pagination: {
+              total: 0,
+              totalPages: 0,
+              page,
+              limit,
+            },
+          },
+          'No reviews available',
+          HttpStatus.OK,
         );
       }
 
@@ -167,7 +181,9 @@ export class ReviewService {
           reviewText: reviews.reviewText,
           createdAt: reviews.createdAt,
           updatedAt: reviews.updatedAt,
-          userName: users.firstName,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImage: users.profileImage,
         })
         .from(reviews)
         .leftJoin(users, eq(reviews.userId, users.id))
@@ -186,7 +202,7 @@ export class ReviewService {
           averageRating: Number(bakery.averageRating || '0'),
           totalReviews: bakery.totalReviews,
           pagination: {
-            total: bakeryReviews.length,
+            total: bakery.totalReviews,
             totalPages: Math.ceil(bakery.totalReviews / limit),
             page,
             limit,
@@ -196,6 +212,10 @@ export class ReviewService {
         HttpStatus.OK,
       );
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve reviews: ${errMsg}`);
       throw new InternalServerErrorException(

@@ -35,7 +35,8 @@ export class ReviewController {
 
   constructor(private readonly reviewService: ReviewService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Post()
   @CreateReviewDecorator()
   async create(@Body() createReviewDto: CreateReviewDto, @CurrentUser('sub') userId: string) {
@@ -45,8 +46,6 @@ export class ReviewController {
     return successResponse(result, 'Review created successfully');
   }
 
-  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
   @Get('bakery/:bakeryId')
   @GetReviewsByBakeryDecorator()
   async findAllByBakery(
