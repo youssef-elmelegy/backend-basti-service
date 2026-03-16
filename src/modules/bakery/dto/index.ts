@@ -4,3 +4,4 @@ export * from './bakery-response.dto';
 export * from './bakery-response.interface';
 export { PaginationDto, SortDto } from '@/common/dto';
 export * from './filter.dto';
+export * from './bakery-item-store.dto';

@@ -9,6 +9,7 @@ import {
   flavors,
   shapes,
   predesignedCakes,
+  bakeryItemStores,
 } from '.';
 
 export const regionItemPrices = pgTable(
@@ -60,7 +61,7 @@ export const regionItemPrices = pgTable(
   }),
 );
 
-export const regionItemPricesRelations = relations(regionItemPrices, ({ one }) => ({
+export const regionItemPricesRelations = relations(regionItemPrices, ({ one, many }) => ({
   region: one(regions, {
     fields: [regionItemPrices.regionId],
     references: [regions.id],
@@ -93,4 +94,5 @@ export const regionItemPricesRelations = relations(regionItemPrices, ({ one }) =
     fields: [regionItemPrices.predesignedCakeId],
     references: [predesignedCakes.id],
   }),
+  bakeryItemStores: many(bakeryItemStores),
 }));

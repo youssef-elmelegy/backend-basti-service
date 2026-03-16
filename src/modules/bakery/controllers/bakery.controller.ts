@@ -12,7 +12,15 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BakeryService } from '../services/bakery.service';
-import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
+import { BakeryItemStoreService } from '../services/bakery-item-store.service';
+import {
+  CreateBakeryDto,
+  UpdateBakeryDto,
+  BakeryResponse,
+  PaginationDto,
+  SortDto,
+  UpdateBakeryItemStockDto,
+} from '../dto';
 import { SortType, SortOrder } from '@/common/dto';
 import {
   CreateBakeryDecorator,
@@ -20,6 +28,8 @@ import {
   GetBakeryDecorator,
   UpdateBakeryDecorator,
   DeleteBakeryDecorator,
+  GetBakeryItemStoresDecorator,
+  UpdateBakeryItemStockDecorator,
   PaginationDecorator,
   SortDecorator,
   FilterDecorator,
@@ -34,7 +44,10 @@ import { SuccessResponse } from '@/utils';
 export class BakeryController {
   private readonly logger = new Logger(BakeryController.name);
 
-  constructor(private readonly bakeryService: BakeryService) {}
+  constructor(
+    private readonly bakeryService: BakeryService,
+    private readonly bakeryItemStoreService: BakeryItemStoreService,
+  ) {}
 
   @Post()
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -97,5 +110,27 @@ export class BakeryController {
     const result = await this.bakeryService.remove(id);
     this.logger.log(`Bakery deleted: ${id}`);
     return result;
+  }
+
+  @Get(':bakeryId/items')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @GetBakeryItemStoresDecorator()
+  async getBakeryItemStores(@Param('bakeryId') bakeryId: string) {
+    this.logger.debug(`Retrieving item stores for bakery: ${bakeryId}`);
+    return this.bakeryItemStoreService.getBakeryItemStores(bakeryId);
+  }
+
+  @Patch(':bakeryId/items/:storeId/stock')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @UpdateBakeryItemStockDecorator()
+  async updateItemStock(
+    @Param('bakeryId') bakeryId: string,
+    @Param('storeId') storeId: string,
+    @Body() updateStockDto: UpdateBakeryItemStockDto,
+  ) {
+    this.logger.debug(`Updating stock for item store: ${storeId} in bakery: ${bakeryId}`);
+    return this.bakeryItemStoreService.updateStock(storeId, updateStockDto);
   }
 }

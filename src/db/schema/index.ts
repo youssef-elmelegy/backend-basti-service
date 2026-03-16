@@ -27,6 +27,7 @@ export * from './review';
 export * from './cart-item';
 export * from './slider-image';
 export * from './region-item-price';
+export * from './bakery-item-store';
 export * from './predesigned-cake';
 export * from './designed-cake-config';
 export * from './shape';

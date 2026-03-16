@@ -20,10 +20,13 @@ import { db } from '@/db';
 import { sweets, tags, regionItemPrices, regions } from '@/db/schema';
 import { eq, desc, asc, and, sql } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 
 @Injectable()
 export class SweetService {
   private readonly logger = new Logger(SweetService.name);
+
+  constructor(private readonly bakeryItemStoreService: BakeryItemStoreService) {}
 
   /**
    * Validate that a tag exists by ID
@@ -505,6 +508,12 @@ export class SweetService {
           .returning();
         regionItemPrice = created;
         this.logger.log(`Region pricing created: sweet ${sweetId}, region ${regionId}`);
+
+        // Create bakery item stores for all bakeries in this region
+        await this.bakeryItemStoreService.createStoresForRegionItemPrice(
+          regionItemPrice.id,
+          regionId,
+        );
       }
 
       return successResponse(

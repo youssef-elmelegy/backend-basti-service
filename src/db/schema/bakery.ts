@@ -10,7 +10,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { regions, chefs, orders, reviews, admins } from '.';
+import { regions, chefs, orders, reviews, admins, bakeryItemStores } from '.';
 
 export const bakeries = pgTable(
   'bakeries',
@@ -56,4 +56,5 @@ export const bakeriesRelations = relations(bakeries, ({ one, many }) => ({
   chefs: many(chefs),
   orders: many(orders),
   reviews: many(reviews),
+  itemStores: many(bakeryItemStores),
 }));
