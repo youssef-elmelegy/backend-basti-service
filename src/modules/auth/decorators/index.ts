@@ -9,3 +9,6 @@ export { AuthChangePasswordDecorator } from './change-password-endpoint.decorato
 export { AuthForgotPasswordDecorator } from './forgot-password-endpoint.decorator';
 export { AuthVerifyResetOtpDecorator } from './verify-reset-otp-endpoint.decorator';
 export { AuthResetPasswordDecorator } from './reset-password-endpoint.decorator';
+export { AuthGetProfileDecorator } from './get-profile-endpoint.decorator';
+export { AuthUpdateProfileDecorator } from './update-profile-endpoint.decorator';
+export { AuthDeleteProfileDecorator } from './delete-profile-endpoint.decorator';

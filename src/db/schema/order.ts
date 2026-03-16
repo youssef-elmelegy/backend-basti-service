@@ -30,27 +30,33 @@ export const orders = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     referenceNumber: varchar('reference_number', { length: 50 }).unique(),
-    userId: uuid('user_id').references(() => users.id),
-    userData: jsonb('user_data').$type<{
-      email: string;
-      firstName: string;
-      lastName: string;
-      phoneNumber: string;
-    }>(),
+    userId: uuid('user_id')
+      .references(() => users.id)
+      .notNull(),
+    userData: jsonb('user_data')
+      .$type<{
+        email: string;
+        firstName: string;
+        lastName: string;
+        phoneNumber: string;
+      }>()
+      .notNull(),
     bakeryId: uuid('bakery_id').references(() => bakeries.id),
 
     locationId: uuid('location_id').references(() => locations.id),
-    locationData: jsonb('location_data').$type<{
-      label: string;
-      latitude: number;
-      longitude: number;
-      buildingNo: string;
-      street: string;
-      description: string;
-    }>(),
+    locationData: jsonb('location_data')
+      .$type<{
+        label: string;
+        latitude: number;
+        longitude: number;
+        buildingNo: string;
+        street: string;
+        description: string;
+      }>()
+      .notNull(),
 
-    regionId: uuid('region_id'),
-    regionName: varchar('region_name', { length: 100 }),
+    regionId: uuid('region_id').notNull(),
+    regionName: varchar('region_name', { length: 100 }).notNull(),
 
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
@@ -68,10 +74,11 @@ export const orders = pgTable(
       cardExpiryYear: number;
     }>(),
 
-    orderStatus: orderStatusEnum('order_status').default('pending').notNull(),
+    orderStatus: orderStatusEnum('order_status'),
     deliveryNote: text('delivery_note'),
     keepAnonymous: boolean('keep_anonymous').default(false).notNull(),
     cartType: CartTypeEnum('type').notNull(),
+    assigningDate: timestamp('assigning_date', { mode: 'date' }),
 
     cardMessage: jsonb('card_message').$type<{
       to: string;

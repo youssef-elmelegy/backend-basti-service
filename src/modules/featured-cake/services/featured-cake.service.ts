@@ -16,10 +16,13 @@ import {
   CreateRegionItemPriceDto,
 } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
+import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 
 @Injectable()
 export class FeaturedCakeService {
   private readonly logger = new Logger(FeaturedCakeService.name);
+
+  constructor(private readonly bakeryItemStoreService: BakeryItemStoreService) {}
 
   private getErrorMessage(error: unknown): string {
     if (error instanceof Error) {
@@ -539,6 +542,12 @@ export class FeaturedCakeService {
           .returning();
         regionItemPrice = created;
         this.logger.log(`Region pricing created: cake ${featuredCakeId}, region ${regionId}`);
+
+        // Create bakery item stores for all bakeries in this region
+        await this.bakeryItemStoreService.createStoresForRegionItemPrice(
+          regionItemPrice.id,
+          regionId,
+        );
       }
 
       return successResponse(

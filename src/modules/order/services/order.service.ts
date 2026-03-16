@@ -12,6 +12,7 @@ import {
   ChangeOrderStatusResponseDto,
   ChangeOrderStatusDto,
   CustomCakeConfigDto,
+  OrderItemOptionDto,
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
@@ -55,7 +56,7 @@ export class OrderService {
       locationId,
       locationData,
       paymentMethodId,
-      PaymentMethodData,
+      paymentMethodData,
       orderItemsData,
       deliveryNote = '',
       keepAnonymous = false,
@@ -69,9 +70,9 @@ export class OrderService {
     } = orderData;
 
     try {
-      let existingLocation: typeof locations.$inferInsert;
-      let existingPaymentMethod: typeof paymentMethods.$inferInsert;
-      let cart: (typeof cartItems.$inferSelect)[];
+      let connectedLocation: typeof locations.$inferInsert;
+      let connectedPaymentMethod: typeof paymentMethods.$inferInsert;
+      let cart: (typeof cartItems.$inferSelect)[] = [];
 
       const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
 
@@ -89,7 +90,7 @@ export class OrderService {
           .select()
           .from(locations)
           .where(and(eq(locations.id, locationId), eq(locations.userId, userId)))
-          .limit(1)[0];
+          .limit(1);
 
         if (!location) {
           this.logger.warn(
@@ -103,19 +104,19 @@ export class OrderService {
             ),
           );
         }
-        existingLocation = location;
+        connectedLocation = location;
       }
 
       if (paymentMethodId) {
-        existingPaymentMethod = await db
+        const [paymentMethod] = await db
           .select()
           .from(paymentMethods)
           .where(and(eq(paymentMethods.id, paymentMethodId), eq(paymentMethods.userId, userId)))
-          .limit(1)[0];
+          .limit(1);
 
-        if (!existingPaymentMethod) {
+        if (!paymentMethod) {
           this.logger.warn(
-            `Payment method ID ${locationId} is invalid or does not belong to the user ${userId}`,
+            `Payment method ID ${paymentMethodId} is invalid or does not belong to the user ${userId}`,
           );
           throw new BadRequestException(
             errorResponse(
@@ -125,6 +126,7 @@ export class OrderService {
             ),
           );
         }
+        connectedPaymentMethod = paymentMethod;
       }
 
       if (!orderItemsData || orderItemsData.length === 0) {
@@ -153,7 +155,6 @@ export class OrderService {
 
       const useOrderItemsData = orderItemsData && orderItemsData.length > 0;
 
-      // Initialize cart as empty array if undefined
       const cartItems$ = cart || [];
 
       const addonsItems = useOrderItemsData
@@ -178,12 +179,17 @@ export class OrderService {
       let totalCapacity = 0;
 
       for (const addon of addonsItems) {
-        const addonPrice = await this.caclulateAddonPrice(addon.addonId, regionId);
+        const addonPrice = await this.caclulateAddonPrice(
+          addon.addonId,
+          regionId,
+          'selectedOptions' in addon ? addon.selectedOptions : undefined,
+        );
         totalPrice += addonPrice * addon.quantity;
         orderItemsDetails.push({
           price: addonPrice.toFixed(2),
           quantity: addon.quantity,
           addonId: addon.addonId,
+          selectedOptions: 'selectedOptions' in addon ? addon.selectedOptions : undefined,
         });
       }
 
@@ -233,7 +239,9 @@ export class OrderService {
           .where(eq(designedCakeConfigs.predesignedCakeId, predesignedCake.predesignedCakeId))
           .limit(1);
 
-        totalCapacity += res.capacity * predesignedCake.quantity;
+        if (res.capacity) {
+          totalCapacity += res.capacity * predesignedCake.quantity;
+        }
 
         orderItemsDetails.push({
           price: predesignedCakePrice.toFixed(2),
@@ -257,7 +265,9 @@ export class OrderService {
           .where(eq(shapes.id, customCakeData.shapeId))
           .limit(1);
 
-        totalCapacity += res.capacity * customCake.quantity;
+        if (res?.capacity) {
+          totalCapacity += res.capacity * customCake.quantity;
+        }
 
         orderItemsDetails.push({
           price: customCakePrice.toFixed(2),
@@ -278,56 +288,52 @@ export class OrderService {
           .insert(orders)
           .values({
             referenceNumber,
-            userId,
+            userId: userId,
             regionId: region.id,
             regionName: region.name,
             userData: {
               email: user.email,
               firstName: user.firstName,
               lastName: user.lastName,
-              phoneNumber: user.phoneNumber,
+              phoneNumber: user.phoneNumber || '',
             },
             locationId,
             locationData: {
-              label: locationData?.label || existingLocation?.label || '',
-              buildingNo: locationData?.buildingNo || existingLocation?.buildingNo || '',
-              street: locationData?.street || existingLocation?.street || '',
-              description: locationData?.description || existingLocation?.description || '',
-              latitude: Number(locationData?.latitude || existingLocation?.latitude || 0),
-              longitude: Number(locationData?.longitude || existingLocation?.longitude || 0),
+              label: connectedLocation?.label || locationData?.label || '',
+              buildingNo: connectedLocation?.buildingNo || locationData?.buildingNo || '',
+              street: connectedLocation?.street || locationData?.street || '',
+              description: connectedLocation?.description || locationData?.description || '',
+              latitude: Number(connectedLocation?.latitude || locationData?.latitude || 0),
+              longitude: Number(connectedLocation?.longitude || locationData?.longitude || 0),
             },
-            paymentMethodId,
-            paymentMethodType: PaymentMethodData?.type || existingPaymentMethod?.type || 'cash',
-            paymentData: existingPaymentMethod
-              ? {
-                  type: existingPaymentMethod.type,
-                  cardHolderName:
-                    PaymentMethodData?.cardHolderName || existingPaymentMethod.cardHolderName || '',
-                  cardLastFourDigits:
-                    PaymentMethodData?.cardLastFourDigits ||
-                    existingPaymentMethod.cardLastFourDigits ||
-                    '',
-                  cardExpiryMonth: Number(
-                    PaymentMethodData?.cardExpiryMonth ||
-                      existingPaymentMethod.cardExpiryMonth ||
-                      0,
-                  ),
-                  cardExpiryYear: Number(
-                    PaymentMethodData?.cardExpiryYear || existingPaymentMethod.cardExpiryYear || 0,
-                  ),
-                }
-              : undefined,
+            paymentMethodId: connectedPaymentMethod?.id || paymentMethodId || null,
+            paymentMethodType: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
+            paymentData: {
+              type: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
+              cardHolderName:
+                connectedPaymentMethod?.cardHolderName || paymentMethodData?.cardHolderName || '',
+              cardLastFourDigits:
+                connectedPaymentMethod?.cardLastFourDigits ||
+                paymentMethodData?.cardLastFourDigits ||
+                '',
+              cardExpiryMonth: Number(
+                connectedPaymentMethod?.cardExpiryMonth || paymentMethodData?.cardExpiryMonth || 0,
+              ),
+              cardExpiryYear: Number(
+                connectedPaymentMethod?.cardExpiryYear || paymentMethodData?.cardExpiryYear || 0,
+              ),
+            },
             cardMessage,
             deliveryNote,
             keepAnonymous,
             recipientData,
             wantedDeliveryDate: wantedDeliveryDate ? new Date(wantedDeliveryDate) : undefined,
-            wantedDeliveryTimeSlot,
+            wantedDeliveryTimeSlot: wantedDeliveryTimeSlot,
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
-            totalCapacity,
             discountAmount: discountAmount.toFixed(2),
-            willDeliverAt,
+            totalCapacity: totalCapacity || 0,
+            willDeliverAt: willDeliverAt,
             cartType: type,
           })
           .returning();
@@ -358,21 +364,57 @@ export class OrderService {
         return { newOrder: createdOrder, newItems };
       });
 
-      this.logger.log(`
-        Order created: ${newOrder.id} for user ${userId}, with ${newItems.length} items`);
+      this.logger.log(
+        `Order created: ${newOrder.id} for user ${userId}, with ${newItems.length} items`,
+      );
 
       const response: CreateOrderResponseDto = {
         ...newOrder,
+        bakeryId: undefined,
+        locationId: newOrder.locationId || null,
+        paymentMethodId: newOrder.paymentMethodId || null,
+        paymentData: newOrder.paymentData || null,
+        totalCapacity: newOrder.totalCapacity || 0,
+        deliveryNote: newOrder.deliveryNote || '',
+        cardMessage: newOrder.cardMessage || null,
+        recipientData: newOrder.recipientData || null,
         totalPrice: parseFloat(newOrder.totalPrice),
+        willDeliverAt: new Date(newOrder.willDeliverAt),
+        wantedDeliveryTimeSlot: newOrder.wantedDeliveryTimeSlot || null,
+        wantedDeliveryDate: newOrder.wantedDeliveryDate
+          ? new Date(newOrder.wantedDeliveryDate)
+          : null,
+        deliveredAt: null,
         discountAmount: parseFloat(newOrder.discountAmount),
         finalPrice: parseFloat(newOrder.finalPrice),
-        items: newItems,
+        orderStatus: null,
+        items: newItems.map((item) => ({
+          id: item.id,
+          orderId: item.orderId,
+          addonId: item.addonId,
+          sweetId: item.sweetId,
+          featuredCakeId: item.featuredCakeId,
+          predesignedCakeId: item.predesignedCakeId,
+          customCake: item.customCake
+            ? {
+                ...item.customCake,
+                extraLayers: item.customCake?.extraLayers || [],
+              }
+            : null,
+          quantity: item.quantity,
+          size: item.size,
+          flavor: item.flavor,
+          price: item.price,
+          selectedOptions: item.selectedOptions || [],
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        })),
       };
 
       return response;
     } catch (error) {
       // Re-throw known exceptions
-      if (error instanceof BadRequestException) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
         throw error;
       }
 
@@ -395,12 +437,13 @@ export class OrderService {
     try {
       const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
 
-      const response: OrderResponseDto[] = [];
+      const validOrderIds = ordersForUser
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
 
-      for (const order of ordersForUser) {
-        const orderDetails = await this.getOrderByIdForUser(order.id, userId, regionId);
-        response.push(orderDetails);
-      }
+      const response = await Promise.all(
+        validOrderIds.map((orderId) => this.getOrderByIdForUser(orderId, userId, regionId)),
+      );
 
       this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
       return response;
@@ -517,39 +560,43 @@ export class OrderService {
 
       // Filter by status(es) if provided
       if (status && status.length > 0) {
-        allOrders = allOrders.filter((order) => status.includes(order.orderStatus));
+        allOrders = allOrders.filter((order) =>
+          this.matchesStatusFilter(order.orderStatus, status),
+        );
       }
 
       if (regionId) {
         allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
-      // Process all orders with error handling
-      const response: OrderResponseDto[] = [];
+      // Process all orders concurrently with per-order fallback
+      const response = await Promise.all(
+        allOrders.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) {
+              throw new Error('Order id is missing');
+            }
 
-      for (const order of allOrders) {
-        try {
-          const orderDetails = await this.getOrderById(order.id, regionId);
-          response.push(orderDetails);
-        } catch {
-          this.logger.warn(
-            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
-          );
+            return await this.getOrderById(order.id, regionId);
+          } catch {
+            this.logger.warn(
+              `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+            );
 
-          // Return basic order data without item enrichment
-          response.push({
-            addons: [],
-            sweets: [],
-            featuredCakes: [],
-            predesignedCakes: [],
-            customCakes: [],
-            ...order,
-            totalPrice: parseFloat(order.totalPrice),
-            discountAmount: parseFloat(order.discountAmount),
-            finalPrice: parseFloat(order.finalPrice),
-          });
-        }
-      }
+            return {
+              addons: [],
+              sweets: [],
+              featuredCakes: [],
+              predesignedCakes: [],
+              customCakes: [],
+              ...order,
+              totalPrice: parseFloat(order.totalPrice),
+              discountAmount: parseFloat(order.discountAmount),
+              finalPrice: parseFloat(order.finalPrice),
+            };
+          }
+        }),
+      );
 
       this.logger.log(`Retrieved all orders, count: ${response.length}`);
       return response;
@@ -585,39 +632,45 @@ export class OrderService {
 
       // Filter by status(es) if provided
       if (status && status.length > 0) {
-        bakeryOrders = bakeryOrders.filter((order) => status.includes(order.orderStatus));
+        bakeryOrders = bakeryOrders.filter((order) =>
+          this.matchesStatusFilter(order.orderStatus, status),
+        );
       }
 
       if (regionId) {
         bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
       }
 
-      // Process all orders with error handling
-      const response: OrderResponseDto[] = [];
+      // Process all bakery orders concurrently with per-order fallback
+      const response = await Promise.all(
+        bakeryOrders.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) {
+              throw new Error('Order id is missing');
+            }
 
-      for (const order of bakeryOrders) {
-        try {
-          const orderDetails = await this.getOrderById(order.id, regionId);
-          response.push(orderDetails);
-        } catch {
-          this.logger.warn(
-            `Failed to retrieve full details for order ${order.id}, returning basic order data`,
-          );
+            return await this.getOrderById(order.id, regionId);
+          } catch {
+            this.logger.warn(
+              `Failed to retrieve full details for order ${order.id}, returning basic order data`,
+            );
 
-          // Return basic order data without item enrichment
-          response.push({
-            addons: [],
-            sweets: [],
-            featuredCakes: [],
-            predesignedCakes: [],
-            customCakes: [],
-            ...order,
-            totalPrice: parseFloat(order.totalPrice),
-            discountAmount: parseFloat(order.discountAmount),
-            finalPrice: parseFloat(order.finalPrice),
-          });
-        }
-      }
+            await this.confirmAssignedOrder(order);
+
+            return {
+              addons: [],
+              sweets: [],
+              featuredCakes: [],
+              predesignedCakes: [],
+              customCakes: [],
+              ...order,
+              totalPrice: parseFloat(order.totalPrice),
+              discountAmount: parseFloat(order.discountAmount),
+              finalPrice: parseFloat(order.finalPrice),
+            };
+          }
+        }),
+      );
 
       this.logger.log(`Retrieved orders for bakery ${bakeryId}, count: ${response.length}`);
       return response;
@@ -750,7 +803,7 @@ export class OrderService {
         );
       }
 
-      if (order.orderStatus !== 'pending') {
+      if (order.orderStatus !== 'pending' && order.orderStatus !== null) {
         this.logger.warn(
           `Order with id: ${orderId} cannot be cancelled. Status: ${order.orderStatus}`,
         );
@@ -771,11 +824,19 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} cancelled successfully`);
       return updatedOrder;
-    } catch {
-      this.logger.error(`Failed to cancel order ${orderId} for user ${userId}`);
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : '';
+      this.logger.error(`Error cancelling the order: ${errMsg}`);
+      this.logger.error(`Stack trace: ${stack}`);
+
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to cancel order',
+          'Failed to cancel the order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -861,6 +922,19 @@ export class OrderService {
       );
     }
 
+    if (order.orderStatus !== 'pending') {
+      this.logger.warn(
+        `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
     const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
 
     if (!bakery) {
@@ -873,7 +947,10 @@ export class OrderService {
     try {
       const [updatedOrder] = await db
         .update(orders)
-        .set({ bakeryId: bakeryId === undefined ? null : bakeryId })
+        .set({
+          bakeryId: bakeryId,
+          assigningDate: new Date(),
+        })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
@@ -907,6 +984,57 @@ export class OrderService {
       );
     }
 
+    if (!order.bakeryId) {
+      this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} is not assigned to a bakery`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (order.orderStatus !== 'pending') {
+      this.logger.warn(
+        `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (!order.assigningDate || !order.bakeryId) {
+      this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} is not assigned to a bakery`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (
+      order.assigningDate &&
+      new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+    ) {
+      this.logger.warn(
+        `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
     // Log the reason if provided
     if (reason) {
       this.logger.log(`Unassigning order ${orderId} from bakery. Reason: ${reason}`);
@@ -917,14 +1045,18 @@ export class OrderService {
     try {
       const [updatedOrder] = await db
         .update(orders)
-        .set({ bakeryId: null })
+        .set({
+          bakeryId: null,
+          assigningDate: null,
+          orderStatus: 'pending',
+        })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
       return {
         id: updatedOrder.id,
-        bakeryId: updatedOrder.bakeryId,
+        bakeryId: updatedOrder.bakeryId || '',
       };
     } catch (error) {
       this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
@@ -1065,24 +1197,34 @@ export class OrderService {
     return false;
   }
 
-  private async caclulateAddonPrice(addonId: string, regionId: string): Promise<number> {
+  private calculateSelectedOptionsPrice(selectedOptions?: OrderItemOptionDto[]): number {
+    if (!selectedOptions?.length) {
+      return 0;
+    }
+
+    return selectedOptions.reduce((total, option) => {
+      const normalizedValue = option.value.replace(',', '.').trim();
+      const parsedValue = Number.parseFloat(normalizedValue);
+
+      return Number.isFinite(parsedValue) ? total + parsedValue : total;
+    }, 0);
+  }
+
+  private async caclulateAddonPrice(
+    addonId: string,
+    regionId: string,
+    selectedOptions?: OrderItemOptionDto[],
+  ): Promise<number> {
     const [result] = await db
       .select({ price: regionItemPrices.price })
       .from(regionItemPrices)
       .where(and(eq(regionItemPrices.addonId, addonId), eq(regionItemPrices.regionId, regionId)))
       .limit(1);
 
-    if (!result) {
-      throw new NotFoundException(
-        errorResponse(
-          `Price not found for addon ${addonId} in region ${regionId}`,
-          HttpStatus.NOT_FOUND,
-          'NotFoundException',
-        ),
-      );
-    }
+    const basePrice = result?.price ? Number.parseFloat(result.price) : 0;
+    const selectedOptionsPrice = this.calculateSelectedOptionsPrice(selectedOptions);
 
-    return parseFloat(result.price);
+    return basePrice + selectedOptionsPrice;
   }
 
   private async caclulateSweetPrice(sweetId: string, regionId: string): Promise<number> {
@@ -1273,5 +1415,44 @@ export class OrderService {
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomPart = randomBytes(3).toString('hex').toUpperCase();
     return `ORD-${datePart}-${randomPart}`;
+  }
+
+  private matchesStatusFilter(
+    orderStatus: typeof orders.$inferSelect.orderStatus,
+    statusFilters: string[],
+  ): boolean {
+    const normalizedFilters = statusFilters.map((status) => status.trim().toLowerCase());
+
+    if (orderStatus === null) {
+      return normalizedFilters.includes('null');
+    }
+
+    return normalizedFilters.includes(orderStatus.toLowerCase());
+  }
+
+  private async confirmAssignedOrder(order: typeof orders.$inferSelect): Promise<void> {
+    try {
+      if (
+        order.orderStatus === 'pending' &&
+        order.bakeryId &&
+        order.assigningDate &&
+        new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+      ) {
+        this.logger.warn(
+          `Order with id: ${order.id} has been assigned to a bakery for more than 1 hour, it cannot be unassigned, now changing its status to confirmed`,
+        );
+        await db
+          .update(orders)
+          .set({
+            orderStatus: 'confirmed',
+          })
+          .where(eq(orders.id, order.id));
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to confirm assigned order ${order.id}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : '',
+      );
+    }
   }
 }

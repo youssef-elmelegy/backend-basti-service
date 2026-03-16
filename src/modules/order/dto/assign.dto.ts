@@ -7,7 +7,7 @@ export class AssignBakeryDto {
     description: 'The unique identifier of the bakery to assign the order to.',
   })
   @IsUUID()
-  bakeryId?: string;
+  bakeryId: string;
 }
 
 export class AssignBakeryResponseDto {

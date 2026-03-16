@@ -16,10 +16,13 @@ import {
   CreateAddonRegionItemPriceDto,
 } from '../dto';
 import { errorResponse, successResponse } from '@/utils';
+import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 
 @Injectable()
 export class AddonService {
   private readonly logger = new Logger(AddonService.name);
+
+  constructor(private readonly bakeryItemStoreService: BakeryItemStoreService) {}
 
   private async validateTagExists(tagId: string): Promise<void> {
     if (!tagId) return;
@@ -512,6 +515,12 @@ export class AddonService {
           .returning();
         regionItemPrice = created;
         this.logger.log(`Region pricing created: addon ${addonId}, region ${regionId}`);
+
+        // Create bakery item stores for all bakeries in this region
+        await this.bakeryItemStoreService.createStoresForRegionItemPrice(
+          regionItemPrice.id,
+          regionId,
+        );
       }
 
       return successResponse(

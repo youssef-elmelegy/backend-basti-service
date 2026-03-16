@@ -284,6 +284,26 @@ export class OrderItemDto {
   @ApiProperty({
     description: 'Custom cake configuration to be ordered.',
     type: () => CustomCakeConfigDto,
+    example: {
+      shapeId: '550e8400-e29b-41d4-a716-446655440001',
+      flavorId: '550e8400-e29b-41d4-a716-446655440002',
+      decorationId: '550e8400-e29b-41d4-a716-446655440003',
+      message: 'Custom cake message',
+      color: {
+        name: 'Red',
+        hex: '#FF0000',
+      },
+      extraLayers: [
+        {
+          layer: 1,
+          flavorId: '550e8400-e29b-41d4-a716-446655440004',
+        },
+      ],
+      imageToPrint: 'https://example.com/image.png',
+      snapshotFront: 'https://example.com/front.png',
+      snapshotTop: 'https://example.com/top.png',
+      snapshotSliced: 'https://example.com/sliced.png',
+    },
     required: false,
   })
   @IsOptional()
@@ -325,25 +345,6 @@ export class OrderItemDto {
 }
 
 export class CreateOrderDto {
-  // @ApiProperty({
-  //   description:
-  //     'The ID of the user placing the order. If not provided, the order will be placed for a guest user.',
-  //   required: false,
-  // })
-  // @IsUUID()
-  // @IsOptional()
-  // userId?: string;
-
-  // @ApiProperty({
-  //   description: 'User data to be used for the order. If userId is provided, this will be ignored.',
-  //   type: () => UserDto,
-  //   required: false,
-  // })
-  // @IsOptional()
-  // @ValidateNested()
-  // @Type(() => UserDto)
-  // userData?: UserDto;
-
   @ApiProperty({
     description: 'The ID of the location where the order will be placed.',
     required: false,
@@ -380,7 +381,7 @@ export class CreateOrderDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => CreatePaymentMethodDto)
-  PaymentMethodData?: CreatePaymentMethodDto;
+  paymentMethodData?: CreatePaymentMethodDto;
 
   @ApiProperty({
     description:

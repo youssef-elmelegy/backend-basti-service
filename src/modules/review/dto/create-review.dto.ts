@@ -20,14 +20,6 @@ export class CreateReviewDto {
   orderId: string;
 
   @ApiProperty({
-    description: 'The unique identifier of the bakery being reviewed',
-    example: '550e8400-e29b-41d4-a716-446655440001',
-  })
-  @IsUUID()
-  @IsNotEmpty({ message: 'Bakery ID is required' })
-  bakeryId: string;
-
-  @ApiProperty({
     description: 'Rating from 1 to 5 stars',
     example: 5,
     minimum: 1,

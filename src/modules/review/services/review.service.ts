@@ -6,12 +6,20 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  HttpException,
 } from '@nestjs/common';
 import { db } from '@/db';
 import { reviews, users, orders, bakeries } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { errorResponse } from '@/utils';
-import { CreateReviewDto, UpdateReviewDto, ReviewResponseDto } from '../dto';
+import { errorResponse, SuccessResponse, successResponse } from '@/utils';
+import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import {
+  CreateReviewDto,
+  UpdateReviewDto,
+  ReviewResponseDto,
+  PaginatedBakeyReviewsResponseDto,
+} from '../dto';
+import { PaginationDto } from '@/common/dto';
 
 @Injectable()
 export class ReviewService {
@@ -35,10 +43,30 @@ export class ReviewService {
         );
       }
 
+      if (order.orderStatus && order.orderStatus !== 'delivered') {
+        throw new BadRequestException(
+          errorResponse(
+            'Order is not delivered yet',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      if (!order.bakeryId) {
+        throw new BadRequestException(
+          errorResponse(
+            'Order does not belong to a bakery',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
       const [bakery] = await db
         .select()
         .from(bakeries)
-        .where(eq(bakeries.id, createDto.bakeryId))
+        .where(eq(bakeries.id, order.bakeryId))
         .limit(1);
 
       if (!bakery) {
@@ -68,11 +96,24 @@ export class ReviewService {
         .values({
           userId,
           orderId: createDto.orderId,
-          bakeryId: createDto.bakeryId,
+          bakeryId: order.bakeryId,
           rating: createDto.rating,
           reviewText: createDto.reviewText,
         })
         .returning();
+
+      const newTotalReviews = (bakery.totalReviews || 0) + 1;
+      const newAverageRating =
+        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + createDto.rating) /
+        newTotalReviews;
+
+      await db
+        .update(bakeries)
+        .set({
+          averageRating: newAverageRating.toFixed(2),
+          totalReviews: newTotalReviews,
+        })
+        .where(eq(bakeries.id, order.bakeryId));
 
       this.logger.log(`Review created: ${newReview.id} by user: ${userId}`);
 
@@ -93,8 +134,43 @@ export class ReviewService {
     }
   }
 
-  async findAllByBakery(bakeryId: string): Promise<ReviewResponseDto[]> {
+  async findAllByBakery(
+    bakeryId: string,
+    paginationDto: PaginationDto,
+  ): Promise<SuccessResponse<PaginatedBakeyReviewsResponseDto>> {
+    const page = paginationDto.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = paginationDto.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const offset = (page - 1) * limit;
+
     try {
+      const [bakery] = await db
+        .select({
+          totalReviews: bakeries.totalReviews,
+          averageRating: bakeries.averageRating,
+        })
+        .from(bakeries)
+        .where(eq(bakeries.id, bakeryId))
+        .limit(1);
+
+      if (!bakery) {
+        this.logger.debug(`Bakery not found: ${bakeryId}, returning empty reviews`);
+        return successResponse(
+          {
+            reviews: [],
+            averageRating: 0,
+            totalReviews: 0,
+            pagination: {
+              total: 0,
+              totalPages: 0,
+              page,
+              limit,
+            },
+          },
+          'No reviews available',
+          HttpStatus.OK,
+        );
+      }
+
       const bakeryReviews = await db
         .select({
           id: reviews.id,
@@ -105,17 +181,41 @@ export class ReviewService {
           reviewText: reviews.reviewText,
           createdAt: reviews.createdAt,
           updatedAt: reviews.updatedAt,
-          userName: users.firstName,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImage: users.profileImage,
         })
         .from(reviews)
         .leftJoin(users, eq(reviews.userId, users.id))
         .where(eq(reviews.bakeryId, bakeryId))
-        .orderBy(desc(reviews.createdAt));
+        .orderBy(desc(reviews.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-      this.logger.debug(`Retrieved ${bakeryReviews.length} reviews for bakery: ${bakeryId}`);
+      this.logger.debug(
+        `Retrieved ${bakeryReviews.length} reviews for bakery: ${bakeryId} (page ${page}, limit ${limit})`,
+      );
 
-      return bakeryReviews;
+      return successResponse(
+        {
+          reviews: bakeryReviews,
+          averageRating: Number(bakery.averageRating || '0'),
+          totalReviews: bakery.totalReviews,
+          pagination: {
+            total: bakery.totalReviews,
+            totalPages: Math.ceil(bakery.totalReviews / limit),
+            page,
+            limit,
+          },
+        },
+        'Reviews fetched successfully',
+        HttpStatus.OK,
+      );
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve reviews: ${errMsg}`);
       throw new InternalServerErrorException(
@@ -190,6 +290,21 @@ export class ReviewService {
         );
       }
 
+      const [bakery] = await db
+        .select({
+          totalReviews: bakeries.totalReviews,
+          averageRating: bakeries.averageRating,
+        })
+        .from(bakeries)
+        .where(eq(bakeries.id, review.bakeryId))
+        .limit(1);
+
+      if (!bakery) {
+        throw new BadRequestException(
+          errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
+
       const [updated] = await db
         .update(reviews)
         .set({
@@ -199,6 +314,17 @@ export class ReviewService {
         })
         .where(eq(reviews.id, id))
         .returning();
+
+      const newAverageRating =
+        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + updateDto.rating) /
+        bakery.totalReviews;
+
+      await db
+        .update(bakeries)
+        .set({
+          averageRating: newAverageRating.toFixed(2),
+        })
+        .where(eq(bakeries.id, review.bakeryId));
 
       this.logger.log(`Review updated: ${id}`);
 
@@ -257,9 +383,28 @@ export class ReviewService {
 
   async removeByAdmin(id: string): Promise<{ message: 'Review deleted successfully' }> {
     try {
-      await this.findReviewOrFail(id);
+      const review = await this.findReviewOrFail(id);
+
+      const [bakery] = await db
+        .select()
+        .from(bakeries)
+        .where(eq(bakeries.id, review.bakeryId))
+        .limit(1);
 
       await db.delete(reviews).where(eq(reviews.id, id));
+
+      const newTotalReviews = bakery.totalReviews - 1;
+      const newAverageRating =
+        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) - review.rating) /
+        newTotalReviews;
+
+      await db
+        .update(bakeries)
+        .set({
+          averageRating: newAverageRating.toFixed(2),
+          totalReviews: newTotalReviews,
+        })
+        .where(eq(bakeries.id, review.bakeryId));
 
       this.logger.log(`Review deleted by admin: ${id}`);
 
@@ -286,6 +431,21 @@ export class ReviewService {
     if (!review) {
       throw new NotFoundException(
         errorResponse(`Review with ID ${id} not found`, HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    const [bakery] = await db
+      .select()
+      .from(bakeries)
+      .where(eq(bakeries.id, review.bakeryId))
+      .limit(1);
+    if (!bakery) {
+      throw new NotFoundException(
+        errorResponse(
+          `Bakery with ID ${review.bakeryId} not found`,
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+        ),
       );
     }
 

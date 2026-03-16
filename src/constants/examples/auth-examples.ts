@@ -347,4 +347,147 @@ export const AuthExamples = {
       },
     },
   },
+
+  getProfile: {
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Profile retrieved successfully',
+        data: {
+          id: MOCK_DATA.id.user,
+          email: MOCK_DATA.email.user,
+          firstName: 'John',
+          lastName: 'Doe',
+          phoneNumber: '+1234567890',
+          profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+          isEmailVerified: true,
+          createdAt: '2025-01-11T10:00:00.000Z',
+          updatedAt: '2025-01-11T10:05:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Unauthorized',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'User not found',
+        error: 'NotFoundException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      internalServerError: {
+        code: 500,
+        success: false,
+        message: 'Failed to retrieve profile',
+        error: 'InternalServerErrorException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  updateProfile: {
+    request: {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      phoneNumber: '+9876543210',
+      profileImage: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane',
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+          message: 'Profile updated successfully',
+          userId: MOCK_DATA.id.user,
+          updatedAt: '2025-01-11T10:05:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Unauthorized',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      validationError: {
+        code: 400,
+        success: false,
+        message: [
+          'firstName must be at least 2 characters long',
+          'profileImage must be a valid URL',
+        ],
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'User not found',
+        error: 'NotFoundException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      internalServerError: {
+        code: 500,
+        success: false,
+        message: 'Failed to update profile',
+        error: 'InternalServerErrorException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
+
+  deleteProfile: {
+    request: {
+      password: 'SecurePass123',
+    },
+    response: {
+      success: {
+        code: 200,
+        success: true,
+        message: 'Account deleted successfully',
+        data: {
+          message: 'Account deleted successfully',
+          email: MOCK_DATA.email.user,
+          deletedAt: '2025-01-11T10:05:00.000Z',
+        },
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      unauthorized: {
+        code: 401,
+        success: false,
+        message: 'Invalid password or user not authenticated',
+        error: 'UnauthorizedException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      validationError: {
+        code: 400,
+        success: false,
+        message: ['password must be at least 8 characters long'],
+        error: 'BadRequestException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      notFound: {
+        code: 404,
+        success: false,
+        message: 'User not found',
+        error: 'NotFoundException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+      internalServerError: {
+        code: 500,
+        success: false,
+        message: 'Failed to delete account',
+        error: 'InternalServerErrorException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
+    },
+  },
 } as const;

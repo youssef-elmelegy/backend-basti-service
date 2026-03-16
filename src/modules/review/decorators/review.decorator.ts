@@ -5,6 +5,7 @@ import {
   ReviewResponseDto,
   ReviewDeleteResponseDto,
   UpdateReviewDto,
+  PaginatedBakeyReviewsResponseDto,
 } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 
@@ -46,7 +47,7 @@ export function GetReviewsByBakeryDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get all reviews for a bakery',
-      description: 'Retrieve all reviews for a specific bakery, ordered by most recent first',
+      description: 'Get all reviews for a bakery with user info',
     }),
     ApiParam({
       name: 'bakeryId',
@@ -56,8 +57,44 @@ export function GetReviewsByBakeryDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.OK,
-      description: 'Reviews retrieved successfully',
-      type: [ReviewResponseDto],
+      description: 'Reviews retrieved successfully with user information',
+      type: PaginatedBakeyReviewsResponseDto,
+      example: {
+        code: 200,
+        success: true,
+        message: 'Reviews fetched successfully',
+        data: {
+          reviews: [
+            {
+              id: '69731d5e-27ca-48a8-acde-d2292750dee9',
+              userId: '550e8400-e29b-41d4-a716-446655440000',
+              orderId: '0c8fcbcb-7edf-46fa-9645-9d42edd68b78',
+              bakeryId: '550e8400-e29b-41d4-a716-446655440200',
+              rating: 4,
+              reviewText: "Amazing, but the packaging wasn't good",
+              firstName: 'John',
+              lastName: 'Doe',
+              profileImage: 'https://example.com/john.jpg',
+              createdAt: '2026-03-16T01:11:48.645Z',
+              updatedAt: '2026-03-16T01:11:48.645Z',
+            },
+          ],
+          averageRating: 4,
+          totalReviews: 3,
+          pagination: {
+            total: 3,
+            totalPages: 1,
+            page: 1,
+            limit: 10,
+          },
+        },
+        timestamp: '2026-03-16T06:56:57.513Z',
+      },
+    }),
+    ApiResponse({
+      status: HttpStatus.NOT_FOUND,
+      description: 'Bakery not found',
+      type: ErrorResponseDto,
     }),
     ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
