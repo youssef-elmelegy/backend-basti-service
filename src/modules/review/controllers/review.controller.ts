@@ -11,7 +11,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentUser, Public } from '@/common';
+import { CurrentUser } from '@/common';
 import { JwtAuthGuard, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common/guards';
 import { ReviewService } from '../services/review.service';
 import { CreateReviewDto, UpdateReviewDto } from '../dto';
@@ -43,9 +43,8 @@ export class ReviewController {
     return successResponse(result, 'Review created successfully');
   }
 
-  // @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  // @AdminRoles('super_admin', 'admin')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @Get('bakery/:bakeryId')
   @GetReviewsByBakeryDecorator()
   async findAllByBakery(@Param('bakeryId', ParseUUIDPipe) bakeryId: string) {
