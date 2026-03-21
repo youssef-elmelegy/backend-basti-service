@@ -5,3 +5,6 @@ export { UpdateAddonDecorator } from './update-addon.decorator';
 export { DeleteAddonDecorator } from './delete-addon.decorator';
 export { ToggleAddonStatusDecorator } from './toggle-addon-status.decorator';
 export { CreateAddonRegionItemPriceDecorator } from './create-addon-region-item-price.decorator';
+export { CreateAddonOptionDecorator } from './create-addon-option.decorator';
+export { UpdateAddonOptionDecorator } from './update-addon-option.decorator';
+export { DeleteAddonOptionDecorator } from './delete-addon-option.decorator';

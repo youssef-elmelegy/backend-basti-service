@@ -12,11 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AddonService } from '../services/addon.service';
+import { AddonOptionService } from '../services/addon-option.service';
 import {
   CreateAddonDto,
   UpdateAddonDto,
   GetAddonsQueryDto,
   CreateAddonRegionItemPriceDto,
+  CreateAddonOptionDto,
+  UpdateAddonOptionDto,
 } from '../dto';
 import {
   CreateAddonDecorator,
@@ -26,6 +29,9 @@ import {
   DeleteAddonDecorator,
   ToggleAddonStatusDecorator,
   CreateAddonRegionItemPriceDecorator,
+  CreateAddonOptionDecorator,
+  UpdateAddonOptionDecorator,
+  DeleteAddonOptionDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -37,7 +43,10 @@ import { Public } from '@/common';
 export class AddonController {
   private readonly logger = new Logger(AddonController.name);
 
-  constructor(private readonly addonService: AddonService) {}
+  constructor(
+    private readonly addonService: AddonService,
+    private readonly addonOptionService: AddonOptionService,
+  ) {}
 
   @Post()
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -110,6 +119,50 @@ export class AddonController {
     const { addonId } = createAddonRegionItemPriceDto;
     this.logger.debug(`Creating region pricing for addon: ${String(addonId)}`);
     const result = await this.addonService.createRegionItemPrice(createAddonRegionItemPriceDto);
+    return result;
+  }
+
+  @Post(':addonId/options')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @CreateAddonOptionDecorator()
+  async addOption(
+    @Param('addonId') addonId: string,
+    @Body() createAddonOptionDto: CreateAddonOptionDto,
+  ) {
+    this.logger.debug(`Adding option to add-on: ${addonId}`);
+    const result = await this.addonOptionService.addOption(addonId, createAddonOptionDto);
+    this.logger.log(`Option added to add-on: ${addonId}`);
+    return result;
+  }
+
+  @Patch(':addonId/options/:optionId')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @UpdateAddonOptionDecorator()
+  async updateOption(
+    @Param('addonId') addonId: string,
+    @Param('optionId') optionId: string,
+    @Body() updateAddonOptionDto: UpdateAddonOptionDto,
+  ) {
+    this.logger.debug(`Updating option ${optionId} for add-on: ${addonId}`);
+    const result = await this.addonOptionService.updateOption(
+      addonId,
+      optionId,
+      updateAddonOptionDto,
+    );
+    this.logger.log(`Option updated: ${optionId}`);
+    return result;
+  }
+
+  @Delete(':addonId/options/:optionId')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @DeleteAddonOptionDecorator()
+  async removeOption(@Param('addonId') addonId: string, @Param('optionId') optionId: string) {
+    this.logger.debug(`Removing option ${optionId} from add-on: ${addonId}`);
+    const result = await this.addonOptionService.removeOption(addonId, optionId);
+    this.logger.log(`Option removed: ${optionId}`);
     return result;
   }
 }

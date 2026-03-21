@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { addons, tags, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, sql, asc, and, SQL } from 'drizzle-orm';
+import { addons, tags, regionItemPrices, regions, addonOptions } from '@/db/schema';
+import { eq, desc, sql, asc, and, SQL, inArray } from 'drizzle-orm';
 import {
   CreateAddonDto,
   UpdateAddonDto,
@@ -98,7 +98,7 @@ export class AddonService {
 
       this.logger.log(`Add-on created: ${newAddon.id} (${name})`);
 
-      let tagName: string;
+      let tagName: string | undefined;
       if (newAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
@@ -129,14 +129,16 @@ export class AddonService {
     const { page, limit, tag, order, sort, isActive, category, regionId, search } = query;
 
     try {
-      const offset = (page - 1) * limit;
+      const pageValue = page ?? 1;
+      const limitValue = limit ?? 10;
+      const offset = (pageValue - 1) * limitValue;
       const sortOrder = order === 'desc' ? desc : asc;
 
       let allAddons: Array<{
         addon: typeof addons.$inferSelect;
-        tagName: string;
+        tagName: string | null;
         price?: string;
-        sizesPrices?: Record<string, string>;
+        sizesPrices?: Record<string, string> | null;
       }> = [];
       let total = 0;
 
@@ -185,7 +187,7 @@ export class AddonService {
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(regionWhereConditions.length > 0 ? and(...regionWhereConditions) : undefined)
           .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-          .limit(limit)
+          .limit(limitValue)
           .offset(offset);
       } else if (tag) {
         const tagConditions: SQL[] = [eq(tags.name, tag), ...whereConditions];
@@ -203,7 +205,7 @@ export class AddonService {
           .innerJoin(tags, eq(addons.tagId, tags.id))
           .where(and(...tagConditions))
           .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-          .limit(limit)
+          .limit(limitValue)
           .offset(offset);
 
         allAddons = tagResults;
@@ -238,7 +240,7 @@ export class AddonService {
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(and(...searchConditions))
           .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-          .limit(limit)
+          .limit(limitValue)
           .offset(offset);
 
         allAddons = untaggedResults;
@@ -252,7 +254,7 @@ export class AddonService {
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-          .limit(limit)
+          .limit(limitValue)
           .offset(offset);
 
         allAddons = untaggedResults;
@@ -264,19 +266,27 @@ export class AddonService {
         total = Number(countResult.count);
       }
 
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = Math.ceil(total / limitValue);
+      const addonIds = [...new Set(allAddons.map((item) => item.addon.id))];
+      const optionsByAddonId = await this.getAddonOptionsByAddonIds(addonIds);
 
       this.logger.debug(`Retrieved add-ons: page ${page}, total ${total}`);
 
       return successResponse(
         {
           items: allAddons.map((item) =>
-            this.mapToAddonResponse(item.addon, item.tagName, item.price, item.sizesPrices),
+            this.mapToAddonResponse(
+              item.addon,
+              item.tagName,
+              item.price,
+              item.sizesPrices,
+              optionsByAddonId.get(item.addon.id) || [],
+            ),
           ),
           pagination: {
             total,
-            limit,
-            page,
+            limit: limitValue,
+            page: pageValue,
             totalPages,
           },
         },
@@ -311,10 +321,17 @@ export class AddonService {
       }
 
       const { addon, tagName } = addonResult[0];
+      const optionsByAddonId = await this.getAddonOptionsByAddonIds([addon.id]);
 
       this.logger.debug(`Retrieved add-on: ${id}`);
       return successResponse(
-        this.mapToAddonResponse(addon, tagName),
+        this.mapToAddonResponse(
+          addon,
+          tagName,
+          undefined,
+          undefined,
+          optionsByAddonId.get(addon.id) || [],
+        ),
         'Add-on retrieved successfully',
       );
     } catch (error) {
@@ -366,7 +383,7 @@ export class AddonService {
       this.logger.log(`Add-on updated: ${id}`);
 
       // Fetch tag name if tagId exists
-      let tagName: string;
+      let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
@@ -447,7 +464,7 @@ export class AddonService {
       const statusText = updatedAddon.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Add-on status toggled (${statusText}): ${id}`);
 
-      let tagName: string;
+      let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
           .select({ name: tags.name })
@@ -553,9 +570,10 @@ export class AddonService {
 
   private mapToAddonResponse(
     addon: typeof addons.$inferSelect,
-    tagName?: string,
+    tagName?: string | null,
     price?: string,
-    sizesPrices?: Record<string, string>,
+    sizesPrices?: Record<string, string> | null,
+    addonOption?: Array<typeof addonOptions.$inferSelect>,
   ) {
     return {
       id: addon.id,
@@ -570,6 +588,28 @@ export class AddonService {
       isActive: addon.isActive,
       createdAt: addon.createdAt,
       updatedAt: addon.updatedAt,
+      options: addonOption ?? [],
     };
+  }
+
+  private async getAddonOptionsByAddonIds(addonIds: string[]) {
+    if (!addonIds.length) {
+      return new Map<string, Array<typeof addonOptions.$inferSelect>>();
+    }
+
+    const options = await db
+      .select()
+      .from(addonOptions)
+      .where(inArray(addonOptions.addonId, addonIds));
+
+    const optionsByAddonId = new Map<string, Array<typeof addonOptions.$inferSelect>>();
+
+    for (const option of options) {
+      const existing = optionsByAddonId.get(option.addonId) ?? [];
+      existing.push(option);
+      optionsByAddonId.set(option.addonId, existing);
+    }
+
+    return optionsByAddonId;
   }
 }

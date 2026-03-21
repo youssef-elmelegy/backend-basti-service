@@ -1,5 +1,44 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class AddonOptionDataDto {
+  @ApiProperty({
+    description: 'Option ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Add-on ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  addonId: string;
+
+  @ApiProperty({
+    description: 'Option type. Ex: "color", "number", "letter", "text"',
+    example: 'color',
+  })
+  type: string;
+
+  @ApiProperty({
+    description: 'Option label. Ex: "Red", "5", "A"',
+    example: 'Red',
+  })
+  label: string;
+
+  @ApiProperty({
+    description: 'Option value',
+    example: 'Red',
+  })
+  value: string;
+
+  @ApiProperty({
+    description: 'Option image URL',
+    example:
+      'https://res.cloudinary.com/example/image/upload/v1234567890/basti/addons/frosting.jpg',
+  })
+  imageUrl?: string;
+}
+
 export class AddonDataDto {
   @ApiProperty({
     description: 'Add-on unique identifier',
@@ -70,6 +109,23 @@ export class AddonDataDto {
     example: true,
   })
   isActive: boolean;
+
+  @ApiProperty({
+    description: 'Available add-on options',
+    type: [AddonOptionDataDto],
+    example: [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        addonId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'color',
+        label: 'Red',
+        value: 'Red',
+        imageUrl:
+          'https://res.cloudinary.com/example/image/upload/v1234567890/basti/addons/frosting.jpg',
+      },
+    ],
+  })
+  options: AddonOptionDataDto[];
 
   @ApiProperty({
     description: 'Add-on creation timestamp',

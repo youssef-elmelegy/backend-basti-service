@@ -57,6 +57,17 @@ export const AddExamples = {
               tagId: '550e8400-e29b-41d4-a716-446655440001',
               tagName: 'Premium',
               isActive: true,
+              options: [
+                {
+                  id: '550e8400-e29b-41d4-a716-446655440000',
+                  addonId: '550e8400-e29b-41d4-a716-446655440000',
+                  type: 'color',
+                  label: 'Red',
+                  value: 'Red',
+                  imageUrl:
+                    'https://res.cloudinary.com/example/image/upload/v1234567890/basti/addons/frosting.jpg',
+                },
+              ],
               createdAt: MOCK_DATA.dates.default,
               updatedAt: MOCK_DATA.dates.default,
             },

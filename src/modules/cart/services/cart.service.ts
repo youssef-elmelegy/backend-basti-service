@@ -105,7 +105,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: addon,
+          item: { ...addon, options: [] },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -176,7 +176,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: addon,
+          item: { ...addon, options: [] },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -247,7 +247,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: addon,
+          item: { ...addon, options: [] },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
