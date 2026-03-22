@@ -27,6 +27,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:push:location-schema": "ts-node -r tsconfig-paths/register --project tsconfig.json src/db/scripts/push-location-schema.ts",
     "db:drop": "drizzle-kit drop",
     "db:reset": "ts-node -r tsconfig-paths/register --project tsconfig.json src/db/scripts/reset.ts",
     "db:studio": "drizzle-kit studio",

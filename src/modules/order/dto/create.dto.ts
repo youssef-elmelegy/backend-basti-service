@@ -266,6 +266,14 @@ export class OrderItemDto {
   addonId?: string;
 
   @ApiProperty({
+    description: 'The unique identifier of the addon option to be ordered.',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  addonOption?: string;
+
+  @ApiProperty({
     description: 'The unique identifier of the sweet to be ordered.',
     required: false,
   })
