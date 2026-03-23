@@ -516,7 +516,7 @@ export class OrderService {
           addonItems.push({
             ...item,
             price: parseFloat(item.price),
-            data: addon,
+            data: { ...addon, options: addon.addonOption ? [addon.addonOption] : [] },
           });
         } else if (item.sweetId) {
           const sweet = await this.cartService.getSweet(item.sweetId, regionId);
@@ -746,7 +746,7 @@ export class OrderService {
           addonItems.push({
             ...item,
             price: parseFloat(item.price),
-            data: addon,
+            data: { ...addon, options: addon.addonOption ? [addon.addonOption] : [] },
           });
         } else if (item.sweetId) {
           const sweet = await this.cartService.getSweet(item.sweetId, regionId);
