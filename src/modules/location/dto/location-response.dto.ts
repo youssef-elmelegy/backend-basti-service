@@ -31,7 +31,7 @@ export class LocationDataDto {
     example: '12A',
     nullable: true,
   })
-  buildingNo: string;
+  buildingNo: string | null;
 
   @ApiProperty({
     description: 'Street name',
@@ -40,11 +40,52 @@ export class LocationDataDto {
   street: string;
 
   @ApiProperty({
+    description: 'Area name',
+    example: 'Maadi',
+  })
+  area: string;
+
+  @ApiProperty({
+    description: 'Apartment number',
+    example: '5',
+    nullable: true,
+  })
+  apartmentNo: string | null;
+
+  @ApiProperty({
+    description: 'Office number',
+    example: '12B',
+    nullable: true,
+  })
+  officeNo: string | null;
+
+  @ApiProperty({
+    description: 'Floor',
+    example: '3',
+    nullable: true,
+  })
+  floor: string | null;
+
+  @ApiProperty({
+    description: 'Additional delivery information',
+    example: 'Near the main gate',
+    nullable: true,
+  })
+  additionalInfo: string | null;
+
+  @ApiProperty({
+    description: 'Location type',
+    example: 'apartment',
+    enum: ['house', 'apartment', 'office'],
+  })
+  type: 'house' | 'apartment' | 'office';
+
+  @ApiProperty({
     description: 'Additional description or delivery instructions',
     example: 'Apartment 5, 3rd floor, next to the pharmacy',
     nullable: true,
   })
-  description: string;
+  description: string | null;
 
   @ApiProperty({
     description: 'Location creation timestamp',

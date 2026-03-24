@@ -10,6 +10,13 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { addons, orders, sweets, predesignedCakes, featuredCakes } from '.';
+import {
+  AddonData,
+  SweetData,
+  FeaturedCakeData,
+  PredesignedCakeData,
+  CustomCakeData,
+} from '@/modules/order/dto/items-interface';
 
 export const orderItems = pgTable(
   'order_items',
@@ -20,29 +27,36 @@ export const orderItems = pgTable(
     orderId: uuid('order_id')
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
+
     addonId: uuid('addon_id').references(() => addons.id),
     sweetId: uuid('sweet_id').references(() => sweets.id),
     predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id),
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id),
 
-    customCake: jsonb('custom_cake').$type<{
-      shapeId: string;
-      flavorId: string;
-      decorationId: string;
-      color: {
-        name: string;
-        hex: string;
-      };
-      extraLayers?: {
-        layer: number;
-        flavorId: string;
-      }[];
-      message?: string;
-      imageToPrint?: string;
-      snapshotFront?: string;
-      snapshotTop?: string;
-      snapshotSliced?: string;
-    }>(),
+    addon: jsonb('addon').$type<AddonData>(),
+    sweet: jsonb('sweet').$type<SweetData>(),
+    predesignedCake: jsonb('predesigned_cake').$type<PredesignedCakeData>(),
+    featuredCake: jsonb('featured_cake').$type<FeaturedCakeData>(),
+    customCake: jsonb('custom_cake').$type<CustomCakeData>(),
+
+    // customCake: jsonb('custom_cake').$type<{
+    //   shapeId: string;
+    //   flavorId: string;
+    //   decorationId: string;
+    //   color: {
+    //     name: string;
+    //     hex: string;
+    //   };
+    //   extraLayers?: {
+    //     layer: number;
+    //     flavorId: string;
+    //   }[];
+    //   message?: string;
+    //   imageToPrint?: string;
+    //   snapshotFront?: string;
+    //   snapshotTop?: string;
+    //   snapshotSliced?: string;
+    // }>(),
 
     quantity: integer('quantity').notNull().default(1),
     size: varchar('size', { length: 50 }),
@@ -55,6 +69,7 @@ export const orderItems = pgTable(
         type: string;
         label: string;
         value: string;
+        imageUrl: string;
       }>
     >(),
 

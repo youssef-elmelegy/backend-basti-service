@@ -29,7 +29,7 @@ import { DecorationService } from '@/modules/custom-cakes/services/decoration.se
 import { PredesignedCakesService } from '@/modules/custom-cakes/services/predesigned-cakes.service';
 import { SortBy } from '@/modules/sweet/dto';
 import { FlavorSortBy } from '@/modules/custom-cakes/dto';
-import { ShapeSortBy } from '@/modules/custom-cakes/dto';
+import { ShapeSortBy, ShapeDataDto } from '@/modules/custom-cakes/dto';
 import { DecorationSortBy } from '@/modules/custom-cakes/dto';
 
 interface RegionalProduct {
@@ -139,6 +139,14 @@ export class RegionService {
               .select()
               .from(regions)
               .orderBy(...orderByConditions);
+
+      // Ensure deterministic ordering by `order` field as a safety-net
+      // in case the DB ordering isn't applied for any reason.
+      allRegions.sort((a, b) => {
+        const ao = typeof a.order === 'number' ? a.order : Number(a.order) || 0;
+        const bo = typeof b.order === 'number' ? b.order : Number(b.order) || 0;
+        return ao - bo;
+      });
 
       this.logger.debug(`Retrieved ${allRegions.length} regions`);
 
@@ -597,11 +605,27 @@ export class RegionService {
                 order: 'desc',
               });
               if (shapesResponse.data) {
-                const shapeData = shapesResponse.data as unknown as {
-                  items: Record<string, unknown>[];
-                };
-                if ('items' in shapeData) {
-                  const shapeItems = shapeData.items;
+                const data = shapesResponse.data;
+                let shapeItems: ShapeDataDto[] = [];
+
+                // Service might return an array directly
+                if (Array.isArray(data)) {
+                  const candidate = data;
+                  shapeItems = candidate.filter(
+                    (d): d is ShapeDataDto => typeof d === 'object' && d !== null && 'id' in d,
+                  );
+                } else if (typeof data === 'object' && data !== null) {
+                  // Or a paginated object { items, pagination }
+                  const itemsCandidate = (data as { items?: unknown }).items;
+                  if (Array.isArray(itemsCandidate)) {
+                    const candidate = itemsCandidate;
+                    shapeItems = candidate.filter(
+                      (d): d is ShapeDataDto => typeof d === 'object' && d !== null && 'id' in d,
+                    );
+                  }
+                }
+
+                if (shapeItems.length > 0) {
                   products = shapeItems.map((shape) => ({
                     ...shape,
                     type: ProductTypeFilter.SHAPE,

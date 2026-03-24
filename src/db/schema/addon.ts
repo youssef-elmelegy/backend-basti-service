@@ -58,6 +58,7 @@ export const addonOptions = pgTable(
     value: varchar('value', { length: 100 }).notNull(), // The actual value
     imageUrl: text('image_url'), // Optional image for this option
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     addonIdIdx: index('addon_options_addon_id_idx').on(table.addonId),

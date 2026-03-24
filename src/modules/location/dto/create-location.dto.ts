@@ -6,7 +6,14 @@ import {
   MaxLength,
   IsLatitude,
   IsLongitude,
+  IsEnum,
 } from 'class-validator';
+
+export enum LocationType {
+  HOUSE = 'house',
+  APARTMENT = 'apartment',
+  OFFICE = 'office',
+}
 
 export class CreateLocationDto {
   @ApiProperty({
@@ -55,6 +62,68 @@ export class CreateLocationDto {
   @IsNotEmpty({ message: 'Street is required' })
   @MaxLength(255, { message: 'Street must be at most 255 characters' })
   street: string;
+
+  @ApiProperty({
+    description: 'Area name',
+    example: 'Maadi',
+    maxLength: 255,
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Area is required' })
+  @MaxLength(255, { message: 'Area must be at most 255 characters' })
+  area: string;
+
+  @ApiProperty({
+    description: 'Apartment number',
+    example: '5',
+    required: false,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50, { message: 'Apartment number must be at most 50 characters' })
+  apartmentNo?: string;
+
+  @ApiProperty({
+    description: 'Office number',
+    example: '12B',
+    required: false,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50, { message: 'Office number must be at most 50 characters' })
+  officeNo?: string;
+
+  @ApiProperty({
+    description: 'Floor',
+    example: '3',
+    required: false,
+    maxLength: 50,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50, { message: 'Floor must be at most 50 characters' })
+  floor?: string;
+
+  @ApiProperty({
+    description: 'Additional delivery information',
+    example: 'Near the main gate',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  additionalInfo?: string;
+
+  @ApiProperty({
+    description: 'Location type',
+    example: 'apartment',
+    enum: LocationType,
+  })
+  @IsString()
+  @IsNotEmpty({ message: 'Type is required' })
+  @IsEnum(LocationType)
+  type: LocationType;
 
   @ApiProperty({
     description: 'Additional description or delivery instructions',
