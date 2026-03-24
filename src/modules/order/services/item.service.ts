@@ -31,7 +31,6 @@ import {
   shapeVariantImages,
 } from '@/db/schema/';
 import { errorResponse } from '@/utils';
-import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ItemService {
@@ -723,9 +722,7 @@ export class ItemService {
   }
 
   getCustomCakeId(shapeId: string, flavorId: string, decorationId: string, hexColor: string) {
-    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = randomBytes(3).toString('hex').toUpperCase();
-    return `CUST-${datePart}-${shapeId || ''}-${flavorId || ''}-${decorationId || ''}-${hexColor || ''}-${rand}`;
+    return `CUST-${shapeId || ''}-${flavorId || ''}-${decorationId || ''}-${hexColor || ''}`;
   }
 
   private parsePrice(value?: string | null): number {

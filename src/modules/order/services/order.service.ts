@@ -275,6 +275,7 @@ export class OrderService {
       );
       for (const customCake of customCakesData) {
         const qnt = customCake.id ? (quantityCash[customCake.id] ?? 0) : 0;
+        console.log(customCake.id, qnt);
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
         totalCapacity += customCake.totalCapacity ?? 0;
         orderItemsDetails.push({
@@ -1215,7 +1216,7 @@ export class OrderService {
           price: parseFloat(item.price ?? '0'),
           id: item.id,
           orderId: item.orderId,
-          quantity: 0,
+          quantity: item.quantity ?? 0,
           size: item.size ?? '',
           flavor: item.flavor ?? '',
           selectedOptions: [],
@@ -1270,7 +1271,7 @@ export class OrderService {
           price: parseFloat(item.price ?? '0'),
           id: item.id,
           orderId: item.orderId,
-          quantity: 0,
+          quantity: item.quantity ?? 0,
           size: item.size ?? '',
           flavor: item.flavor ?? '',
           selectedOptions: [],
@@ -1297,7 +1298,7 @@ export class OrderService {
           price: parseFloat(item.price ?? '0'),
           id: item.id,
           orderId: item.orderId,
-          quantity: 0,
+          quantity: item.quantity ?? 0,
           size: item.size ?? '',
           flavor: item.flavor ?? '',
           selectedOptions: [],
@@ -1324,7 +1325,7 @@ export class OrderService {
           price: parseFloat(item.price ?? '0'),
           id: item.id,
           orderId: item.orderId,
-          quantity: 0,
+          quantity: item.quantity ?? 0,
           size: item.size ?? '',
           flavor: item.flavor ?? '',
           selectedOptions: item.selectedOptions || [],
@@ -1350,7 +1351,7 @@ export class OrderService {
           price: parseFloat(item.price ?? '0'),
           id: item.id,
           orderId: item.orderId,
-          quantity: 0,
+          quantity: item.quantity ?? 0,
           size: item.size ?? '',
           flavor: item.flavor ?? '',
           selectedOptions: [],
