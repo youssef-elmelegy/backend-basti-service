@@ -525,7 +525,7 @@ export class ItemService {
           .limit(predesignedCakeIds.length);
 
         for (const predesignedCake of predesignedCakeData) {
-          const configs = await this.getConfigsData(predesignedCake.id, regionId);
+          const configs = await this.getConfigsData(predesignedCake.id);
           const totalCapacity = this.getTotalCapacity(configs);
           const totalPrice = await this.getConfigsPrice(predesignedCake.id, regionId);
           res.push({
