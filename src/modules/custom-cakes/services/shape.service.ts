@@ -114,6 +114,19 @@ export class ShapeService {
 
       // Filter by regionId
       if (query.regionId) {
+        // Validate region exists
+        const regionExists = await db
+          .select({ id: regions.id })
+          .from(regions)
+          .where(eq(regions.id, query.regionId))
+          .limit(1);
+
+        if (!regionExists.length) {
+          throw new BadRequestException(
+            errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          );
+        }
+
         const joinConditions = [
           eq(regionItemPrices.shapeId, shapes.id),
           eq(regionItemPrices.regionId, query.regionId),
