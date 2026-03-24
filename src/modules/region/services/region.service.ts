@@ -140,6 +140,14 @@ export class RegionService {
               .from(regions)
               .orderBy(...orderByConditions);
 
+      // Ensure deterministic ordering by `order` field as a safety-net
+      // in case the DB ordering isn't applied for any reason.
+      allRegions.sort((a, b) => {
+        const ao = typeof a.order === 'number' ? a.order : Number(a.order) || 0;
+        const bo = typeof b.order === 'number' ? b.order : Number(b.order) || 0;
+        return ao - bo;
+      });
+
       this.logger.debug(`Retrieved ${allRegions.length} regions`);
 
       return successResponse(
