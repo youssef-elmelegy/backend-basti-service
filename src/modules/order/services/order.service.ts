@@ -181,7 +181,7 @@ export class OrderService {
         quantityCash[item?.addonId] = item.quantity;
       });
       const addonsData = await this.itemService.getAddons(
-        addonsItems.map((item) => item.addonId),
+        addonsItems.map((item) => ({ id: item.addonId, option: item.addonOption })),
         regionId,
       );
       for (const addon of addonsData) {

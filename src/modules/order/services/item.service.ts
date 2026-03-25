@@ -36,12 +36,12 @@ import { errorResponse } from '@/utils';
 export class ItemService {
   private readonly logger = new Logger(ItemService.name);
 
-  async getAddonOptions(addonId: string): Promise<AddonOptionData[]> {
+  async getAddonOptions(addonId: string, addonOptionId: string): Promise<AddonOptionData[]> {
     try {
       const optionsData = await db
         .select()
         .from(addonOptions)
-        .where(eq(addonOptions.addonId, addonId));
+        .where(and(eq(addonOptions.addonId, addonId), eq(addonOptions.id, addonOptionId)));
 
       return optionsData.map((option) => ({
         id: option.id,
@@ -66,9 +66,13 @@ export class ItemService {
     }
   }
 
-  async getAddons(addonIds: string[], regionId?: string): Promise<AddonData[]> {
+  async getAddons(
+    addonIds: { id: string; option?: string }[],
+    regionId?: string,
+  ): Promise<AddonData[]> {
     try {
       const res: AddonData[] = [];
+      const selectedOptionByAddonId = new Map(addonIds.map((addon) => [addon.id, addon.option]));
 
       if (!addonIds.length) {
         return res;
@@ -88,17 +92,29 @@ export class ItemService {
             and(eq(regionItemPrices.addonId, addons.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .where(and(eq(addons.isActive, true), inArray(addons.id, addonIds)))
+          .where(
+            and(
+              eq(addons.isActive, true),
+              inArray(
+                addons.id,
+                addonIds.map((addon) => addon.id),
+              ),
+            ),
+          )
           .limit(addonIds.length);
 
         for (const addon of addonsData) {
-          const option = await this.getAddonOptions(addon.id);
+          const selectedOptionId = selectedOptionByAddonId.get(addon.id);
+          const options = selectedOptionId
+            ? await this.getAddonOptions(addon.id, selectedOptionId)
+            : [];
+
           res.push({
             ...addon,
             description: addon.description ?? '',
             tagId: addon.tagId ?? '',
             tagName: addon.tagName ?? '',
-            options: option,
+            options,
             price: addon.price,
             sizesPrices: addon.sizesPrices ?? undefined,
           });
@@ -111,17 +127,29 @@ export class ItemService {
           })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .where(and(eq(addons.isActive, true), inArray(addons.id, addonIds)))
+          .where(
+            and(
+              eq(addons.isActive, true),
+              inArray(
+                addons.id,
+                addonIds.map((addon) => addon.id),
+              ),
+            ),
+          )
           .limit(addonIds.length);
 
         for (const addon of addonsData) {
-          const option = await this.getAddonOptions(addon.id);
+          const selectedOptionId = selectedOptionByAddonId.get(addon.id);
+          const options = selectedOptionId
+            ? await this.getAddonOptions(addon.id, selectedOptionId)
+            : [];
+
           res.push({
             ...addon,
             description: addon.description ?? '',
             tagId: addon.tagId ?? '',
             tagName: addon.tagName ?? '',
-            options: option,
+            options,
           });
         }
       }
