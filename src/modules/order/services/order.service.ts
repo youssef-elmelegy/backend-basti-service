@@ -28,6 +28,7 @@ import {
   bakeries,
   users,
   regions,
+  regionItemPrices,
 } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
@@ -36,6 +37,7 @@ import { randomBytes } from 'crypto';
 import { CartService } from '@/modules/cart/services/cart.service';
 import { ConfigService } from '@/modules/config/services/config.service';
 import { ItemService } from '@/modules/order/services/item.service';
+import { StockService } from '@/modules/order/services/stock.service';
 
 /* eslint-disable */
 @Injectable()
@@ -44,6 +46,7 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly configService: ConfigService,
     private readonly itemService: ItemService,
+    private readonly stockService: StockService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
@@ -830,6 +833,167 @@ export class OrderService {
     }
   }
 
+  // async assignToBakery(
+  //   orderId: string,
+  //   { bakeryId }: AssignBakeryDto,
+  // ): Promise<AssignBakeryResponseDto> {
+  //   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+  //   if (!order) {
+  //     this.logger.warn(`Order with id: ${orderId} not found`);
+  //     throw new NotFoundException(
+  //       errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+  //     );
+  //   }
+
+  //   if (order.orderStatus !== 'pending') {
+  //     this.logger.warn(
+  //       `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+  //     );
+  //     throw new BadRequestException(
+  //       errorResponse(
+  //         `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+  //         HttpStatus.BAD_REQUEST,
+  //         'BadRequestException',
+  //       ),
+  //     );
+  //   }
+
+  //   const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+
+  //   if (!bakery) {
+  //     this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+  //     throw new NotFoundException(
+  //       errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+  //     );
+  //   }
+
+  //   try {
+  //     const [updatedOrder] = await db
+  //       .update(orders)
+  //       .set({
+  //         bakeryId: bakeryId,
+  //         assigningDate: new Date(),
+  //       })
+  //       .where(eq(orders.id, orderId))
+  //       .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+  //     this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
+  //     return {
+  //       id: updatedOrder.id,
+  //       bakeryId: updatedOrder.bakeryId || '',
+  //     };
+  //   } catch (error) {
+  //     this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}:`, error);
+  //     throw new InternalServerErrorException(
+  //       errorResponse(
+  //         'Failed to assign order to bakery',
+  //         HttpStatus.INTERNAL_SERVER_ERROR,
+  //         'InternalServerError',
+  //       ),
+  //     );
+  //   }
+  // }
+
+  // async unassignFromBakery(
+  //   orderId: string,
+  //   reason?: string,
+  // ): Promise<{ id: string; bakeryId: string }> {
+  //   const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+  //   if (!order) {
+  //     this.logger.warn(`Order with id: ${orderId} not found`);
+  //     throw new NotFoundException(
+  //       errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+  //     );
+  //   }
+
+  //   if (!order.bakeryId) {
+  //     this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
+  //     throw new BadRequestException(
+  //       errorResponse(
+  //         `Order with id: ${orderId} is not assigned to a bakery`,
+  //         HttpStatus.BAD_REQUEST,
+  //         'BadRequestException',
+  //       ),
+  //     );
+  //   }
+
+  //   if (order.orderStatus !== 'pending') {
+  //     this.logger.warn(
+  //       `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+  //     );
+  //     throw new BadRequestException(
+  //       errorResponse(
+  //         `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+  //         HttpStatus.BAD_REQUEST,
+  //         'BadRequestException',
+  //       ),
+  //     );
+  //   }
+
+  //   if (!order.assigningDate || !order.bakeryId) {
+  //     this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
+  //     throw new BadRequestException(
+  //       errorResponse(
+  //         `Order with id: ${orderId} is not assigned to a bakery`,
+  //         HttpStatus.BAD_REQUEST,
+  //         'BadRequestException',
+  //       ),
+  //     );
+  //   }
+
+  //   if (
+  //     order.assigningDate &&
+  //     new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+  //   ) {
+  //     this.logger.warn(
+  //       `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
+  //     );
+  //     throw new BadRequestException(
+  //       errorResponse(
+  //         `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
+  //         HttpStatus.BAD_REQUEST,
+  //         'BadRequestException',
+  //       ),
+  //     );
+  //   }
+
+  //   // Log the reason if provided
+  //   if (reason) {
+  //     this.logger.log(`Unassigning order ${orderId} from bakery. Reason: ${reason}`);
+  //   } else {
+  //     this.logger.log(`Unassigning order ${orderId} from bakery`);
+  //   }
+
+  //   try {
+  //     const [updatedOrder] = await db
+  //       .update(orders)
+  //       .set({
+  //         bakeryId: null,
+  //         assigningDate: null,
+  //         orderStatus: 'pending',
+  //       })
+  //       .where(eq(orders.id, orderId))
+  //       .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+  //     this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
+  //     return {
+  //       id: updatedOrder.id,
+  //       bakeryId: updatedOrder.bakeryId || '',
+  //     };
+  //   } catch (error) {
+  //     this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
+  //     throw new InternalServerErrorException(
+  //       errorResponse(
+  //         'Failed to unassign order from bakery',
+  //         HttpStatus.INTERNAL_SERVER_ERROR,
+  //         'InternalServerError',
+  //       ),
+  //     );
+  //   }
+  // }
+
   async assignToBakery(
     orderId: string,
     { bakeryId }: AssignBakeryDto,
@@ -874,6 +1038,28 @@ export class OrderService {
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
+      for (const item of items) {
+        if (item.addonId || item.sweetId || item.featuredCakeId) {
+          const regionItemCondition = item.addonId
+            ? eq(regionItemPrices.addonId, item.addonId)
+            : item.sweetId
+              ? eq(regionItemPrices.sweetId, item.sweetId)
+              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+          const [regionItem] = await db
+            .select()
+            .from(regionItemPrices)
+            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
+            .limit(1);
+
+          if (regionItem) {
+            await this.stockService.decrementStock(bakeryId, regionItem.id, item.quantity);
+          }
+        }
+      }
 
       this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
       return {
@@ -964,6 +1150,7 @@ export class OrderService {
     }
 
     try {
+      const bakeryIdToUnassign = order.bakeryId;
       const [updatedOrder] = await db
         .update(orders)
         .set({
@@ -973,6 +1160,32 @@ export class OrderService {
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
+      for (const item of items) {
+        if (item.addonId || item.sweetId || item.featuredCakeId) {
+          const regionItemCondition = item.addonId
+            ? eq(regionItemPrices.addonId, item.addonId)
+            : item.sweetId
+              ? eq(regionItemPrices.sweetId, item.sweetId)
+              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+          const [regionItem] = await db
+            .select()
+            .from(regionItemPrices)
+            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
+            .limit(1);
+
+          if (regionItem) {
+            await this.stockService.incrementStock(
+              bakeryIdToUnassign,
+              regionItem.id,
+              item.quantity,
+            );
+          }
+        }
+      }
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
       return {
