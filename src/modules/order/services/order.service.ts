@@ -30,7 +30,7 @@ import {
   regions,
   regionItemPrices,
 } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 
@@ -537,6 +537,17 @@ export class OrderService {
         allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
+      const orderIds = allOrders
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const allOrderItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+
+      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
+
       // Process all orders concurrently with per-order fallback
       const response = await Promise.all(
         allOrders.map(async (order): Promise<OrderResponseDto> => {
@@ -545,26 +556,18 @@ export class OrderService {
               throw new Error('Order id is missing');
             }
 
-            return await this.getOrderById(order.id!, regionId ?? order.regionId);
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              regionId ?? order.regionId,
+            );
+
+            return this.buildOrderResponse(order, formattedItems);
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
 
-            return {
-              addons: [],
-              sweets: [],
-              featuredCakes: [],
-              predesignedCakes: [],
-              customCakes: [],
-              ...order,
-              bakeryId: order.bakeryId || undefined,
-              totalCapacity: order.totalCapacity || 0,
-              deliveryNote: order.deliveryNote || '',
-              totalPrice: parseFloat(order.totalPrice),
-              discountAmount: parseFloat(order.discountAmount),
-              finalPrice: parseFloat(order.finalPrice),
-            };
+            return this.buildBasicOrderResponse(order);
           }
         }),
       );
@@ -612,6 +615,17 @@ export class OrderService {
         bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
       }
 
+      const orderIds = bakeryOrders
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const allOrderItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+
+      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
+
       // Process all bakery orders concurrently with per-order fallback
       const response = await Promise.all(
         bakeryOrders.map(async (order): Promise<OrderResponseDto> => {
@@ -620,7 +634,12 @@ export class OrderService {
               throw new Error('Order id is missing');
             }
 
-            return await this.getOrderById(order.id!, regionId ?? order.regionId);
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              regionId ?? order.regionId,
+            );
+
+            return this.buildOrderResponse(order, formattedItems);
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
@@ -628,20 +647,7 @@ export class OrderService {
 
             await this.confirmAssignedOrder(order);
 
-            return {
-              addons: [],
-              sweets: [],
-              featuredCakes: [],
-              predesignedCakes: [],
-              customCakes: [],
-              ...order,
-              bakeryId: order.bakeryId || undefined,
-              totalCapacity: order.totalCapacity || 0,
-              deliveryNote: order.deliveryNote || '',
-              totalPrice: parseFloat(order.totalPrice),
-              discountAmount: parseFloat(order.discountAmount),
-              finalPrice: parseFloat(order.finalPrice),
-            };
+            return this.buildBasicOrderResponse(order);
           }
         }),
       );
@@ -1232,6 +1238,61 @@ export class OrderService {
         error instanceof Error ? error.stack : '',
       );
     }
+  }
+
+  private groupOrderItemsByOrderId(
+    items: (typeof orderItems.$inferSelect)[],
+  ): Record<string, (typeof orderItems.$inferSelect)[]> {
+    return items.reduce<Record<string, (typeof orderItems.$inferSelect)[]>>((acc, item) => {
+      if (!acc[item.orderId]) {
+        acc[item.orderId] = [];
+      }
+      acc[item.orderId].push(item);
+      return acc;
+    }, {});
+  }
+
+  private buildBasicOrderResponse(order: typeof orders.$inferSelect): OrderResponseDto {
+    return {
+      addons: [],
+      sweets: [],
+      featuredCakes: [],
+      predesignedCakes: [],
+      customCakes: [],
+      ...order,
+      bakeryId: order.bakeryId || undefined,
+      totalCapacity: order.totalCapacity || 0,
+      deliveryNote: order.deliveryNote || '',
+      totalPrice: parseFloat(order.totalPrice),
+      discountAmount: parseFloat(order.discountAmount),
+      finalPrice: parseFloat(order.finalPrice),
+    };
+  }
+
+  private buildOrderResponse(
+    order: typeof orders.$inferSelect,
+    formattedItems: {
+      customCakeItems: OrderResponseDto['customCakes'];
+      predesignedCakeItems: OrderResponseDto['predesignedCakes'];
+      featuredCakeItems: OrderResponseDto['featuredCakes'];
+      addonItems: OrderResponseDto['addons'];
+      sweetItems: OrderResponseDto['sweets'];
+    },
+  ): OrderResponseDto {
+    return {
+      addons: formattedItems.addonItems,
+      sweets: formattedItems.sweetItems,
+      featuredCakes: formattedItems.featuredCakeItems,
+      predesignedCakes: formattedItems.predesignedCakeItems,
+      customCakes: formattedItems.customCakeItems,
+      ...order,
+      bakeryId: order.bakeryId || undefined,
+      totalCapacity: order.totalCapacity || 0,
+      deliveryNote: order.deliveryNote || '',
+      totalPrice: parseFloat(order.totalPrice),
+      discountAmount: parseFloat(order.discountAmount),
+      finalPrice: parseFloat(order.finalPrice),
+    };
   }
 
   private async formatOrderItemsResponse(
