@@ -28,14 +28,16 @@ import {
   bakeries,
   users,
   regions,
+  regionItemPrices,
 } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 
 import { CartService } from '@/modules/cart/services/cart.service';
 import { ConfigService } from '@/modules/config/services/config.service';
 import { ItemService } from '@/modules/order/services/item.service';
+import { StockService } from '@/modules/order/services/stock.service';
 
 /* eslint-disable */
 @Injectable()
@@ -44,6 +46,7 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly configService: ConfigService,
     private readonly itemService: ItemService,
+    private readonly stockService: StockService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
@@ -534,6 +537,17 @@ export class OrderService {
         allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
+      const orderIds = allOrders
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const allOrderItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+
+      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
+
       // Process all orders concurrently with per-order fallback
       const response = await Promise.all(
         allOrders.map(async (order): Promise<OrderResponseDto> => {
@@ -542,26 +556,18 @@ export class OrderService {
               throw new Error('Order id is missing');
             }
 
-            return await this.getOrderById(order.id!, regionId ?? order.regionId);
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              regionId ?? order.regionId,
+            );
+
+            return this.buildOrderResponse(order, formattedItems);
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
 
-            return {
-              addons: [],
-              sweets: [],
-              featuredCakes: [],
-              predesignedCakes: [],
-              customCakes: [],
-              ...order,
-              bakeryId: order.bakeryId || undefined,
-              totalCapacity: order.totalCapacity || 0,
-              deliveryNote: order.deliveryNote || '',
-              totalPrice: parseFloat(order.totalPrice),
-              discountAmount: parseFloat(order.discountAmount),
-              finalPrice: parseFloat(order.finalPrice),
-            };
+            return this.buildBasicOrderResponse(order);
           }
         }),
       );
@@ -609,6 +615,17 @@ export class OrderService {
         bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
       }
 
+      const orderIds = bakeryOrders
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const allOrderItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+
+      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
+
       // Process all bakery orders concurrently with per-order fallback
       const response = await Promise.all(
         bakeryOrders.map(async (order): Promise<OrderResponseDto> => {
@@ -617,7 +634,12 @@ export class OrderService {
               throw new Error('Order id is missing');
             }
 
-            return await this.getOrderById(order.id!, regionId ?? order.regionId);
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              regionId ?? order.regionId,
+            );
+
+            return this.buildOrderResponse(order, formattedItems);
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
@@ -625,20 +647,7 @@ export class OrderService {
 
             await this.confirmAssignedOrder(order);
 
-            return {
-              addons: [],
-              sweets: [],
-              featuredCakes: [],
-              predesignedCakes: [],
-              customCakes: [],
-              ...order,
-              bakeryId: order.bakeryId || undefined,
-              totalCapacity: order.totalCapacity || 0,
-              deliveryNote: order.deliveryNote || '',
-              totalPrice: parseFloat(order.totalPrice),
-              discountAmount: parseFloat(order.discountAmount),
-              finalPrice: parseFloat(order.finalPrice),
-            };
+            return this.buildBasicOrderResponse(order);
           }
         }),
       );
@@ -865,6 +874,19 @@ export class OrderService {
       );
     }
 
+    if (bakery.regionId !== order.regionId) {
+      this.logger.warn(
+        `Bakery with id: ${bakeryId} does not belong to the same region as the order`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Bakery with id: ${bakeryId} does not belong to the same region as the order`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
     try {
       const [updatedOrder] = await db
         .update(orders)
@@ -874,6 +896,33 @@ export class OrderService {
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
+      for (const item of items) {
+        if (item.addonId || item.sweetId || item.featuredCakeId) {
+          const regionItemCondition = item.addonId
+            ? eq(regionItemPrices.addonId, item.addonId)
+            : item.sweetId
+              ? eq(regionItemPrices.sweetId, item.sweetId)
+              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+          const [regionItem] = await db
+            .select()
+            .from(regionItemPrices)
+            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
+            .limit(1);
+
+          if (regionItem) {
+            await this.stockService.decrementStock(
+              bakeryId,
+              regionItem.id,
+              item.quantity,
+              item.selectedOptions && item.selectedOptions[0].optionId,
+            );
+          }
+        }
+      }
 
       this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
       return {
@@ -964,6 +1013,7 @@ export class OrderService {
     }
 
     try {
+      const bakeryIdToUnassign = order.bakeryId;
       const [updatedOrder] = await db
         .update(orders)
         .set({
@@ -973,6 +1023,33 @@ export class OrderService {
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
+      for (const item of items) {
+        if (item.addonId || item.sweetId || item.featuredCakeId) {
+          const regionItemCondition = item.addonId
+            ? eq(regionItemPrices.addonId, item.addonId)
+            : item.sweetId
+              ? eq(regionItemPrices.sweetId, item.sweetId)
+              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+          const [regionItem] = await db
+            .select()
+            .from(regionItemPrices)
+            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
+            .limit(1);
+
+          if (regionItem) {
+            await this.stockService.incrementStock(
+              bakeryIdToUnassign,
+              regionItem.id,
+              item.quantity,
+              item.selectedOptions && item.selectedOptions[0].optionId,
+            );
+          }
+        }
+      }
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
       return {
@@ -1161,6 +1238,61 @@ export class OrderService {
         error instanceof Error ? error.stack : '',
       );
     }
+  }
+
+  private groupOrderItemsByOrderId(
+    items: (typeof orderItems.$inferSelect)[],
+  ): Record<string, (typeof orderItems.$inferSelect)[]> {
+    return items.reduce<Record<string, (typeof orderItems.$inferSelect)[]>>((acc, item) => {
+      if (!acc[item.orderId]) {
+        acc[item.orderId] = [];
+      }
+      acc[item.orderId].push(item);
+      return acc;
+    }, {});
+  }
+
+  private buildBasicOrderResponse(order: typeof orders.$inferSelect): OrderResponseDto {
+    return {
+      addons: [],
+      sweets: [],
+      featuredCakes: [],
+      predesignedCakes: [],
+      customCakes: [],
+      ...order,
+      bakeryId: order.bakeryId || undefined,
+      totalCapacity: order.totalCapacity || 0,
+      deliveryNote: order.deliveryNote || '',
+      totalPrice: parseFloat(order.totalPrice),
+      discountAmount: parseFloat(order.discountAmount),
+      finalPrice: parseFloat(order.finalPrice),
+    };
+  }
+
+  private buildOrderResponse(
+    order: typeof orders.$inferSelect,
+    formattedItems: {
+      customCakeItems: OrderResponseDto['customCakes'];
+      predesignedCakeItems: OrderResponseDto['predesignedCakes'];
+      featuredCakeItems: OrderResponseDto['featuredCakes'];
+      addonItems: OrderResponseDto['addons'];
+      sweetItems: OrderResponseDto['sweets'];
+    },
+  ): OrderResponseDto {
+    return {
+      addons: formattedItems.addonItems,
+      sweets: formattedItems.sweetItems,
+      featuredCakes: formattedItems.featuredCakeItems,
+      predesignedCakes: formattedItems.predesignedCakeItems,
+      customCakes: formattedItems.customCakeItems,
+      ...order,
+      bakeryId: order.bakeryId || undefined,
+      totalCapacity: order.totalCapacity || 0,
+      deliveryNote: order.deliveryNote || '',
+      totalPrice: parseFloat(order.totalPrice),
+      discountAmount: parseFloat(order.discountAmount),
+      finalPrice: parseFloat(order.finalPrice),
+    };
   }
 
   private async formatOrderItemsResponse(

@@ -9,7 +9,7 @@ export function GetBakeryItemStoresDecorator() {
     ApiOperation({
       summary: 'Get all item stores for a bakery',
       description:
-        'Retrieve all items and their stock levels for a specific bakery with pricing information',
+        'Retrieve all items and their stock levels (including option-specific stock) for a specific bakery with pricing information',
     }),
     ApiParam({
       name: 'bakeryId',
