@@ -13,11 +13,48 @@ export class OptionsStockDto {
 
   @ApiProperty({
     description: 'Stock quantity for the specific product option',
-    example: '5',
+    example: 5,
   })
   @IsNumber()
   @Min(0)
   stock!: number;
+
+  @ApiProperty({
+    description: 'Label or display name of the option',
+    example: 'Red',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  label?: string;
+
+  @ApiProperty({
+    description: 'Value of the option',
+    example: '#FF0000',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  value?: string;
+
+  @ApiProperty({
+    description: 'Type of the option (color, number, letter, text)',
+    example: 'color',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  type?: string;
+
+  @ApiProperty({
+    description: 'Image URL for the option',
+    example: 'https://example.com/red.jpg',
+    required: false,
+    nullable: true,
+  })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string | null;
 }
 
 export class UpdateBakeryItemStockDto {
@@ -47,7 +84,7 @@ export class UpdateBakeryItemStockDto {
   @Type(() => OptionsStockDto)
   @IsArray()
   @IsOptional()
-  options!: OptionsStockDto[];
+  optionsStock?: OptionsStockDto[];
 }
 
 export interface ProductInfo {

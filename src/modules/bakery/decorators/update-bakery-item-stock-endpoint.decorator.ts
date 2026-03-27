@@ -8,7 +8,8 @@ export function UpdateBakeryItemStockDecorator() {
   return applyDecorators(
     ApiOperation({
       summary: 'Update stock for a bakery item',
-      description: 'Update the stock quantity for a specific item in a bakery store',
+      description:
+        'Update the stock quantity for a specific item in a bakery store. Optionally update stock for specific product options (e.g., different sizes). When optionsStock is provided, the total stock is calculated as the sum of all option stocks.',
     }),
     ApiParam({
       name: 'bakeryId',
@@ -24,7 +25,7 @@ export function UpdateBakeryItemStockDecorator() {
     }),
     ApiBody({
       type: UpdateBakeryItemStockDto,
-      description: 'Stock update data',
+      description: 'Stock update data including optional per-option stock quantities',
       examples: {
         success: {
           summary: 'Valid stock update',
@@ -40,7 +41,7 @@ export function UpdateBakeryItemStockDecorator() {
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
-      description: 'Invalid stock value (cannot be negative)',
+      description: 'Invalid stock value (cannot be negative) or invalid option stock',
       type: ErrorResponseDto,
     }),
     ApiResponse({

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MOCK_DATA } from '@/constants/global.constants';
+import { OptionsStockDto } from './bakery-item-store.dto';
 
 export class BakeryRegionDto {
   @ApiProperty({ example: MOCK_DATA.id.region })
@@ -87,6 +88,30 @@ export class BakeryItemStoreDataDto {
 
   @ApiProperty({ example: 50 })
   stock: number;
+
+  @ApiProperty({
+    type: [OptionsStockDto],
+    nullable: true,
+    example: [
+      {
+        optionId: '550e8400-e29b-41d4-a716-446655440004',
+        stock: 10,
+        label: 'Red',
+        value: '#FF0000',
+        type: 'color',
+        imageUrl: 'https://example.com/red.jpg',
+      },
+      {
+        optionId: '550e8400-e29b-41d4-a716-446655440005',
+        stock: 15,
+        label: 'Blue',
+        value: '#0000FF',
+        type: 'color',
+        imageUrl: 'https://example.com/blue.jpg',
+      },
+    ],
+  })
+  optionsStock?: OptionsStockDto[];
 
   @ApiProperty({ example: '150.00' })
   price: string;

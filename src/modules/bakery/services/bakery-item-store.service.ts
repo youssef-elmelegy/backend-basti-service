@@ -12,6 +12,7 @@ import {
   bakeries,
   regionItemPrices,
   addons,
+  addonOptions,
   sweets,
   featuredCakes,
 } from '@/db/schema';
@@ -154,6 +155,7 @@ export class BakeryItemStoreService {
       const enrichedStores = await Promise.all(
         stores.map(async (store) => {
           let product = null;
+          let finalOptionsStock = store.optionsStock || [];
 
           // Fetch product based on type
           if (store.addonId) {
@@ -168,6 +170,35 @@ export class BakeryItemStoreService {
               .where(eq(addons.id, store.addonId))
               .limit(1);
             product = addonData ? { ...addonData, type: 'addon' } : null;
+
+            // Fetch all addon options with their details
+            const allOptions = await db
+              .select({
+                id: addonOptions.id,
+                label: addonOptions.label,
+                value: addonOptions.value,
+                type: addonOptions.type,
+                imageUrl: addonOptions.imageUrl,
+              })
+              .from(addonOptions)
+              .where(eq(addonOptions.addonId, store.addonId));
+
+            // Merge options with stored stock or create placeholders with 0 stock
+            if (allOptions.length > 0) {
+              finalOptionsStock = allOptions.map((option) => {
+                const storedStock = (store.optionsStock || []).find(
+                  (os) => os.optionId === option.id,
+                );
+                return {
+                  optionId: option.id,
+                  label: option.label,
+                  value: option.value,
+                  type: option.type,
+                  imageUrl: option.imageUrl,
+                  stock: storedStock?.stock ?? 0,
+                };
+              });
+            }
           } else if (store.sweetId) {
             const [sweetData] = await db
               .select({
@@ -196,6 +227,7 @@ export class BakeryItemStoreService {
 
           return {
             ...store,
+            optionsStock: finalOptionsStock,
             product,
           };
         }),
@@ -255,21 +287,23 @@ export class BakeryItemStoreService {
       }
 
       // Validate each stock option is non-negative
-      for (const option of optionsStock || []) {
-        if (option.stock < 0) {
-          throw new BadRequestException(
-            errorResponse(
-              'Option stock cannot be negative',
-              HttpStatus.BAD_REQUEST,
-              'BadRequestException',
-            ),
-          );
+      if (optionsStock) {
+        for (const option of optionsStock) {
+          if (option.stock < 0) {
+            throw new BadRequestException(
+              errorResponse(
+                'Option stock cannot be negative',
+                HttpStatus.BAD_REQUEST,
+                'BadRequestException',
+              ),
+            );
+          }
         }
       }
 
       let reCalculatedStock = stock;
 
-      if (optionsStock) {
+      if (optionsStock && optionsStock.length > 0) {
         reCalculatedStock = optionsStock.reduce((acc, option) => acc + option.stock, 0);
       }
 
@@ -277,7 +311,7 @@ export class BakeryItemStoreService {
         .update(bakeryItemStores)
         .set({
           stock: reCalculatedStock,
-          optionsStock: optionsStock,
+          optionsStock: optionsStock || [],
           updatedAt: new Date(),
         })
         .where(eq(bakeryItemStores.id, storeId))
