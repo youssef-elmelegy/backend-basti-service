@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { bakeries, regionItemPrices } from '.';
 
@@ -15,6 +15,14 @@ export const bakeryItemStores = pgTable(
       .notNull()
       .references(() => regionItemPrices.id, { onDelete: 'cascade' }),
     stock: integer('stock').notNull().default(0),
+
+    optionsStock: jsonb('options').$type<
+      {
+        optionId: string;
+        stock: number;
+      }[]
+    >(),
+
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

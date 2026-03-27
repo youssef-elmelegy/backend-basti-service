@@ -1,9 +1,53 @@
-import { IsNumber, Min } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsArray, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
-export class UpdateBakeryItemStockDto {
+export class OptionsStockDto {
+  @ApiProperty({
+    description: 'ID of the product option',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  @IsString()
+  @IsUUID()
+  optionId!: string;
+
+  @ApiProperty({
+    description: 'Stock quantity for the specific product option',
+    example: '5',
+  })
   @IsNumber()
   @Min(0)
-  stock: number;
+  stock!: number;
+}
+
+export class UpdateBakeryItemStockDto {
+  @ApiProperty({
+    description: 'Stock quantity for the product',
+    example: '5',
+  })
+  @IsNumber()
+  @Min(0)
+  stock!: number;
+
+  @ApiProperty({
+    description: 'Product options to update stock for',
+    type: [OptionsStockDto],
+    required: false,
+    example: [
+      {
+        optionId: '550e8400-e29b-41d4-a716-446655440001',
+        stock: 5,
+      },
+      {
+        optionId: '550e8400-e29b-41d4-a716-446655440002',
+        stock: 10,
+      },
+    ],
+  })
+  @Type(() => OptionsStockDto)
+  @IsArray()
+  @IsOptional()
+  options!: OptionsStockDto[];
 }
 
 export interface ProductInfo {
@@ -19,6 +63,7 @@ export interface BakeryItemStoreDetailsDto {
   bakeryId: string;
   regionItemPriceId: string;
   stock: number;
+  optionsStock?: OptionsStockDto[];
   price: string;
   sizesPrices?: Record<string, string>;
   addonId?: string;

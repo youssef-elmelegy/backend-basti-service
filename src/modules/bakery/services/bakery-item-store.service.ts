@@ -17,18 +17,21 @@ import {
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { OptionsStockDto } from '../dto';
 
 export interface BakeryItemStoreResponse {
   id: string;
   bakeryId: string;
   regionItemPriceId: string;
   stock: number;
+  optionsStock: OptionsStockDto[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface UpdateStockDto {
   stock: number;
+  optionsStock?: OptionsStockDto[];
 }
 
 @Injectable()
@@ -56,6 +59,7 @@ export class BakeryItemStoreService {
         bakeryId: bakery.id,
         regionItemPriceId: regionItemPriceId,
         stock: 0,
+        optionsStock: [],
       }));
 
       const createdStores = await db.insert(bakeryItemStores).values(storeRecords).returning();
@@ -129,6 +133,7 @@ export class BakeryItemStoreService {
           bakeryId: bakeryItemStores.bakeryId,
           regionItemPriceId: bakeryItemStores.regionItemPriceId,
           stock: bakeryItemStores.stock,
+          optionsStock: bakeryItemStores.optionsStock,
           createdAt: bakeryItemStores.createdAt,
           updatedAt: bakeryItemStores.updatedAt,
           price: regionItemPrices.price,
@@ -227,7 +232,7 @@ export class BakeryItemStoreService {
     updateStockDto: UpdateStockDto,
   ): Promise<SuccessResponse<BakeryItemStoreResponse>> {
     try {
-      const { stock } = updateStockDto;
+      const { stock, optionsStock } = updateStockDto;
 
       // Validate store exists
       const [storeExists] = await db
@@ -249,10 +254,30 @@ export class BakeryItemStoreService {
         );
       }
 
+      // Validate each stock option is non-negative
+      for (const option of optionsStock || []) {
+        if (option.stock < 0) {
+          throw new BadRequestException(
+            errorResponse(
+              'Option stock cannot be negative',
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
+          );
+        }
+      }
+
+      let reCalculatedStock = stock;
+
+      if (optionsStock) {
+        reCalculatedStock = optionsStock.reduce((acc, option) => acc + option.stock, 0);
+      }
+
       const [updated] = await db
         .update(bakeryItemStores)
         .set({
-          stock,
+          stock: reCalculatedStock,
+          optionsStock: optionsStock,
           updatedAt: new Date(),
         })
         .where(eq(bakeryItemStores.id, storeId))
@@ -266,6 +291,7 @@ export class BakeryItemStoreService {
           bakeryId: updated.bakeryId,
           regionItemPriceId: updated.regionItemPriceId,
           stock: updated.stock,
+          optionsStock: updated.optionsStock || [],
           createdAt: updated.createdAt,
           updatedAt: updated.updatedAt,
         },

@@ -908,7 +908,12 @@ export class OrderService {
             .limit(1);
 
           if (regionItem) {
-            await this.stockService.decrementStock(bakeryId, regionItem.id, item.quantity);
+            await this.stockService.decrementStock(
+              bakeryId,
+              regionItem.id,
+              item.quantity,
+              item.selectedOptions && item.selectedOptions[0].optionId,
+            );
           }
         }
       }
@@ -1034,6 +1039,7 @@ export class OrderService {
               bakeryIdToUnassign,
               regionItem.id,
               item.quantity,
+              item.selectedOptions && item.selectedOptions[0].optionId,
             );
           }
         }
