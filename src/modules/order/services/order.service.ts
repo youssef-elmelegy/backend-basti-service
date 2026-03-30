@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Logger,
   NotFoundException,
+  HttpException,
 } from '@nestjs/common';
 import {
   CreateOrderDto,
@@ -79,6 +80,13 @@ export class OrderService {
       let cart: (typeof cartItems.$inferSelect)[] = [];
 
       const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+
+      if (!region) {
+        this.logger.warn(`Region with id ${regionId} not found`);
+        throw new BadRequestException(
+          errorResponse('Invalid region ID', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        );
+      }
 
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
@@ -443,7 +451,7 @@ export class OrderService {
 
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to place the order',
+          `Failed to place the order: ${errMsg}`,
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -465,7 +473,11 @@ export class OrderService {
 
       this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
       return response;
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(`Failed to retrieve orders for user ${userId}`);
       throw new InternalServerErrorException(
         errorResponse(
@@ -514,6 +526,10 @@ export class OrderService {
         finalPrice: parseFloat(order.finalPrice),
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(
         `Failed to retrieve order ${orderId} for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : '',
@@ -707,6 +723,10 @@ export class OrderService {
         finalPrice: parseFloat(order.finalPrice),
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(
         `Failed to retrieve order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : '',
@@ -799,7 +819,11 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} refused (cancelled) successfully`);
       return updatedOrder;
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(`Failed to refuse order ${orderId}`);
       throw new InternalServerErrorException(
         errorResponse(
@@ -833,7 +857,11 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} status changed to ${status} successfully`);
       return updatedOrder;
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(`Failed to change order status for order ${orderId} to ${status}`);
       throw new InternalServerErrorException(
         errorResponse(
@@ -894,15 +922,6 @@ export class OrderService {
     }
 
     try {
-      const [updatedOrder] = await db
-        .update(orders)
-        .set({
-          bakeryId: bakeryId,
-          assigningDate: new Date(),
-        })
-        .where(eq(orders.id, orderId))
-        .returning({ id: orders.id, bakeryId: orders.bakeryId });
-
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
 
       for (const item of items) {
@@ -924,11 +943,20 @@ export class OrderService {
               bakeryId,
               regionItem.id,
               item.quantity,
-              item.selectedOptions && item.selectedOptions[0].optionId,
+              item.selectedOptions?.[0]?.optionId,
             );
           }
         }
       }
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          bakeryId: bakeryId,
+          assigningDate: new Date(),
+        })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
       return {
@@ -936,6 +964,10 @@ export class OrderService {
         bakeryId: updatedOrder.bakeryId || '',
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}:`, error);
       throw new InternalServerErrorException(
         errorResponse(
@@ -1051,7 +1083,7 @@ export class OrderService {
               bakeryIdToUnassign,
               regionItem.id,
               item.quantity,
-              item.selectedOptions && item.selectedOptions[0].optionId,
+              item.selectedOptions?.[0]?.optionId,
             );
           }
         }
@@ -1063,6 +1095,10 @@ export class OrderService {
         bakeryId: updatedOrder.bakeryId || '',
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
       throw new InternalServerErrorException(
         errorResponse(

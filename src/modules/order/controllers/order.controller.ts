@@ -48,15 +48,6 @@ export class OrderController {
   ) {}
   private readonly logger = new Logger(OrderController.name);
 
-  @Get('test')
-  @Public()
-  async test() {
-    return await this.itemService.getDecorations(
-      ['0a73109d-9ad8-4599-afd5-17d80ac6b52d', '44b2f2da-4ca8-49e4-95a4-cc60e72313e3'],
-      '23e2da5b-50a1-4f0e-b051-ce99a8fe620a',
-    );
-  }
-
   @UseGuards(JwtAuthGuard)
   @Post('place')
   @PlaceOrderDecorator()
