@@ -11,6 +11,7 @@ export interface AddonOptionData {
 
 export interface AddonData {
   id: string;
+  selectedOptionId?: string;
   name: string;
   description: string;
   category: string;

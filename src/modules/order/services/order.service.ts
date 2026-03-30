@@ -51,6 +51,10 @@ export class OrderService {
 
   private readonly logger = new Logger(OrderService.name);
 
+  private getAddonQuantityKey(addonId: string, optionId?: string): string {
+    return `${addonId}::${optionId ?? ''}`;
+  }
+
   async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
     const {
       locationId,
@@ -181,14 +185,16 @@ export class OrderService {
       const quantityCash: Record<string, number> = {};
 
       addonsItems.forEach((item) => {
-        quantityCash[item?.addonId] = item.quantity;
+        const addonQuantityKey = this.getAddonQuantityKey(item.addonId, item.addonOption);
+        quantityCash[addonQuantityKey] = (quantityCash[addonQuantityKey] ?? 0) + item.quantity;
       });
       const addonsData = await this.itemService.getAddons(
         addonsItems.map((item) => ({ id: item.addonId, option: item.addonOption })),
         regionId,
       );
       for (const addon of addonsData) {
-        const qnt = quantityCash[addon.id] ?? 0;
+        const addonQuantityKey = this.getAddonQuantityKey(addon.id, addon.selectedOptionId);
+        const qnt = quantityCash[addonQuantityKey] ?? 0;
         totalPrice += parseFloat(addon.price ?? '0') * qnt;
         orderItemsDetails.push({
           addon: addon,
