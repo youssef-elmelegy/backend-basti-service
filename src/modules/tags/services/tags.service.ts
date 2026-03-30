@@ -130,45 +130,50 @@ export class TagsService {
         );
       }
 
-      if (editTagDto.name && selectedTag.name === editTagDto.name.toLowerCase()) {
+      // Prepare normalized values
+      const newNameLower = editTagDto.name ? editTagDto.name.toLowerCase() : undefined;
+      const newDisplayOrder = editTagDto.displayOrder;
+
+      // Compute resulting values after update (use current if not provided)
+      const resultingName = newNameLower ?? selectedTag.name;
+      const resultingDisplayOrder =
+        newDisplayOrder !== undefined ? newDisplayOrder : selectedTag.displayOrder;
+
+      // If nothing would change, reject
+      if (
+        resultingName === selectedTag.name &&
+        resultingDisplayOrder === selectedTag.displayOrder
+      ) {
         throw new BadRequestException(
           errorResponse(
-            'No changes detected. Please provide a different name to update.',
+            'No changes detected. Please provide a different name or display order to update.',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
       }
 
-      if (editTagDto.displayOrder && selectedTag.displayOrder === editTagDto.displayOrder) {
-        throw new BadRequestException(
-          errorResponse(
-            'No changes detected. Please provide a different display order to update.',
-            HttpStatus.BAD_REQUEST,
-            'BadRequestException',
-          ),
-        );
-      }
-
+      // Ensure name uniqueness excluding current record
       const [existingTagName] = await db
         .select()
         .from(tags)
-        .where(eq(tags.name, editTagDto.name))
+        .where(eq(tags.name, resultingName))
         .limit(1);
 
-      if (existingTagName) {
+      if (existingTagName && existingTagName.id !== id) {
         throw new BadRequestException(
           errorResponse('Tag name already exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
+      // Ensure displayOrder uniqueness excluding current record
       const [existingDisplayOrder] = await db
         .select()
         .from(tags)
-        .where(eq(tags.displayOrder, editTagDto.displayOrder))
+        .where(eq(tags.displayOrder, resultingDisplayOrder))
         .limit(1);
 
-      if (existingDisplayOrder) {
+      if (existingDisplayOrder && existingDisplayOrder.id !== id) {
         throw new BadRequestException(
           errorResponse(
             'Display order already exists',
@@ -181,8 +186,8 @@ export class TagsService {
       const [updatedTag] = await db
         .update(tags)
         .set({
-          ...(editTagDto.name && { name: editTagDto.name.toLowerCase() }),
-          ...(editTagDto.displayOrder !== undefined && { displayOrder: editTagDto.displayOrder }),
+          ...(newNameLower !== undefined && { name: resultingName }),
+          ...(newDisplayOrder !== undefined && { displayOrder: resultingDisplayOrder }),
           updatedAt: new Date(),
         })
         .where(eq(tags.id, id))
