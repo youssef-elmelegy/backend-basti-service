@@ -72,11 +72,12 @@ export class ItemService {
   ): Promise<AddonData[]> {
     try {
       const res: AddonData[] = [];
-      const selectedOptionByAddonId = new Map(addonIds.map((addon) => [addon.id, addon.option]));
 
       if (!addonIds.length) {
         return res;
       }
+
+      const uniqueAddonIds = Array.from(new Set(addonIds.map((addon) => addon.id)));
 
       if (regionId) {
         const addonsData = await db
@@ -92,19 +93,19 @@ export class ItemService {
             and(eq(regionItemPrices.addonId, addons.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .where(
-            and(
-              eq(addons.isActive, true),
-              inArray(
-                addons.id,
-                addonIds.map((addon) => addon.id),
-              ),
-            ),
-          )
-          .limit(addonIds.length);
+          .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
+          .limit(uniqueAddonIds.length);
 
-        for (const addon of addonsData) {
-          const selectedOptionId = selectedOptionByAddonId.get(addon.id);
+        const addonById = new Map(addonsData.map((addon) => [addon.id, addon]));
+
+        for (const addonRequest of addonIds) {
+          const addon = addonById.get(addonRequest.id);
+
+          if (!addon) {
+            continue;
+          }
+
+          const selectedOptionId = addonRequest.option;
           const options = selectedOptionId
             ? await this.getAddonOptions(addon.id, selectedOptionId)
             : [];
@@ -117,6 +118,7 @@ export class ItemService {
             options,
             price: addon.price,
             sizesPrices: addon.sizesPrices ?? undefined,
+            selectedOptionId,
           });
         }
       } else {
@@ -127,19 +129,19 @@ export class ItemService {
           })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .where(
-            and(
-              eq(addons.isActive, true),
-              inArray(
-                addons.id,
-                addonIds.map((addon) => addon.id),
-              ),
-            ),
-          )
-          .limit(addonIds.length);
+          .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
+          .limit(uniqueAddonIds.length);
 
-        for (const addon of addonsData) {
-          const selectedOptionId = selectedOptionByAddonId.get(addon.id);
+        const addonById = new Map(addonsData.map((addon) => [addon.id, addon]));
+
+        for (const addonRequest of addonIds) {
+          const addon = addonById.get(addonRequest.id);
+
+          if (!addon) {
+            continue;
+          }
+
+          const selectedOptionId = addonRequest.option;
           const options = selectedOptionId
             ? await this.getAddonOptions(addon.id, selectedOptionId)
             : [];
@@ -150,6 +152,7 @@ export class ItemService {
             tagId: addon.tagId ?? '',
             tagName: addon.tagName ?? '',
             options,
+            selectedOptionId,
           });
         }
       }
