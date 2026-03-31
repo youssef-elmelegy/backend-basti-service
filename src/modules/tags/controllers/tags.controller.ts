@@ -8,6 +8,7 @@ import {
   Logger,
   UseGuards,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TagsService } from '../services/tags.service';
@@ -17,7 +18,7 @@ import {
   DeleteTagDecorator,
   UpdateTagDecorator,
 } from '../decorators';
-import { CreateTagDto, TagDto, UpdateTagDto } from '../dto';
+import { CreateTagDto, FindAllQueryDto, TagDto, UpdateTagDto } from '../dto';
 import { Public } from '@/common';
 import { SuccessResponse } from '@/utils';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -34,9 +35,9 @@ export class TagsController {
   @Get()
   @Public()
   @GetTagsDecorator()
-  async findAll(): Promise<SuccessResponse<TagDto[]>> {
+  async findAll(@Query() query: FindAllQueryDto): Promise<SuccessResponse<TagDto[]>> {
     this.logger.debug('Retrieving all tags');
-    return this.tagsService.findAll();
+    return this.tagsService.findAll(query);
   }
 
   @Post()

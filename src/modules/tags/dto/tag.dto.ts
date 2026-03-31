@@ -14,6 +14,12 @@ export class TagDto {
   name: string;
 
   @ApiProperty({
+    description: 'Array of tag types (e.g., "sweets", "cakes", etc.)',
+    example: ['sweets', 'cakes'],
+  })
+  types: string[];
+
+  @ApiProperty({
     description: 'Display order of the tag',
     example: 1,
   })
