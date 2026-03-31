@@ -1,4 +1,4 @@
-import { IsString, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsInt, Min, Max, IsArray, ArrayMinSize } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTagDto {
@@ -20,4 +20,14 @@ export class CreateTagDto {
   @Min(0)
   @Max(9999)
   displayOrder: number;
+
+  @ApiProperty({
+    description: 'Array of tag types (e.g., "sweets", "cakes", etc.)',
+    example: ['sweets', 'cakes'],
+    minItems: 1,
+    isArray: true,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  types: string[];
 }

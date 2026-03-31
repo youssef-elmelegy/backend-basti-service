@@ -29,6 +29,7 @@ export class SliderImageService {
           displayOrder: sliderImages.displayOrder,
           createdAt: sliderImages.createdAt,
           tagId: tags.id,
+          tagTypes: tags.types,
           tagName: tags.name,
           tagDisplayOrder: tags.displayOrder,
           tagCreatedAt: tags.createdAt,
@@ -55,10 +56,11 @@ export class SliderImageService {
         if (row.tagId) {
           const tag: TagDto = {
             id: row.tagId,
-            name: row.tagName,
-            displayOrder: row.tagDisplayOrder,
-            createdAt: row.tagCreatedAt,
-            updatedAt: row.tagUpdatedAt,
+            name: row.tagName ?? '',
+            types: row.tagTypes ?? [],
+            displayOrder: row.tagDisplayOrder ?? 0,
+            createdAt: row.tagCreatedAt ?? new Date(),
+            updatedAt: row.tagUpdatedAt ?? new Date(),
           };
           tagsMap.get(row.id)?.push(tag);
         }

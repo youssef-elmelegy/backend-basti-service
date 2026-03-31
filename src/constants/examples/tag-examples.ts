@@ -3,6 +3,7 @@ export const TagExamples = {
     request: {
       name: 'chocolate',
       displayOrder: 1,
+      types: ['sweets', 'cakes'],
     },
     response: {
       success: {
@@ -35,6 +36,7 @@ export const TagExamples = {
       fullUpdate: {
         name: 'vanilla',
         displayOrder: 2,
+        types: ['sweets'],
       },
       partialUpdateName: {
         name: 'vanilla',

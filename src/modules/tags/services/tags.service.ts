@@ -10,7 +10,7 @@ import { db } from '@/db';
 import { tags } from '@/db/schema';
 import { asc, eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { TagDto, CreateTagDto, UpdateTagDto } from '../dto';
+import { TagDto, CreateTagDto, UpdateTagDto, FindAllQueryDto } from '../dto';
 
 @Injectable()
 export class TagsService {
@@ -29,9 +29,14 @@ export class TagsService {
   /**
    * Get all tags from the tags table, ordered by display_order
    */
-  async findAll(): Promise<SuccessResponse<TagDto[]>> {
+  async findAll(query: FindAllQueryDto): Promise<SuccessResponse<TagDto[]>> {
     try {
-      const allTags = await db.select().from(tags).orderBy(asc(tags.displayOrder));
+      let allTags = await db.select().from(tags).orderBy(asc(tags.displayOrder));
+
+      if (query.type && query.type.trim() !== '') {
+        const typeLower = query.type.toLowerCase();
+        allTags = allTags.filter((tag) => tag.types.includes(typeLower));
+      }
 
       this.logger.log(`Retrieved ${allTags.length} tags`);
 
@@ -56,6 +61,7 @@ export class TagsService {
       const tagName: string = createTagDto.name;
       const displayOrderValue: number = createTagDto.displayOrder;
       const tagNameLower: string = tagName.toLowerCase();
+      const tagTypes: string[] = createTagDto.types;
 
       const existingTag = await db.select().from(tags).where(eq(tags.name, tagNameLower)).limit(1);
 
@@ -86,10 +92,13 @@ export class TagsService {
         .values({
           name: tagNameLower,
           displayOrder: displayOrderValue,
+          types: tagTypes,
         })
         .returning();
 
-      this.logger.log(`Tag created: ${newTag.id} (${newTag.name})`);
+      this.logger.log(
+        `Tag created: ${newTag.id} (${newTag.name}) with types ${newTag.types.join(', ')}`,
+      );
 
       return successResponse(newTag, 'Tag created successfully', HttpStatus.CREATED);
     } catch (error) {
@@ -112,10 +121,14 @@ export class TagsService {
    */
   async update(editTagDto: UpdateTagDto, id: string): Promise<SuccessResponse<TagDto>> {
     try {
-      if (!editTagDto.name && editTagDto.displayOrder === undefined) {
+      if (
+        !editTagDto.name &&
+        editTagDto.displayOrder === undefined &&
+        (editTagDto.types === undefined || editTagDto.types.length === 0)
+      ) {
         throw new BadRequestException(
           errorResponse(
-            'At least one field (name or displayOrder) must be provided for update',
+            'At least one field (name or displayOrder, or types array) must be provided for update',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -139,10 +152,14 @@ export class TagsService {
       const resultingDisplayOrder =
         newDisplayOrder !== undefined ? newDisplayOrder : selectedTag.displayOrder;
 
+      // types to all-lowercase
+      const normalizedTypes = editTagDto.types?.map((type) => type.toLowerCase()) ?? [];
+
       // If nothing would change, reject
       if (
         resultingName === selectedTag.name &&
-        resultingDisplayOrder === selectedTag.displayOrder
+        resultingDisplayOrder === selectedTag.displayOrder &&
+        normalizedTypes.length === 0
       ) {
         throw new BadRequestException(
           errorResponse(
@@ -188,6 +205,7 @@ export class TagsService {
         .set({
           ...(newNameLower !== undefined && { name: resultingName }),
           ...(newDisplayOrder !== undefined && { displayOrder: resultingDisplayOrder }),
+          ...(normalizedTypes.length > 0 && { types: normalizedTypes }),
           updatedAt: new Date(),
         })
         .where(eq(tags.id, id))
