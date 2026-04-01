@@ -36,6 +36,7 @@ import {
   RefuseOrderDecorator,
   GetOrderByIdForUserDecorator,
   GetBakeryOrdersDecorator,
+  FinalizeOrderDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { ItemService } from '../services/item.service';
@@ -201,6 +202,7 @@ export class OrderController {
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin', 'manager')
   @Patch(':orderId/qa')
+  @FinalizeOrderDecorator()
   async finalizeOrder(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() finalizeOrderDto: FinalizeOrderDto,
