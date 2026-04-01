@@ -18,6 +18,8 @@ import {
   AssignBakeryResponseDto,
   GetDeliveryDateResponseDto,
   GetDeliveryDateDto,
+  FinalizeOrderDto,
+  FinalizeOrderResponseDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -1126,6 +1128,99 @@ export class OrderService {
       nearestDeliveryDate: res,
       configs,
     };
+  }
+
+  async finalizeOrderData(
+    orderId: string,
+    data: FinalizeOrderDto,
+  ): Promise<FinalizeOrderResponseDto> {
+    const bakeryId = data.bakeryId;
+
+    // Verify data contains at least one final image
+    if (!data.finalImages || data.finalImages.length === 0) {
+      this.logger.warn(`At least one final image is required to finalize the order`);
+      throw new BadRequestException(
+        errorResponse(
+          'At least one final image is required to finalize the order',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+      // Verify order exists
+      if (!order) {
+        this.logger.warn(`Order with id: ${orderId} not found`);
+        throw new NotFoundException(
+          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      // Verify order is in correct status: 'ready'
+      if (order.orderStatus !== 'ready') {
+        this.logger.warn(
+          `Order with id: ${orderId} must be in ready status to be finalized. Current status: ${order.orderStatus}`,
+        );
+        throw new BadRequestException(
+          errorResponse(
+            `Order with id: ${orderId} must be in ready status to be finalized. Current status: ${order.orderStatus}`,
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      // Verify order is assigned to the requesting bakery
+      if (order.bakeryId !== bakeryId) {
+        this.logger.warn(
+          `Order with id: ${orderId} is not assigned to bakery ${bakeryId}. Current bakery: ${order.bakeryId}`,
+        );
+        throw new BadRequestException(
+          errorResponse(
+            `Order with id: ${orderId} is not assigned to bakery ${bakeryId}. Current bakery: ${order.bakeryId}`,
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
+      }
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          qa: {
+            finalImages: data.finalImages || [],
+            notes: data.notes || [],
+          },
+        })
+        .where(eq(orders.id, orderId))
+        .returning({ id: orders.id, qa: orders.qa, bakeryId: orders.bakeryId });
+
+      this.logger.log(`Order ${orderId} finalized successfully`);
+      return {
+        id: updatedOrder.id,
+        bakeryId: updatedOrder.bakeryId || '',
+        qa: {
+          finalImages: updatedOrder.qa?.finalImages || [],
+          notes: updatedOrder.qa?.notes || [],
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(`Failed to finalize order ${orderId} for bakery ${bakeryId}:`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to finalize order',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
   }
 
   private async calculateTheExpectedDeliveryTime(

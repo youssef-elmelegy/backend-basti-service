@@ -98,6 +98,12 @@ export const orders = pgTable(
       from: string;
       to: string;
     }>(),
+
+    qa: jsonb('qa').$type<{
+      finalImages: string[];
+      notes: string[];
+    }>(),
+
     willDeliverAt: timestamp('will_deliver_at', { mode: 'date' }).notNull(),
     deliveredAt: timestamp('delivered_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
