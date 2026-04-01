@@ -9,11 +9,12 @@ export function CreateAddonDecorator() {
     ApiOperation({
       summary: 'Create a new add-on',
       description:
-        'Creates a new add-on product with images, category, price, and tags information.',
+        'Creates a new add-on product with images, category, tags, and options information.',
     }),
     ApiBody({
       type: CreateAddonDto,
-      description: 'Required: name, description, images, category, tagId. Optional: isActive',
+      description:
+        'Required: name, description, images, category. Optional: tagId, isActive, options',
       examples: {
         success: {
           summary: 'Valid add-on creation request',

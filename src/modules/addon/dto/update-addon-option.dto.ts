@@ -1,8 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUrl, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { AddonOptionType } from './create-addon-option.dto';
 
 export class UpdateAddonOptionDto {
+  @ApiProperty({
+    description: 'Option ID (if updating existing option)',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({
     description: 'Option type. Ex: color, number, letter, text',
     example: 'color',

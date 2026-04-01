@@ -7,8 +7,11 @@ import {
   IsEnum,
   MinLength,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { CreateAddonOptionDto } from './create-addon-option.dto';
 
 export enum AddonCategory {
   BALLOONS = 'balloons',
@@ -78,4 +81,15 @@ export class CreateAddonDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'Array of add-on options',
+    type: [CreateAddonOptionDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateAddonOptionDto)
+  options?: CreateAddonOptionDto[];
 }
