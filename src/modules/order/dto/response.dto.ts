@@ -6,6 +6,7 @@ import { AddonDataDto } from '@/modules/addon/dto/addon-response.dto';
 import { PredesignedCakeDataDto } from '@/modules/custom-cakes/dto/predesigned-cake-response.dto';
 import { CustomCakeConfig } from '@/modules/cart/dto';
 import { ConfigResponseDto } from '@/modules/config/dto';
+import { QADto } from './finalize-order.dto';
 
 export class CreateOrderItemResponseDto {
   id: string;
@@ -316,6 +317,7 @@ export class OrderItemResponseDto<T> {
   price: number;
   selectedOptions: OrderItemSelectedOptions[];
   data: T;
+  qa?: QADto;
   createdAt: Date;
   updatedAt: Date;
 }

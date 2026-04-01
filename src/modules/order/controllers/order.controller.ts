@@ -21,6 +21,7 @@ import {
   UnassignBakeryDto,
   RegionFilterDto,
   GetDeliveryDateDto,
+  FinalizeOrderDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -35,6 +36,7 @@ import {
   RefuseOrderDecorator,
   GetOrderByIdForUserDecorator,
   GetBakeryOrdersDecorator,
+  FinalizeOrderDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { ItemService } from '../services/item.service';
@@ -195,5 +197,19 @@ export class OrderController {
     const result = await this.orderService.changeOrderStatus(id, changeOrderStatusDto);
     this.logger.debug(`order status changed: ${id} to ${changeOrderStatusDto.status}`);
     return successResponse(result, 'Order status updated successfully');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin', 'manager')
+  @Patch(':orderId/qa')
+  @FinalizeOrderDecorator()
+  async finalizeOrder(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Body() finalizeOrderDto: FinalizeOrderDto,
+  ) {
+    this.logger.debug(`finalizing order: ${orderId}`);
+    const result = await this.orderService.finalizeOrderData(orderId, finalizeOrderDto);
+    this.logger.debug(`order finalized: ${orderId}`);
+    return successResponse(result, 'Order finalized successfully');
   }
 }
