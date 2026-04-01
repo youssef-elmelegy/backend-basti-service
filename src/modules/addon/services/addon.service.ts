@@ -77,7 +77,7 @@ export class AddonService {
   }
 
   async create(createAddonDto: CreateAddonDto) {
-    const { name, description, images, category, tagId, isActive = true } = createAddonDto;
+    const { name, description, images, category, tagId, isActive = true, options } = createAddonDto;
 
     try {
       if (tagId) {
@@ -108,8 +108,23 @@ export class AddonService {
         tagName = tagResult[0]?.name;
       }
 
+      // Handle options if provided
+      let createdOptions: Array<typeof addonOptions.$inferSelect> = [];
+      if (options && options.length > 0) {
+        const optionsToInsert = options.map((option) => ({
+          addonId: newAddon.id,
+          type: option.type,
+          label: option.label,
+          value: option.value,
+          imageUrl: option.imageUrl || null,
+        }));
+
+        createdOptions = await db.insert(addonOptions).values(optionsToInsert).returning();
+        this.logger.log(`Created ${createdOptions.length} options for add-on: ${newAddon.id}`);
+      }
+
       return successResponse(
-        this.mapToAddonResponse(newAddon, tagName),
+        this.mapToAddonResponse(newAddon, tagName, undefined, undefined, createdOptions),
         'Add-on created successfully',
         HttpStatus.CREATED,
       );
@@ -393,8 +408,75 @@ export class AddonService {
         tagName = tagResult[0]?.name;
       }
 
+      // Handle options if provided
+      let updatedOptions: Array<typeof addonOptions.$inferSelect> = [];
+      if (updateAddonDto.options !== undefined) {
+        // Get existing options
+        const existingOptions = await db
+          .select()
+          .from(addonOptions)
+          .where(eq(addonOptions.addonId, id));
+
+        const existingOptionIds = new Set(existingOptions.map((opt) => opt.id));
+        const incomingOptionIds = new Set<string>();
+
+        // Process incoming options (create new, update existing)
+        for (const option of updateAddonDto.options) {
+          if (option.id) {
+            // Update existing option
+            incomingOptionIds.add(option.id);
+            const [updated] = await db
+              .update(addonOptions)
+              .set({
+                ...(option.type !== undefined ? { type: option.type } : {}),
+                ...(option.label !== undefined ? { label: option.label } : {}),
+                ...(option.value !== undefined ? { value: option.value } : {}),
+                ...(option.imageUrl !== undefined ? { imageUrl: option.imageUrl } : {}),
+              })
+              .where(eq(addonOptions.id, option.id))
+              .returning();
+
+            if (updated) {
+              updatedOptions.push(updated);
+            }
+          } else {
+            // Create new option
+            const [created] = await db
+              .insert(addonOptions)
+              .values({
+                addonId: id,
+                type: option.type || 'text',
+                label: option.label || '',
+                value: option.value || '',
+                imageUrl: option.imageUrl || null,
+              })
+              .returning();
+
+            if (created) {
+              updatedOptions.push(created);
+              incomingOptionIds.add(created.id);
+            }
+          }
+        }
+
+        // Delete options that are not in the incoming list
+        const optionsToDelete = Array.from(existingOptionIds).filter(
+          (id) => !incomingOptionIds.has(id),
+        );
+
+        if (optionsToDelete.length > 0) {
+          await db.delete(addonOptions).where(inArray(addonOptions.id, optionsToDelete));
+          this.logger.log(`Deleted ${optionsToDelete.length} options for add-on: ${id}`);
+        }
+
+        this.logger.log(`Updated ${updatedOptions.length} options for add-on: ${id}`);
+      } else {
+        // If options not provided, fetch existing options to include in response
+        updatedOptions = await db.select().from(addonOptions).where(eq(addonOptions.addonId, id));
+      }
+
       return successResponse(
-        this.mapToAddonResponse(updatedAddon, tagName),
+        this.mapToAddonResponse(updatedAddon, tagName, undefined, undefined, updatedOptions),
         'Add-on updated successfully',
       );
     } catch (error) {

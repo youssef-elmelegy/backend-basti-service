@@ -9,7 +9,7 @@ export function UpdateAddonDecorator() {
     ApiOperation({
       summary: 'Update an add-on',
       description:
-        'Update add-on details including images, category, and tags. All fields are optional.',
+        'Update add-on details including images, category, tags, and options. All fields are optional. When updating options, only provided options will be kept.',
     }),
     ApiParam({
       name: 'id',
@@ -20,7 +20,7 @@ export function UpdateAddonDecorator() {
     ApiBody({
       type: UpdateAddonDto,
       description:
-        'Partial update - all fields are optional. Provide only the fields you want to update.',
+        'Partial update - all fields are optional. Provide only the fields you want to update. Options with id will be updated; options without id will be created. Options not in the list will be deleted.',
       examples: {
         success: {
           summary: 'Valid add-on update request',
