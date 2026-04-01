@@ -1159,14 +1159,14 @@ export class OrderService {
         );
       }
 
-      // Verify order is in correct status: 'ready'
-      if (order.orderStatus !== 'ready') {
+      // Verify order is in correct status: 'preparing'
+      if (order.orderStatus !== 'preparing') {
         this.logger.warn(
-          `Order with id: ${orderId} must be in ready status to be finalized. Current status: ${order.orderStatus}`,
+          `Order with id: ${orderId} must be in preparing status to be finalized. Current status: ${order.orderStatus}`,
         );
         throw new BadRequestException(
           errorResponse(
-            `Order with id: ${orderId} must be in ready status to be finalized. Current status: ${order.orderStatus}`,
+            `Order with id: ${orderId} must be in preparing status to be finalized. Current status: ${order.orderStatus}`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
