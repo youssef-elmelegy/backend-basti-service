@@ -851,7 +851,10 @@ export class OrderService {
 
       const [updatedOrder] = await db
         .update(orders)
-        .set({ orderStatus: status })
+        .set({
+          orderStatus: status,
+          deliveredAt: status === 'delivered' ? new Date() : null,
+        })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, status: orders.orderStatus });
 
