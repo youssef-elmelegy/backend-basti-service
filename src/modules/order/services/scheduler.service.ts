@@ -69,19 +69,26 @@ export class SchedulerService {
     type: 'big_cakes' | 'small_cakes' | 'others',
     wantedDate?: string,
     minPrepHours = 0,
+    capacity?: number,
   ): Promise<Date> {
     const config = await this.configService.get();
 
     const currentHour = new Date().getHours();
     const isWorkingHours = currentHour >= config.openingHour && currentHour < config.closingHour;
 
+    // base days for big cakes and small cakes
     const baseDays = type === 'big_cakes' ? 2 : 1;
+    // number of days required for preparation
     const prepDaysFromItems = Math.ceil(Math.max(0, minPrepHours) / 24);
 
-    //?> Calculate minimum delivery date based on preparation time
+    // Calculate minimum delivery date based on preparation time
     const minDeliveryDate = new Date();
     let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
     daysToAdd = Math.max(daysToAdd, prepDaysFromItems);
+
+    // dummy, until capacity effect on the order delivery time is known
+    capacity = 1;
+    daysToAdd *= capacity;
 
     while (daysToAdd > 0) {
       minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);

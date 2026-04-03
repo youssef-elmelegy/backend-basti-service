@@ -313,6 +313,7 @@ export class OrderService {
         type,
         wantedDeliveryDate,
         requiredMinPrepHours,
+        totalCapacity,
       );
 
       finalPrice = totalPrice - discountAmount;
