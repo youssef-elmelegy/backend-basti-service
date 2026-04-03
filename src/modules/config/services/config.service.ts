@@ -80,16 +80,17 @@ export class ConfigService {
   }
 
   private mapToResponse(config: typeof appConfig.$inferSelect): ConfigResponseDto {
+    const sortedHolidays = config.holidays ? [...config.holidays].sort() : [];
     return {
       id: config.id,
       openingHour: config.openingHour,
       closingHour: config.closingHour,
       minHoursToPrepare: config.minHoursToPrepare,
       weekendDays: config.weekendDays,
-      holidays: config.holidays,
+      holidays: sortedHolidays,
       emergencyClosures: config.emergencyClosures,
       isOpen: config.isOpen,
-      closureMessage: config.closureMessage,
+      closureMessage: config.closureMessage || '',
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };
