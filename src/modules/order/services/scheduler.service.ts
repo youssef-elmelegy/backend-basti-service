@@ -11,9 +11,14 @@ export class SchedulerService {
   async getDeliveryDate(
     getDeliveryDateDto: GetDeliveryDateDto,
   ): Promise<GetDeliveryDateResponseDto> {
-    const { type } = getDeliveryDateDto;
+    const { type, totalCapacity, totalMinPrepHours } = getDeliveryDateDto;
 
-    const res = await this.calculateTheExpectedDeliveryTime(type);
+    const res = await this.calculateTheExpectedDeliveryTime(
+      type,
+      undefined,
+      totalMinPrepHours,
+      totalCapacity,
+    );
     const configs = await this.configService.get();
 
     return {
