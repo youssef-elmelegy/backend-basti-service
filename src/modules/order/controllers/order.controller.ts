@@ -39,14 +39,14 @@ import {
   FinalizeOrderDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
-import { ItemService } from '../services/item.service';
+import { SchedulerService } from '../services/scheduler.service';
 
 @ApiTags('order')
 @Controller('orders')
 export class OrderController {
   constructor(
     private readonly orderService: OrderService,
-    private readonly itemService: ItemService,
+    private readonly schedulerService: SchedulerService,
   ) {}
   private readonly logger = new Logger(OrderController.name);
 
@@ -65,7 +65,7 @@ export class OrderController {
   @GetDeliveryTimeDecorator()
   async getDeliveryTime(@Body() deliveryDateDto: GetDeliveryDateDto) {
     this.logger.debug(`getting delivery dates status`);
-    const result = await this.orderService.getDeliveryDate(deliveryDateDto);
+    const result = await this.schedulerService.getDeliveryDate(deliveryDateDto);
     this.logger.debug(`Retrived delivery dates status successfully`);
     return successResponse(result, 'Retrived delivery dates status successfully');
   }

@@ -5,11 +5,12 @@ import { CartModule } from '../cart/cart.module';
 import { ConfigModule } from '../config/config.module';
 import { ItemService } from './services/item.service';
 import { StockService } from './services/stock.service';
+import { SchedulerService } from './services/scheduler.service';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, ItemService, StockService],
+  providers: [OrderService, ItemService, StockService, SchedulerService],
   imports: [CartModule, ConfigModule],
-  exports: [OrderService, ItemService, StockService],
+  exports: [OrderService, ItemService, StockService, SchedulerService],
 })
 export class OrderModule {}
