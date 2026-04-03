@@ -49,6 +49,9 @@ export class CakeConfigDecorationDto {
   @ApiProperty({ type: () => [ShapeVariantImageDto], required: false })
   shapeVariantImages?: ShapeVariantImageDto[];
 
+  @ApiProperty({ example: '24', required: false })
+  minPrepHours: number;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 
@@ -70,6 +73,9 @@ export class CakeConfigShapeDto {
     example: 'https://res.cloudinary.com/example/image/upload/v1234567890/basti/shapes/round.jpg',
   })
   shapeUrl: string;
+
+  @ApiProperty({ example: '24', required: false })
+  minPrepHours: number;
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;

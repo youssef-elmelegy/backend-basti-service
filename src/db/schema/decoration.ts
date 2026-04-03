@@ -1,4 +1,13 @@
-import { pgTable, uuid, varchar, text, timestamp, index, boolean } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  index,
+  boolean,
+  integer,
+} from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, tags, shapeVariantImages } from '.';
 
@@ -13,6 +22,8 @@ export const decorations = pgTable(
     tagId: uuid('tag_id'),
     decorationUrl: text('decoration_url').notNull(),
     isActive: boolean('is_active').default(true).notNull(),
+    capacity: integer('capacity').default(1).notNull(),
+    minPrepHours: integer('min_prep_hours').default(0).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

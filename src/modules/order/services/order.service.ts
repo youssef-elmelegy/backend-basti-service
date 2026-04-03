@@ -16,8 +16,6 @@ import {
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
-  GetDeliveryDateResponseDto,
-  GetDeliveryDateDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
 } from '../dto';
@@ -36,20 +34,19 @@ import {
 import { and, eq, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
-
 import { CartService } from '@/modules/cart/services/cart.service';
-import { ConfigService } from '@/modules/config/services/config.service';
-import { ItemService } from '@/modules/order/services/item.service';
-import { StockService } from '@/modules/order/services/stock.service';
+import { ItemService } from './item.service';
+import { StockService } from './stock.service';
+import { SchedulerService } from './scheduler.service';
 
 /* eslint-disable */
 @Injectable()
 export class OrderService {
   constructor(
     private readonly cartService: CartService,
-    private readonly configService: ConfigService,
     private readonly itemService: ItemService,
     private readonly stockService: StockService,
+    private readonly schedulerService: SchedulerService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
@@ -191,6 +188,7 @@ export class OrderService {
 
       let totalPrice = 0;
       let totalCapacity = 0;
+      let requiredMinPrepHours = 0;
 
       const quantityCash: Record<string, number> = {};
 
@@ -268,6 +266,10 @@ export class OrderService {
         const qnt = quantityCash[predesignedCake.id] ?? 0;
         totalPrice += parseFloat(predesignedCake.price ?? '0') * qnt;
         totalCapacity += predesignedCake.totalCapacity ?? 0;
+        requiredMinPrepHours = Math.max(
+          requiredMinPrepHours,
+          predesignedCake.totalMinPrepHours ?? 0,
+        );
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
@@ -297,6 +299,7 @@ export class OrderService {
         console.log(customCake.id, qnt);
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
         totalCapacity += customCake.totalCapacity ?? 0;
+        requiredMinPrepHours = Math.max(requiredMinPrepHours, customCake.totalMinPrepHours ?? 0);
         orderItemsDetails.push({
           customCake: customCake,
           price: customCake.price ?? '0',
@@ -306,7 +309,12 @@ export class OrderService {
       }
 
       let finalPrice = 0;
-      const willDeliverAt = await this.calculateTheExpectedDeliveryTime(type, wantedDeliveryDate);
+      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
+        type,
+        wantedDeliveryDate,
+        requiredMinPrepHours,
+        totalCapacity,
+      );
 
       finalPrice = totalPrice - discountAmount;
 
@@ -1115,21 +1123,6 @@ export class OrderService {
     }
   }
 
-  async getDeliveryDate(
-    getDeliveryDateDto: GetDeliveryDateDto,
-  ): Promise<GetDeliveryDateResponseDto> {
-    const { type } = getDeliveryDateDto;
-
-    const res = await this.calculateTheExpectedDeliveryTime(type);
-    const configs = await this.configService.get();
-
-    return {
-      details: '',
-      nearestDeliveryDate: res,
-      configs,
-    };
-  }
-
   async finalizeOrderData(
     orderId: string,
     data: FinalizeOrderDto,
@@ -1221,118 +1214,6 @@ export class OrderService {
         ),
       );
     }
-  }
-
-  private async calculateTheExpectedDeliveryTime(
-    type: 'big_cakes' | 'small_cakes' | 'others',
-    wantedDate?: string,
-  ): Promise<Date> {
-    const config = await this.configService.get();
-
-    const currentHour = new Date().getHours();
-    const isWorkingHours = currentHour >= config.openingHour && currentHour < config.closingHour;
-
-    const baseDays = type === 'big_cakes' ? 2 : 1;
-
-    //?> Calculate minimum delivery date based on preparation time
-    const minDeliveryDate = new Date();
-    let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
-
-    while (daysToAdd > 0) {
-      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
-
-      if (!this.isClosedDay(minDeliveryDate, config)) {
-        daysToAdd--;
-      }
-    }
-
-    while (this.isClosedDay(minDeliveryDate, config)) {
-      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
-    }
-
-    minDeliveryDate.setHours(config.openingHour, 0, 0, 0);
-
-    //?> If wantedDate is provided, validate and use it
-    if (wantedDate) {
-      const requestedDate = new Date(wantedDate);
-
-      //?> Check if requested date is valid
-      if (isNaN(requestedDate.getTime())) {
-        this.logger.warn(`Invalid wantedDate provided: ${wantedDate}`);
-        return minDeliveryDate;
-      }
-
-      //?> Check if requested date is after minimum delivery date
-      if (requestedDate >= minDeliveryDate) {
-        //?> Check if requested date is not a closed day
-        if (!this.isClosedDay(requestedDate, config)) {
-          //?> Ensure delivery is within working hours
-          if (requestedDate.getHours() < config.openingHour) {
-            requestedDate.setHours(config.openingHour, 0, 0, 0);
-          } else if (requestedDate.getHours() >= config.closingHour) {
-            requestedDate.setHours(config.closingHour - 1, 0, 0, 0);
-          }
-          return requestedDate;
-        } else {
-          //?> If requested date is a closed day, find the next open day
-          const adjustedDate = new Date(requestedDate);
-          while (this.isClosedDay(adjustedDate, config)) {
-            adjustedDate.setDate(adjustedDate.getDate() + 1);
-          }
-          adjustedDate.setHours(config.openingHour, 0, 0, 0);
-          return adjustedDate;
-        }
-      }
-
-      //?> Requested date is before minimum delivery date, use minimum
-      this.logger.warn(
-        `Requested date ${wantedDate} is before minimum delivery date. Using minimum.`,
-      );
-    }
-
-    return minDeliveryDate;
-  }
-
-  private isClosedDay(
-    date: Date,
-    config: {
-      weekendDays: number[];
-      holidays: string[];
-      emergencyClosures: { from: string; to: string; reason: string }[];
-      isOpen: boolean;
-    },
-  ): boolean {
-    //?> global closure check
-    if (!config.isOpen) {
-      return true;
-    }
-
-    const dayOfWeek = date.getDay();
-    const dateStr = date.toISOString().split('T')[0];
-
-    //?> check if it's a weekend
-    if (config.weekendDays.includes(dayOfWeek)) {
-      return true;
-    }
-
-    //?> check if it's a holiday
-    if (config.holidays.includes(dateStr)) {
-      return true;
-    }
-
-    //?> check if it's within an emergency closure period
-    for (const closure of config.emergencyClosures) {
-      const fromDate = new Date(closure.from);
-      const toDate = new Date(closure.to);
-      fromDate.setHours(0, 0, 0, 0);
-      toDate.setHours(23, 59, 59, 999);
-
-      if (date >= fromDate && date <= toDate) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   private generateOrderReference(): string {
@@ -1475,6 +1356,7 @@ export class OrderService {
               title: item.customCake.decoration.title,
               description: item.customCake.decoration.description,
               decorationUrl: item.customCake.decoration.decorationUrl,
+              minPrepHours: item.customCake.decoration.minPrepHours,
               createdAt: item.customCake.decoration.createdAt,
               updatedAt: item.customCake.decoration.updatedAt,
             },
@@ -1513,6 +1395,7 @@ export class OrderService {
                 title: config.shape.title,
                 description: config.shape.description,
                 shapeUrl: config.shape.shapeUrl,
+                minPrepHours: config.shape.minPrepHours,
                 createdAt: config.shape.createdAt,
                 updatedAt: config.shape.updatedAt,
               },
@@ -1528,6 +1411,7 @@ export class OrderService {
                 id: config.decoration.id,
                 title: config.decoration.title,
                 description: config.decoration.description,
+                minPrepHours: config.decoration.minPrepHours,
                 decorationUrl: config.decoration.decorationUrl,
                 createdAt: config.decoration.createdAt,
                 updatedAt: config.decoration.updatedAt,

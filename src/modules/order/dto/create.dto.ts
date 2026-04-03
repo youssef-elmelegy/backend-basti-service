@@ -517,4 +517,23 @@ export class GetDeliveryDateDto {
   @IsOptional()
   @IsNumber()
   numberOfCustomCakes?: number;
+
+  @ApiProperty({
+    description: 'Total capacity required for the order based on the selected items',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1, { message: 'totalCapacity must be greater than 0' })
+  totalCapacity?: number;
+
+  @ApiProperty({
+    description:
+      'Total minimum preparation hours required for the order based on the selected items',
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'totalMinPrepHours must be greater than or equal to 0' })
+  totalMinPrepHours?: number;
 }

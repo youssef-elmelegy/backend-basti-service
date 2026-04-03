@@ -557,6 +557,7 @@ export class ItemService {
         for (const predesignedCake of predesignedCakeData) {
           const configs = await this.getConfigsData(predesignedCake.id);
           const totalCapacity = this.getTotalCapacity(configs);
+          const totalMinPrepHours = this.getTotalMinPrepHours(configs);
           const totalPrice = await this.getConfigsPrice(predesignedCake.id, regionId);
           res.push({
             ...predesignedCake,
@@ -575,6 +576,7 @@ export class ItemService {
             tagName: predesignedCake.tagName ?? '',
             sizesPrices: predesignedCake.sizesPrices ?? undefined,
             totalCapacity: totalCapacity ?? 0,
+            totalMinPrepHours: totalMinPrepHours ?? 0,
             price: totalPrice.toFixed(2),
           });
         }
@@ -597,6 +599,7 @@ export class ItemService {
         for (const predesignedCake of predesignedCakeData) {
           const configs = await this.getConfigsData(predesignedCake.id);
           const totalCapacity = this.getTotalCapacity(configs);
+          const totalMinPrepHours = this.getTotalMinPrepHours(configs);
           res.push({
             ...predesignedCake,
             configs: configs.map((config) => ({
@@ -613,6 +616,7 @@ export class ItemService {
             tagId: predesignedCake.tagId ?? '',
             tagName: predesignedCake.tagName ?? '',
             totalCapacity: totalCapacity ?? 0,
+            totalMinPrepHours: totalMinPrepHours ?? 0,
           });
         }
       }
@@ -709,6 +713,7 @@ export class ItemService {
         }
 
         const totalCapacity = shape.capacity ?? 0;
+        const totalMinPrepHours = (shape.minPrepHours ?? 0) + (decoration.minPrepHours ?? 0);
         const color = {
           name: customCake.color?.name ?? '',
           hex: customCake.color?.hex ?? '',
@@ -727,6 +732,7 @@ export class ItemService {
           snapshotTop: customCake.snapshotTop ?? '',
           snapshotSliced: customCake.snapshotSliced ?? '',
           totalCapacity: totalCapacity ?? 0,
+          totalMinPrepHours: totalMinPrepHours ?? 0,
           price: regionId ? totalPrice.toFixed(2) : undefined,
           id: this.getCustomCakeId(
             customCake.shapeId,
@@ -787,8 +793,10 @@ export class ItemService {
             title: decorations.title,
             description: decorations.description,
             decorationUrl: decorations.decorationUrl,
+            capacity: decorations.capacity,
             tagId: decorations.tagId,
             isActive: decorations.isActive,
+            minPrepHours: decorations.minPrepHours,
             createdAt: decorations.createdAt,
             updatedAt: decorations.updatedAt,
           },
@@ -801,6 +809,7 @@ export class ItemService {
             order: shapes.order,
             size: shapes.size,
             capacity: shapes.capacity,
+            minPrepHours: shapes.minPrepHours,
             createdAt: shapes.createdAt,
             updatedAt: shapes.updatedAt,
           },
@@ -860,12 +869,15 @@ export class ItemService {
               ...row.decoration,
               description: row.decoration.description ?? '',
               tagId: row.decoration.tagId ?? '',
+              minPrepHours: row.decoration.minPrepHours ?? 0,
               tagName: '',
+              capacity: row.decoration.capacity ?? 1,
               shapeVariantImages: [],
             },
             shape: {
               ...row.shape,
               description: row.shape.description ?? '',
+              minPrepHours: row.shape.minPrepHours ?? 0,
               capacity: row.shape.capacity ?? 0,
             },
             frostColorValue: row.frostColorValue,
@@ -910,8 +922,17 @@ export class ItemService {
     let totalCapacity = 0;
     for (const config of configs) {
       totalCapacity += config.shape.capacity;
+      totalCapacity += config.decoration.capacity;
     }
     return totalCapacity;
+  }
+
+  private getTotalMinPrepHours(configs: PredesignedCakeConfigData[]) {
+    let totalMinPrepHours = 0;
+    for (const config of configs) {
+      totalMinPrepHours += (config.shape.minPrepHours ?? 0) + (config.decoration.minPrepHours ?? 0);
+    }
+    return totalMinPrepHours;
   }
 
   private async getConfigsPrice(predesignedCakeId: string, regionId: string): Promise<number> {

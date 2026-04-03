@@ -34,6 +34,12 @@ export class DecorationDataDto {
 
   @ApiProperty({ example: '500', required: false })
   price?: string;
+
+  @ApiProperty({ example: 24, required: false })
+  minPrepHours?: number;
+
+  @ApiProperty({ example: 20 })
+  capacity: number;
 }
 
 export class SuccessDecorationResponseDto {

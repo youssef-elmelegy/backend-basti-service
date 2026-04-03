@@ -19,15 +19,16 @@ export function GetDeliveryTimeDecorator() {
           summary: 'Big cakes order',
           value: {
             type: 'big_cakes',
-            numberOfCustomCakes: 1,
+            totalCapacity: 20,
+            totalMinPrepHours: 48,
           },
         },
         smallCakes: {
           summary: 'Small cakes order',
           value: {
             type: 'small_cakes',
-            numberOfFeaturedCakes: 2,
-            numberOfPredesignedCakes: 1,
+            totalCapacity: 20,
+            totalMinPrepHours: 48,
           },
         },
         others: {

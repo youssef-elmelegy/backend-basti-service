@@ -1,4 +1,13 @@
-import { IsString, MinLength, MaxLength, IsEnum, IsNumber, IsPositive } from 'class-validator';
+import {
+  IsString,
+  MinLength,
+  MaxLength,
+  IsEnum,
+  IsNumber,
+  IsPositive,
+  IsOptional,
+  Min,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum ShapeSize {
@@ -54,4 +63,14 @@ export class CreateShapeDto {
   @IsNumber({}, { message: 'Capacity must be a number' })
   @IsPositive({ message: 'Capacity must be greater than 0' })
   capacity: number;
+
+  @ApiProperty({
+    description: 'Minimum preparation hours required for this shape',
+    example: 24,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'minPrepHours must be a number' })
+  @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
+  minPrepHours?: number;
 }

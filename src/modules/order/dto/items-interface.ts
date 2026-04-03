@@ -92,6 +92,8 @@ export interface DecorationData {
   decorationUrl: string;
   isActive: boolean;
   shapeVariantImages: ShapeVariantImages[];
+  minPrepHours: number;
+  capacity: number;
   price?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -107,6 +109,7 @@ export interface ShapeData {
   order: number;
   size: string;
   price?: string;
+  minPrepHours: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -132,6 +135,7 @@ export interface PredesignedCakeData {
   thumbnailUrl: string;
   configs: PredesignedCakeConfigData[];
   totalCapacity?: number;
+  totalMinPrepHours?: number;
   price?: string;
   sizesPrices?: Record<string, string>;
   createdAt: Date;
@@ -162,6 +166,7 @@ export interface CustomCakeData {
   snapshotTop: string;
   snapshotSliced: string;
   totalCapacity?: number;
+  totalMinPrepHours?: number;
   price?: string;
   quantity?: number;
 }

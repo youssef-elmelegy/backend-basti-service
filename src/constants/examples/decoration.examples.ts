@@ -20,6 +20,8 @@ export const DecorationExamples = {
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Decorations',
+          minPrepHours: 24,
+          capacity: 20,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -46,6 +48,8 @@ export const DecorationExamples = {
               createdAt: '2024-02-07T10:00:00Z',
               updatedAt: '2024-02-07T10:00:00Z',
               price: '300',
+              minPrepHours: 24,
+              capacity: 20,
               variantImages: [
                 {
                   id: '223e4567-e89b-12d3-a456-426614174000',
@@ -71,6 +75,8 @@ export const DecorationExamples = {
               createdAt: '2024-02-07T09:00:00Z',
               updatedAt: '2024-02-07T09:00:00Z',
               price: '250',
+              minPrepHours: 0,
+              capacity: 15,
               variantImages: [
                 {
                   id: '323e4567-e89b-12d3-a456-426614174001',
@@ -111,6 +117,8 @@ export const DecorationExamples = {
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Decorations',
+          minPrepHours: 24,
+          capacity: 20,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
@@ -122,6 +130,8 @@ export const DecorationExamples = {
     request: {
       title: 'Gold Leaves',
       description: 'Luxury gold leaf decoration for premium cakes',
+      minPrepHours: 12,
+      capacity: 15,
     } as const,
     response: {
       success: {
@@ -136,6 +146,8 @@ export const DecorationExamples = {
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Decorations',
+          minPrepHours: 12,
+          capacity: 15,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T11:00:00Z',
         },
@@ -209,6 +221,8 @@ export const DecorationExamples = {
       decorationUrl:
         'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
       tagId: '550e8400-e29b-41d4-a716-446655440000',
+      minPrepHours: 24,
+      capacity: 20,
       variantImages: [
         {
           shapeId: '223e4567-e89b-12d3-a456-426614174000',
@@ -243,6 +257,7 @@ export const DecorationExamples = {
             'https://res.cloudinary.com/example/image/upload/v1234567890/basti/decorations/red-roses.jpg',
           tagId: '550e8400-e29b-41d4-a716-446655440000',
           tagName: 'Decorations',
+          minPrepHours: 24,
           createdAt: '2024-02-07T10:00:00Z',
           updatedAt: '2024-02-07T10:00:00Z',
         },
