@@ -191,6 +191,7 @@ export class OrderService {
 
       let totalPrice = 0;
       let totalCapacity = 0;
+      let requiredMinPrepHours = 0;
 
       const quantityCash: Record<string, number> = {};
 
@@ -268,6 +269,10 @@ export class OrderService {
         const qnt = quantityCash[predesignedCake.id] ?? 0;
         totalPrice += parseFloat(predesignedCake.price ?? '0') * qnt;
         totalCapacity += predesignedCake.totalCapacity ?? 0;
+        requiredMinPrepHours = Math.max(
+          requiredMinPrepHours,
+          predesignedCake.totalMinPrepHours ?? 0,
+        );
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
@@ -297,6 +302,7 @@ export class OrderService {
         console.log(customCake.id, qnt);
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
         totalCapacity += customCake.totalCapacity ?? 0;
+        requiredMinPrepHours = Math.max(requiredMinPrepHours, customCake.totalMinPrepHours ?? 0);
         orderItemsDetails.push({
           customCake: customCake,
           price: customCake.price ?? '0',
@@ -306,7 +312,11 @@ export class OrderService {
       }
 
       let finalPrice = 0;
-      const willDeliverAt = await this.calculateTheExpectedDeliveryTime(type, wantedDeliveryDate);
+      const willDeliverAt = await this.calculateTheExpectedDeliveryTime(
+        type,
+        wantedDeliveryDate,
+        requiredMinPrepHours,
+      );
 
       finalPrice = totalPrice - discountAmount;
 
@@ -1226,6 +1236,7 @@ export class OrderService {
   private async calculateTheExpectedDeliveryTime(
     type: 'big_cakes' | 'small_cakes' | 'others',
     wantedDate?: string,
+    minPrepHours = 0,
   ): Promise<Date> {
     const config = await this.configService.get();
 
@@ -1233,10 +1244,12 @@ export class OrderService {
     const isWorkingHours = currentHour >= config.openingHour && currentHour < config.closingHour;
 
     const baseDays = type === 'big_cakes' ? 2 : 1;
+    const prepDaysFromItems = Math.ceil(Math.max(0, minPrepHours) / 24);
 
     //?> Calculate minimum delivery date based on preparation time
     const minDeliveryDate = new Date();
     let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
+    daysToAdd = Math.max(daysToAdd, prepDaysFromItems);
 
     while (daysToAdd > 0) {
       minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
@@ -1475,6 +1488,7 @@ export class OrderService {
               title: item.customCake.decoration.title,
               description: item.customCake.decoration.description,
               decorationUrl: item.customCake.decoration.decorationUrl,
+              minPrepHours: item.customCake.decoration.minPrepHours,
               createdAt: item.customCake.decoration.createdAt,
               updatedAt: item.customCake.decoration.updatedAt,
             },
@@ -1513,6 +1527,7 @@ export class OrderService {
                 title: config.shape.title,
                 description: config.shape.description,
                 shapeUrl: config.shape.shapeUrl,
+                minPrepHours: config.shape.minPrepHours,
                 createdAt: config.shape.createdAt,
                 updatedAt: config.shape.updatedAt,
               },
@@ -1528,6 +1543,7 @@ export class OrderService {
                 id: config.decoration.id,
                 title: config.decoration.title,
                 description: config.decoration.description,
+                minPrepHours: config.decoration.minPrepHours,
                 decorationUrl: config.decoration.decorationUrl,
                 createdAt: config.decoration.createdAt,
                 updatedAt: config.decoration.updatedAt,

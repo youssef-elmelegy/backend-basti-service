@@ -41,7 +41,8 @@ export class ShapeService {
       description: shape.description,
       shapeUrl: shape.shapeUrl,
       size: shape.size,
-      capacity: shape.capacity,
+      capacity: shape.capacity || 0,
+      minPrepHours: shape.minPrepHours,
       order: shape.order,
       createdAt: shape.createdAt,
       updatedAt: shape.updatedAt,
@@ -71,6 +72,7 @@ export class ShapeService {
           shapeUrl: createDto.shapeUrl,
           size: createDto.size,
           capacity: createDto.capacity,
+          minPrepHours: createDto.minPrepHours,
           order: nextOrder,
         })
         .returning();

@@ -32,6 +32,9 @@ export class ShapeDataDto {
 
   @ApiProperty({ example: '50.00', required: false })
   price?: string;
+
+  @ApiProperty({ example: 24, required: false })
+  minPrepHours?: number;
 }
 
 export class SuccessShapeResponseDto {

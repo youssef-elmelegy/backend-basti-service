@@ -24,6 +24,7 @@ export const shapes = pgTable(
     capacity: integer('capacity'),
     order: integer('order').notNull(),
     isActive: boolean('is_active').default(true).notNull(),
+    minPrepHours: integer('min_prep_hours').default(0).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

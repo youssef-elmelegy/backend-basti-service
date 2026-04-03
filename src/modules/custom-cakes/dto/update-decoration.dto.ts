@@ -6,6 +6,8 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -64,4 +66,14 @@ export class UpdateDecorationDto {
   @ValidateNested({ each: true })
   @Type(() => DecorationShapeVariantImageDto)
   variantImages?: DecorationShapeVariantImageDto[];
+
+  @ApiProperty({
+    description: 'Minimum preparation hours required for this shape',
+    example: 24,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'minPrepHours must be a number' })
+  @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
+  minPrepHours?: number;
 }
