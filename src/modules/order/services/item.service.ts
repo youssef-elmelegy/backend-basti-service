@@ -793,6 +793,7 @@ export class ItemService {
             title: decorations.title,
             description: decorations.description,
             decorationUrl: decorations.decorationUrl,
+            capacity: decorations.capacity,
             tagId: decorations.tagId,
             isActive: decorations.isActive,
             minPrepHours: decorations.minPrepHours,
@@ -870,6 +871,7 @@ export class ItemService {
               tagId: row.decoration.tagId ?? '',
               minPrepHours: row.decoration.minPrepHours ?? 0,
               tagName: '',
+              capacity: row.decoration.capacity ?? 1,
               shapeVariantImages: [],
             },
             shape: {
@@ -920,6 +922,7 @@ export class ItemService {
     let totalCapacity = 0;
     for (const config of configs) {
       totalCapacity += config.shape.capacity;
+      totalCapacity += config.decoration.capacity;
     }
     return totalCapacity;
   }

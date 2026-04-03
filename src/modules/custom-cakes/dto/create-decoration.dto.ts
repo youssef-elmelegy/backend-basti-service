@@ -1,4 +1,13 @@
-import { IsString, IsUUID, MinLength, MaxLength, IsOptional, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsNumber,
+  Min,
+  IsPositive,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateDecorationDto {
@@ -49,4 +58,13 @@ export class CreateDecorationDto {
   @IsNumber({}, { message: 'minPrepHours must be a number' })
   @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
   minPrepHours?: number;
+
+  @ApiProperty({
+    description: 'Shape capacity (number of servings)',
+    example: 20,
+    minimum: 1,
+  })
+  @IsNumber({}, { message: 'Capacity must be a number' })
+  @IsPositive({ message: 'Capacity must be greater than 0' })
+  capacity: number;
 }

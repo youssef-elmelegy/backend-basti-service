@@ -69,6 +69,7 @@ export class DecorationService {
       decorationUrl: decoration.decorationUrl,
       tagId: decoration.tagId ?? undefined,
       minPrepHours: decoration.minPrepHours || 0,
+      capacity: decoration.capacity || 1,
       tagName,
       createdAt: decoration.createdAt,
       updatedAt: decoration.updatedAt,
@@ -94,6 +95,7 @@ export class DecorationService {
           decorationUrl: createDto.decorationUrl,
           tagId: createDto.tagId,
           minPrepHours: createDto.minPrepHours,
+          capacity: createDto.capacity,
         })
         .returning();
 
@@ -788,6 +790,7 @@ export class DecorationService {
       if (updateDto.tagId !== undefined) updateFields.tagId = updateDto.tagId;
       if (updateDto.minPrepHours !== undefined)
         updateFields.minPrepHours = updateDto.minPrepHours.toString();
+      if (updateDto.capacity !== undefined) updateFields.capacity = updateDto.capacity.toString();
 
       const [updatedDecoration] = await db
         .update(decorations)
@@ -1189,6 +1192,7 @@ export class DecorationService {
           decorationUrl: createDto.decorationUrl,
           tagId: createDto.tagId || null,
           minPrepHours: createDto.minPrepHours,
+          capacity: createDto.capacity,
         })
         .returning();
 

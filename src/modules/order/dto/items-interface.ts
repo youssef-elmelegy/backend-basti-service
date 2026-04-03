@@ -93,6 +93,7 @@ export interface DecorationData {
   isActive: boolean;
   shapeVariantImages: ShapeVariantImages[];
   minPrepHours: number;
+  capacity: number;
   price?: string;
   createdAt: Date;
   updatedAt: Date;

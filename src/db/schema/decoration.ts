@@ -22,6 +22,7 @@ export const decorations = pgTable(
     tagId: uuid('tag_id'),
     decorationUrl: text('decoration_url').notNull(),
     isActive: boolean('is_active').default(true).notNull(),
+    capacity: integer('capacity').default(1).notNull(),
     minPrepHours: integer('min_prep_hours').default(0).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
