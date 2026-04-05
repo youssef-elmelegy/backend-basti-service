@@ -18,7 +18,7 @@ import {
   DeleteTagDecorator,
   UpdateTagDecorator,
 } from '../decorators';
-import { CreateTagDto, FindAllQueryDto, TagDto, UpdateTagDto } from '../dto';
+import { CreateTagDto, FindAllQueryDto, TagDto, UpdateTagDto, ChangeTagOrderDto } from '../dto';
 import { Public } from '@/common';
 import { SuccessResponse } from '@/utils';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -67,5 +67,16 @@ export class TagsController {
   async remove(@Param('id') id: string): Promise<SuccessResponse<{ message: string }>> {
     this.logger.debug(`Deleting tag: ${id}`);
     return this.tagsService.remove(id);
+  }
+
+  @Patch(':id/order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  async changeOrder(
+    @Param('id') id: string,
+    @Body() changeTagOrderDto: ChangeTagOrderDto,
+  ): Promise<SuccessResponse<TagDto[]>> {
+    this.logger.debug(`Changing tag order: ${id} to ${changeTagOrderDto.order}`);
+    return await this.tagsService.changeTagOrder(id, changeTagOrderDto.order);
   }
 }
