@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { tags } from '@/db/schema';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, and, lt, gt, gte, lte, sql } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TagDto, CreateTagDto, UpdateTagDto, FindAllQueryDto } from '../dto';
 
@@ -259,6 +259,138 @@ export class TagsService {
       throw new InternalServerErrorException(
         errorResponse(
           'Failed to delete tag',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Change tag display order
+   */
+  async changeTagOrder(id: string, newOrder: number): Promise<SuccessResponse<TagDto[]>> {
+    // Get the tag to update
+    const [tag] = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+
+    if (!tag) {
+      this.logger.warn(`Tag order change failed: Tag not found - ${id}`);
+      throw new NotFoundException(
+        errorResponse('Tag not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Get total count of tags to validate the new order
+    const totalTags = await db
+      .select({
+        count: sql<number>`count(*)`,
+      })
+      .from(tags);
+
+    const totalCount = Number(totalTags[0]?.count) || 0;
+
+    // Validate new order is within valid range
+    if (newOrder < 1 || newOrder > totalCount) {
+      this.logger.warn(
+        `Tag order change failed: Invalid order position - ${newOrder} (valid range: 1-${totalCount})`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          `Invalid order position. Must be between 1 and ${totalCount}`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    try {
+      const currentOrder = tag.displayOrder;
+      const now = new Date();
+
+      if (currentOrder !== newOrder) {
+        if (newOrder < currentOrder) {
+          // Moving up: tags from newOrder to currentOrder-1 shift down by 1
+          await db.transaction(async (tx) => {
+            // Update tags that need to shift down (move them out of the way first with +100000)
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: sql`${tags.displayOrder} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gte(tags.displayOrder, newOrder), lt(tags.displayOrder, currentOrder)));
+
+            // Now move them from temp positions to final positions (shifted down by 1)
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: sql`${tags.displayOrder} - 100000 + 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gte(tags.displayOrder, newOrder + 100000),
+                  lt(tags.displayOrder, currentOrder + 100000),
+                ),
+              );
+
+            // Move target tag to newOrder
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(tags.id, id));
+          });
+        } else {
+          // Moving down: tags from currentOrder+1 to newOrder shift up by -1
+          await db.transaction(async (tx) => {
+            // Update tags that need to shift up (move them out of the way first with +100000)
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: sql`${tags.displayOrder} + 100000`,
+                updatedAt: now,
+              })
+              .where(and(gt(tags.displayOrder, currentOrder), lte(tags.displayOrder, newOrder)));
+
+            // Now move them from temp positions to final positions (shifted up by -1)
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: sql`${tags.displayOrder} - 100000 - 1`,
+                updatedAt: now,
+              })
+              .where(
+                and(
+                  gt(tags.displayOrder, currentOrder + 100000),
+                  lte(tags.displayOrder, newOrder + 100000),
+                ),
+              );
+
+            // Move target tag to newOrder
+            await tx
+              .update(tags)
+              .set({
+                displayOrder: newOrder,
+                updatedAt: now,
+              })
+              .where(eq(tags.id, id));
+          });
+        }
+      }
+
+      const updatedTags = await db.select().from(tags).orderBy(asc(tags.displayOrder));
+
+      this.logger.log(`Tag order changed: ${id} moved from order ${currentOrder} to ${newOrder}`);
+
+      return successResponse(updatedTags, 'Tag order updated successfully', HttpStatus.OK);
+    } catch (error) {
+      this.logger.error(`Tag order change error: ${this.getErrorMessage(error)}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'Failed to change tag order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
