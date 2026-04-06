@@ -68,6 +68,9 @@ export class FeaturedCakeDataDto {
   })
   isActive: boolean;
 
+  @ApiProperty({ example: 24, required: false })
+  minPrepHours?: number;
+
   @ApiProperty({
     description: 'Featured cake creation timestamp',
     example: MOCK_DATA.dates.default,

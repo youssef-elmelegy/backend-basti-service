@@ -101,4 +101,14 @@ export class UpdateFeaturedCakeDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiProperty({
+    description: 'Minimum preparation hours required for this shape',
+    example: 24,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'minPrepHours must be a number' })
+  @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
+  minPrepHours?: number;
 }

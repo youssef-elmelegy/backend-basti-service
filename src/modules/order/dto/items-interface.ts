@@ -56,6 +56,7 @@ export interface FeaturedCakeData {
   isActive: boolean;
   price?: string;
   sizesPrices?: Record<string, string>;
+  minPrepHours: number;
   createdAt: Date;
   updatedAt: Date;
   quantity?: number;
