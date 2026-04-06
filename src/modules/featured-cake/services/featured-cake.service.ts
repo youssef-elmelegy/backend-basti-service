@@ -65,6 +65,7 @@ export class FeaturedCakeService {
       pipingPaletteList,
       tagId,
       isActive = true,
+      minPrepHours = 0,
     } = createFeaturedCakeDto;
 
     try {
@@ -83,6 +84,7 @@ export class FeaturedCakeService {
           pipingPaletteList,
           tagId,
           isActive,
+          minPrepHours,
         })
         .returning();
 
@@ -589,6 +591,7 @@ export class FeaturedCakeService {
       tagName: tagName || null,
       capacity: cake.capacity,
       isActive: cake.isActive,
+      minPrepHours: cake.minPrepHours,
       createdAt: cake.createdAt,
       updatedAt: cake.updatedAt,
     };

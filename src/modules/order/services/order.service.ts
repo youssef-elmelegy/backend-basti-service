@@ -192,6 +192,7 @@ export class OrderService {
 
       const quantityCash: Record<string, number> = {};
 
+      // addons processing
       addonsItems.forEach((item) => {
         const addonQuantityKey = this.getAddonQuantityKey(item.addonId, item.addonOption);
         quantityCash[addonQuantityKey] = (quantityCash[addonQuantityKey] ?? 0) + item.quantity;
@@ -218,6 +219,7 @@ export class OrderService {
         });
       }
 
+      // sweets processing
       sweetsItems.forEach((item) => {
         quantityCash[item.sweetId] = item.quantity;
       });
@@ -236,6 +238,7 @@ export class OrderService {
         });
       }
 
+      // featured cakes processing
       featuredCakesItems.forEach((item) => {
         quantityCash[item.featuredCakeId] = item.quantity;
       });
@@ -247,6 +250,7 @@ export class OrderService {
         const qnt = quantityCash[featuredCake.id] ?? 0;
         totalPrice += parseFloat(featuredCake.price ?? '0') * qnt;
         totalCapacity += featuredCake.capacity ?? 0;
+        requiredMinPrepHours = Math.max(requiredMinPrepHours, featuredCake.minPrepHours ?? 0);
         orderItemsDetails.push({
           featuredCake: featuredCake,
           price: featuredCake.price ?? '0',
@@ -255,6 +259,7 @@ export class OrderService {
         });
       }
 
+      // predesigned cakes processing
       predesignedCakesItems.forEach((item) => {
         quantityCash[item.predesignedCakeId] = item.quantity;
       });
@@ -278,6 +283,7 @@ export class OrderService {
         });
       }
 
+      // custom cakes processing
       customCakesItems.forEach((item) => {
         const customCakeConfig = 'customCake' in item ? item.customCake : item.customCakeConfig;
         const uniqueid = this.itemService.getCustomCakeId(

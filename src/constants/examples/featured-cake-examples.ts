@@ -13,6 +13,7 @@ export const FeaturedCakeExamples = {
       pipingPaletteList: ['rose gold', 'silver', 'gold'],
       tagId: '550e8400-e29b-41d4-a716-446655440001',
       isActive: true,
+      minPrepHours: 24,
     },
     response: {
       success: {
@@ -32,6 +33,7 @@ export const FeaturedCakeExamples = {
           tagId: '550e8400-e29b-41d4-a716-446655440001',
           tagName: null,
           isActive: true,
+          minPrepHours: 24,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
@@ -61,6 +63,7 @@ export const FeaturedCakeExamples = {
               tagId: '550e8400-e29b-41d4-a716-446655440001',
               tagName: 'Premium',
               isActive: true,
+              minPrepHours: 0,
               createdAt: MOCK_DATA.dates.default,
               updatedAt: MOCK_DATA.dates.default,
             },
@@ -96,6 +99,7 @@ export const FeaturedCakeExamples = {
           tagId: '550e8400-e29b-41d4-a716-446655440001',
           tagName: 'Premium',
           isActive: true,
+          minPrepHours: 24,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
@@ -107,6 +111,7 @@ export const FeaturedCakeExamples = {
     request: {
       name: 'Chocolate Dream Cake Updated',
       capacity: 15,
+      minPrepHours: 24,
     },
     response: {
       success: {
@@ -126,6 +131,7 @@ export const FeaturedCakeExamples = {
           tagId: '550e8400-e29b-41d4-a716-446655440001',
           tagName: 'Premium',
           isActive: true,
+          minPrepHours: 24,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
@@ -163,6 +169,7 @@ export const FeaturedCakeExamples = {
           tagId: '550e8400-e29b-41d4-a716-446655440001',
           tagName: 'Premium',
           isActive: false,
+          minPrepHours: 24,
           createdAt: MOCK_DATA.dates.default,
           updatedAt: MOCK_DATA.dates.default,
         },
