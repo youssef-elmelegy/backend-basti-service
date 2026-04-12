@@ -7,6 +7,7 @@ export {
   addonCategoryEnum,
   addonInfoTypeEnum,
   CartTypeEnum,
+  visualKeyTypeEnum,
 } from './enums';
 
 export * from './user';

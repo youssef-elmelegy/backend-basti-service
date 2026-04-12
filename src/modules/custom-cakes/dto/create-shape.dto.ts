@@ -7,8 +7,10 @@ import {
   IsPositive,
   IsOptional,
   Min,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { visualKeyTypeEnum } from '@/db/schema';
 
 export enum ShapeSize {
   SMALL = 'small',
@@ -73,4 +75,11 @@ export class CreateShapeDto {
   @IsNumber({}, { message: 'minPrepHours must be a number' })
   @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
   minPrepHours?: number;
+
+  @ApiProperty({
+    enum: visualKeyTypeEnum.enumValues,
+    description: 'The visual key representing the shape design',
+  })
+  @IsIn(visualKeyTypeEnum.enumValues)
+  visualKey!: (typeof visualKeyTypeEnum.enumValues)[number];
 }
