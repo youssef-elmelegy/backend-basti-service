@@ -13,7 +13,6 @@ import {
   GetFlavorsQueryDto,
   FlavorDataDto,
   CreateFlavorRegionItemPriceDto,
-  FlavorSortBy,
   CreateFlavorWithVariantImagesDto,
   FlavorWithVariantImagesDto,
   ChangeFlavorOrderDto,
@@ -27,7 +26,7 @@ import {
   shapes,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray, gte, gt, lt, lte } from 'drizzle-orm';
+import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -96,8 +95,8 @@ export class FlavorService {
   private async findFlavorsByShapeAndRegion(
     query: GetFlavorsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortFunction: typeof asc,
+    sortColumn: typeof flavors.order,
   ): Promise<{
     items: FlavorWithVariantImagesDto[];
     total: number;
@@ -107,7 +106,8 @@ export class FlavorService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId))
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      .where(eq(shapes.id, query.shapeId!))
       .limit(1);
 
     if (!shapeExists.length) {
@@ -120,7 +120,8 @@ export class FlavorService {
     const regionExists = await db
       .select({ id: regions.id })
       .from(regions)
-      .where(eq(regions.id, query.regionId))
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      .where(eq(regions.id, query.regionId!))
       .limit(1);
 
     if (!regionExists.length) {
@@ -131,15 +132,17 @@ export class FlavorService {
 
     const shapeJoinConditions = [
       eq(shapeVariantImages.flavorId, flavors.id),
-      eq(shapeVariantImages.shapeId, query.shapeId),
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      eq(shapeVariantImages.shapeId, query.shapeId!),
     ] as const;
 
     const regionJoinConditions = [
       eq(regionItemPrices.flavorId, flavors.id),
-      eq(regionItemPrices.regionId, query.regionId),
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      eq(regionItemPrices.regionId, query.regionId!),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL<unknown>[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -165,7 +168,7 @@ export class FlavorService {
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
     } else {
@@ -179,7 +182,7 @@ export class FlavorService {
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
     }
@@ -188,7 +191,7 @@ export class FlavorService {
     let total = 0;
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const whereConditionsCount: any[] = [];
+      const whereConditionsCount: SQL<unknown>[] = [];
       whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
@@ -249,8 +252,8 @@ export class FlavorService {
   private async findFlavorsByShape(
     query: GetFlavorsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortFunction: typeof asc,
+    sortColumn: typeof flavors.order,
   ): Promise<{
     items: FlavorWithVariantImagesDto[];
     total: number;
@@ -260,7 +263,8 @@ export class FlavorService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId))
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      .where(eq(shapes.id, query.shapeId!))
       .limit(1);
 
     if (!shapeExists.length) {
@@ -271,10 +275,11 @@ export class FlavorService {
 
     const joinConditions = [
       eq(shapeVariantImages.flavorId, flavors.id),
-      eq(shapeVariantImages.shapeId, query.shapeId),
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      eq(shapeVariantImages.shapeId, query.shapeId!),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL<unknown>[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -298,11 +303,11 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...joinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
-      const whereConditionsCount: any[] = [];
+      const whereConditionsCount: SQL<unknown>[] = [];
       whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
@@ -322,7 +327,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...joinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
@@ -372,8 +377,8 @@ export class FlavorService {
   private async findFlavorsByRegion(
     query: GetFlavorsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortFunction: typeof asc,
+    sortColumn: typeof flavors.order,
   ): Promise<{
     items: FlavorDataDto[];
     total: number;
@@ -381,10 +386,11 @@ export class FlavorService {
   }> {
     const joinConditions = [
       eq(regionItemPrices.flavorId, flavors.id),
-      eq(regionItemPrices.regionId, query.regionId),
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      eq(regionItemPrices.regionId, query.regionId!),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL<unknown>[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -417,7 +423,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
     } else {
@@ -438,7 +444,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-        .orderBy(sortOrder(sortColumn))
+        .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
         .offset(offset);
     }
@@ -461,15 +467,15 @@ export class FlavorService {
   private async findFlavorsBySearch(
     query: GetFlavorsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortFunction: typeof asc,
+    sortColumn: typeof flavors.order,
   ): Promise<{
     items: FlavorDataDto[];
     total: number;
     totalPages: number;
   }> {
     const searchPattern = `%${query.search}%`;
-    const whereConditions: any[] = [];
+    const whereConditions: SQL<unknown>[] = [];
     whereConditions.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
@@ -488,7 +494,7 @@ export class FlavorService {
       })
       .from(flavors)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .orderBy(sortOrder(sortColumn))
+      .orderBy(sortFunction(sortColumn))
       .limit(query.limit)
       .offset(offset);
 
@@ -507,14 +513,14 @@ export class FlavorService {
   private async getAllFlavors(
     query: GetFlavorsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortFunction: typeof asc,
+    sortColumn: typeof flavors.order,
   ): Promise<{
     items: FlavorDataDto[];
     total: number;
     totalPages: number;
   }> {
-    const whereConditions: any[] = [];
+    const whereConditions: SQL<unknown>[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -532,7 +538,7 @@ export class FlavorService {
       })
       .from(flavors)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .orderBy(sortOrder(sortColumn))
+      .orderBy(sortFunction(sortColumn))
       .limit(query.limit)
       .offset(offset);
 
@@ -573,22 +579,21 @@ export class FlavorService {
   > {
     try {
       const offset = (query.page - 1) * query.limit;
-      const sortOrder = query.order === 'desc' ? desc : asc;
-      const sortColumn = query.sortBy === FlavorSortBy.TITLE ? flavors.title : flavors.createdAt;
+      // Always sort by order field in ascending order
 
       let result: { items: any[]; total: number; totalPages: number };
 
       // Route to appropriate filter handler - each handler already supports search
       if (query.shapeId && query.regionId) {
-        result = await this.findFlavorsByShapeAndRegion(query, offset, sortOrder, sortColumn);
+        result = await this.findFlavorsByShapeAndRegion(query, offset, asc, flavors.order);
       } else if (query.shapeId) {
-        result = await this.findFlavorsByShape(query, offset, sortOrder, sortColumn);
+        result = await this.findFlavorsByShape(query, offset, asc, flavors.order);
       } else if (query.regionId) {
-        result = await this.findFlavorsByRegion(query, offset, sortOrder, sortColumn);
+        result = await this.findFlavorsByRegion(query, offset, asc, flavors.order);
       } else if (query.search) {
-        result = await this.findFlavorsBySearch(query, offset, sortOrder, sortColumn);
+        result = await this.findFlavorsBySearch(query, offset, asc, flavors.order);
       } else {
-        result = await this.getAllFlavors(query, offset, sortOrder, sortColumn);
+        result = await this.getAllFlavors(query, offset, asc, flavors.order);
       }
 
       return successResponse(
