@@ -14,7 +14,6 @@ import {
   ShapeDataDto,
   CreateShapeRegionItemPriceDto,
   ChangeShapeOrderDto,
-  ShapeSortBy,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -24,7 +23,7 @@ import {
   shapeVariantImages,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray, gte, gt, lt, lte } from 'drizzle-orm';
+import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 
 @Injectable()
@@ -103,10 +102,9 @@ export class ShapeService {
 
   async findAll(query: GetShapesQueryDto): Promise<SuccessResponse<ShapeDataDto[]>> {
     try {
-      const sortOrder = query.order === 'desc' ? desc : asc;
-      const sortColumn = query.sortBy === ShapeSortBy.TITLE ? shapes.title : shapes.createdAt;
+      // Always sort by order field in ascending order
 
-      const whereConditions: any[] = [];
+      const whereConditions: SQL<unknown>[] = [];
       if (query.isActive !== undefined) {
         whereConditions.push(eq(shapes.isActive, query.isActive));
       }
@@ -150,7 +148,7 @@ export class ShapeService {
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-            .orderBy(sortOrder(sortColumn));
+            .orderBy(asc(shapes.order));
         } else {
           // Only regionId, no search
           allShapesResult = await db
@@ -161,7 +159,7 @@ export class ShapeService {
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-            .orderBy(sortOrder(sortColumn));
+            .orderBy(asc(shapes.order));
         }
       }
       // Search by title if provided
@@ -175,7 +173,7 @@ export class ShapeService {
           })
           .from(shapes)
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-          .orderBy(sortOrder(sortColumn));
+          .orderBy(asc(shapes.order));
       }
       // Get all shapes
       else {
@@ -185,7 +183,7 @@ export class ShapeService {
           })
           .from(shapes)
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-          .orderBy(sortOrder(sortColumn));
+          .orderBy(asc(shapes.order));
       }
 
       return successResponse(
@@ -659,18 +657,7 @@ export class ShapeService {
       const allShapes = await db.select().from(shapes).orderBy(asc(shapes.order));
 
       return successResponse(
-        allShapes.map((shape) => ({
-          id: shape.id,
-          title: shape.title,
-          description: shape.description,
-          shapeUrl: shape.shapeUrl,
-          size: shape.size,
-          capacity: shape.capacity,
-          visualKey: shape.visualKey,
-          order: shape.order,
-          createdAt: shape.createdAt,
-          updatedAt: shape.updatedAt,
-        })),
+        allShapes.map((shape) => this.mapToShapeResponse(shape)),
         'Shape order updated successfully',
         HttpStatus.OK,
       );
