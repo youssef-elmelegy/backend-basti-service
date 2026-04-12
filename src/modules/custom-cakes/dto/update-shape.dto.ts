@@ -7,9 +7,11 @@ import {
   IsNumber,
   IsPositive,
   Min,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ShapeSize } from './create-shape.dto';
+import { visualKeyTypeEnum } from '@/db/schema';
 
 export class UpdateShapeDto {
   @ApiProperty({
@@ -77,4 +79,12 @@ export class UpdateShapeDto {
   @IsNumber({}, { message: 'minPrepHours must be a number' })
   @Min(0, { message: 'minPrepHours must be greater than or equal to 0' })
   minPrepHours?: number;
+
+  @ApiProperty({
+    enum: visualKeyTypeEnum.enumValues,
+    description: 'The visual key representing the shape design',
+  })
+  @IsOptional()
+  @IsIn(visualKeyTypeEnum.enumValues)
+  visualKey?: (typeof visualKeyTypeEnum.enumValues)[number];
 }

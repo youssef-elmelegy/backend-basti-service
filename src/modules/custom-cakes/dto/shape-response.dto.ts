@@ -35,6 +35,11 @@ export class ShapeDataDto {
 
   @ApiProperty({ example: 24, required: false })
   minPrepHours?: number;
+
+  @ApiProperty({
+    example: 'classic_round',
+  })
+  visualKey!: string;
 }
 
 export class SuccessShapeResponseDto {

@@ -45,3 +45,15 @@ export const addonInfoTypeEnum = pgEnum('addon_info_type_enum', [
   'letter',
   'text',
 ]);
+
+export const visualKeyTypeEnum = pgEnum('visual_key_type_enum', [
+  'classic_round',
+  'small_round',
+  'mini_round',
+  'long_round',
+  'classic_square',
+  'sheet',
+  'tower',
+  'big_heart',
+  'small_heart',
+]);
