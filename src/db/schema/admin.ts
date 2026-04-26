@@ -1,6 +1,6 @@
 import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { adminRoleEnum, bakeries } from '.';
+import { adminRoleEnum, bakeries, notifications } from '.';
 
 export const admins = pgTable(
   'admins',
@@ -13,6 +13,7 @@ export const admins = pgTable(
     role: adminRoleEnum('role').default('admin').notNull(),
     profileImage: text('profile_image'),
     bakeryId: uuid('bakery_id'),
+    fcmToken: text('fcm_token'),
 
     otpCode: varchar('otp_code', { length: 10 }),
     otpExpiresAt: timestamp('otp_expires_at', { mode: 'date' }),
@@ -30,9 +31,10 @@ export const admins = pgTable(
   }),
 );
 
-export const adminsRelations = relations(admins, ({ one }) => ({
+export const adminsRelations = relations(admins, ({ one, many }) => ({
   bakery: one(bakeries, {
     fields: [admins.bakeryId],
     references: [bakeries.id],
   }),
+  notifications: many(notifications),
 }));

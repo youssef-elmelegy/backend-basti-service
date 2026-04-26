@@ -20,6 +20,7 @@ import { LocationModule } from './modules/location/location.module';
 import { ConfigModule } from './modules/config/config.module';
 import { PaymentMethodModule } from './modules/payment-method/payment-method.module';
 import { ReviewModule } from './modules/review/review.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ReviewModule } from './modules/review/review.module';
     ReviewModule,
     SliderImageModule,
     TagsModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

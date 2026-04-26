@@ -1,6 +1,6 @@
 import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { locations, orders, cartItems, paymentMethods, reviews } from '.';
+import { locations, orders, cartItems, paymentMethods, reviews, notifications } from '.';
 
 export const users = pgTable(
   'users',
@@ -17,6 +17,7 @@ export const users = pgTable(
     otpCode: varchar('otp_code', { length: 10 }),
     otpExpiresAt: timestamp('otp_expires_at', { mode: 'date' }),
     profileImage: text('profile_image'),
+    fcmToken: text('fcm_token'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },
@@ -32,4 +33,5 @@ export const userRelations = relations(users, ({ many }) => ({
   CartItems: many(cartItems),
   paymentMethods: many(paymentMethods),
   reviews: many(reviews),
+  notifications: many(notifications),
 }));
