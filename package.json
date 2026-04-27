@@ -52,6 +52,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "express": "^5.1.0",
+    "firebase-admin": "^12.7.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.10.1",
     "passport": "^0.7.0",

@@ -8,6 +8,7 @@ export {
   addonInfoTypeEnum,
   CartTypeEnum,
   visualKeyTypeEnum,
+  notificationTypeEnum,
 } from './enums';
 
 export * from './user';
@@ -35,3 +36,4 @@ export * from './flavor';
 export * from './decoration';
 export * from './shape-variant-images';
 export * from './app-config';
+export * from './notification';

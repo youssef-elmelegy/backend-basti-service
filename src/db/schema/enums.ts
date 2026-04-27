@@ -46,6 +46,15 @@ export const addonInfoTypeEnum = pgEnum('addon_info_type_enum', [
   'text',
 ]);
 
+export const notificationTypeEnum = pgEnum('notification_type_enum', [
+  'order_update',
+  'order_status',
+  'promotion',
+  'system',
+  'review',
+  'new_order',
+]);
+
 export const visualKeyTypeEnum = pgEnum('visual_key_type_enum', [
   'classic_round',
   'small_round',
