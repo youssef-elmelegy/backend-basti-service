@@ -21,9 +21,25 @@ import { ConfigModule } from './modules/config/config.module';
 import { PaymentMethodModule } from './modules/payment-method/payment-method.module';
 import { ReviewModule } from './modules/review/review.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { I18nModule, AcceptLanguageResolver, QueryResolver, HeaderResolver } from 'nestjs-i18n';
+import * as path from 'path';
+import { TranslationModule } from '@/common/translation/translation.module';
 
 @Module({
   imports: [
+    I18nModule.forRoot({
+      fallbackLanguage: 'en',
+      loaderOptions: {
+        path: path.join(process.cwd(), '/src/i18n'),
+        watch: true,
+      },
+      resolvers: [
+        { use: QueryResolver, options: ['lang'] },
+        AcceptLanguageResolver, // Checks the 'Accept-Language' header
+        new HeaderResolver(['x-custom-lang']),
+      ],
+    }),
+    TranslationModule,
     AuthModule,
     RegionModule,
     BakeryModule,

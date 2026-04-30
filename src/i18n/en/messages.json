@@ -1,0 +1,277 @@
+{
+  "routes": {
+    "addons": {
+      "created": "Add-on created successfully",
+      "deleted": "Add-on deleted successfully",
+      "retrieved": "Add-on retrieved successfully",
+      "list_retrieved": "Add-ons retrieved successfully",
+      "updated": "Add-on updated successfully",
+      "status_toggled": "Add-on status toggled successfully",
+      "option_created": "Add-on option created successfully",
+      "option_deleted": "Add-on option deleted successfully",
+      "option_updated": "Add-on option updated successfully",
+      "option_not_found": "Add-on option not found",
+      "not_found": "Add-on not found",
+      "failed_create": "Failed to create add-on",
+      "failed_delete": "Failed to delete add-on",
+      "failed_retrieve": "Failed to retrieve add-on",
+      "failed_list": "Failed to retrieve add-ons",
+      "failed_toggle_status": "Failed to toggle add-on status",
+      "failed_update": "Failed to update add-on"
+    },
+
+    "auth": {
+      "invalid_credentials": "Invalid credentials",
+      "invalid_password": "Invalid password",
+      "invalid_password_or_unauthenticated": "Invalid password or user not authenticated",
+      "tokens_refreshed": "Tokens refreshed successfully",
+      "logout": "Logout successful",
+      "password_changed": "Password changed successfully",
+      "password_reset": "Password reset successfully",
+      "password_required": "Password is required",
+      "current_password_incorrect": "Current password is incorrect",
+      "new_password_differs": "New password must be different from current password",
+      "reset_token_invalid": "Invalid or expired reset token",
+      "reset_token_must_be_string": "Reset token must be a string",
+      "invalid_or_expired_token": "Invalid or expired token",
+      "invalid_or_expired_refresh_token": "Invalid or expired refresh token",
+      "refresh_token_not_found": "Refresh token not found"
+    },
+
+    "admin": {
+      "created": "Admin created successfully",
+      "logged_in": "Admin logged in successfully",
+      "not_found": "Admin not found",
+      "updated": "Admin updated successfully",
+      "blocked": "Admin blocked successfully",
+      "account_blocked": "Admin account is blocked",
+      "email_exists": "Admin with this email already exists",
+      "email_not_found": "Admin with this email not found",
+      "list_retrieved": "Admins retrieved successfully",
+      "not_authenticated": "Admin not authenticated"
+    },
+
+    "bakery": {
+      "created": "Bakery created successfully",
+      "deleted": "Bakery deleted successfully",
+      "retrieved": "Bakery retrieved successfully",
+      "list_retrieved": "Bakeries retrieved successfully",
+      "updated": "Bakery updated successfully",
+      "assigned_to_order": "Bakery assigned to order successfully",
+      "item_stores_retrieved": "Bakery item stores retrieved successfully",
+      "not_found": "Bakery not found"
+    },
+
+    "cart": {
+      "item_added": "Cart item added successfully",
+      "item_deleted": "Cart item deleted successfully",
+      "item_quantity_updated": "Cart item quantity updated successfully",
+      "items_deleted": "Cart items deleted successfully",
+      "items_retrieved": "Cart items retrieved successfully",
+      "item_toggled": "Cart item toggled successfully",
+      "no_items": "No items found in the cart",
+      "item_not_found": "Cart item not found",
+      "quantity_min": "Quantity must be greater than 0",
+      "must_be_at_least": "Order must be at least 1"
+    },
+
+    "chef": {
+      "created": "Chef created successfully",
+      "deleted": "Chef deleted successfully",
+      "retrieved": "Failed to retrieve chef",
+      "updated": "Chef updated successfully",
+      "rated": "Chef rated successfully",
+      "list_retrieved": "Chefs retrieved successfully",
+      "failed_create": "Failed to create chef",
+      "failed_delete": "Failed to delete chef",
+      "not_found": "Chef not found"
+    },
+
+    "decorations": {
+      "created": "Decoration created successfully",
+      "deleted": "Decoration deleted successfully",
+      "retrieved": "Decoration retrieved successfully",
+      "list_retrieved": "Decorations retrieved successfully",
+      "variant_images_created": "Decoration and variant images created successfully",
+      "variant_images_retrieved": "Decoration variant images retrieved successfully",
+      "deleted_related": "Decoration and related records deleted successfully",
+      "not_found": "Decoration not found"
+    },
+
+    "flavors": {
+      "created": "Flavor created successfully",
+      "deleted": "Flavor deleted successfully",
+      "retrieved": "Flavor retrieved successfully",
+      "list_retrieved": "Flavors retrieved successfully",
+      "updated": "Flavor updated successfully",
+      "order_changed": "Flavor order successfully changed, returns all flavors sorted by order",
+      "variant_images_created": "Flavor and variant images created successfully",
+      "variant_images_retrieved": "Flavor variant images retrieved successfully",
+      "not_found": "Flavor not found"
+    },
+
+    "featured_cakes": {
+      "created": "Featured cake created successfully",
+      "deleted": "Featured cake deleted successfully",
+      "retrieved": "Featured cake retrieved successfully",
+      "list_retrieved": "Featured cakes retrieved successfully",
+      "status_toggled": "Featured cake status toggled successfully",
+      "added_to_cart": "Featured cake added to cart successfully",
+      "updated": "Featured cake updated successfully"
+    },
+
+    "predesigned": {
+      "created": "Predesigned cake created successfully",
+      "deleted": "Predesigned cake deleted successfully",
+      "retrieved": "Predesigned cake retrieved successfully",
+      "list_retrieved": "Predesigned cakes retrieved successfully",
+      "region_price_created": "Predesigned cake region price created successfully",
+      "region_price_updated": "Predesigned cake region price updated successfully",
+      "added_to_cart": "Predesigned cake added to cart successfully",
+      "updated": "Predesigned cake updated successfully",
+      "not_found": "Predesigned cake not found"
+    },
+
+    "profile": {
+      "retrieved": "Profile retrieved successfully",
+      "updated": "Profile updated successfully",
+      "setup_complete": "Profile setup completed successfully",
+      "setup_incomplete": "Profile setup incomplete. Please complete your profile setup",
+      "failed_setup": "Failed to complete profile setup",
+      "failed_retrieve": "Failed to retrieve profile",
+      "image_must_be_string": "Profile image must be a string",
+      "image_url_invalid": "profileImage must be a valid URL",
+      "image_url_too_long": "Profile image URL must not exceed 500 characters",
+      "name_min": "Name must be at least 2 characters",
+      "name_max": "Name must not exceed 255 characters"
+    },
+
+    "regions": {
+      "created": "Region created successfully",
+      "deleted": "Region deleted successfully",
+      "retrieved": "Region retrieved successfully",
+      "list_retrieved": "Regions retrieved successfully",
+      "updated": "Region updated successfully",
+      "order_updated": "Region order updated successfully",
+      "pricing_created": "Region pricing created successfully",
+      "regional_products_retrieved": "Regional products retrieved successfully",
+      "regional_pricing_created": "Regional pricing created successfully",
+      "item_price_removed": "Regional item price removed",
+      "item_price_removed_success": "Regional item price removed successfully",
+      "name_exists": "Region with this name already exists",
+      "not_found": "Region not found",
+      "invalid_id": "Region ID is invalid"
+    },
+
+    "orders": {
+      "cancelled": "Order cancelled successfully",
+      "finalized": "Order finalized successfully",
+      "refused": "Order refused successfully",
+      "retrieved": "Order retrieved successfully",
+      "list_retrieved": "Orders retrieved successfully",
+      "status_updated": "Order status updated successfully",
+      "unassigned_from_bakery": "Order unassigned from bakery successfully",
+      "not_found": "Order not found",
+      "invalid_position": "Invalid order position"
+    },
+
+    "reviews": {
+      "created": "Review created successfully",
+      "deleted": "Review deleted successfully",
+      "retrieved": "Review fetched successfully",
+      "list_retrieved": "Reviews fetched successfully",
+      "updated": "Review updated successfully"
+    },
+
+    "shapes": {
+      "created": "Shape created successfully",
+      "deleted": "Shape deleted successfully",
+      "retrieved": "Shape retrieved successfully",
+      "list_retrieved": "Shapes retrieved successfully",
+      "order_updated": "Shape order updated successfully",
+      "deleted_related": "Shape and related records deleted successfully",
+      "not_found": "Shape not found"
+    },
+
+    "slider": {
+      "images_retrieved": "Slider images retrieved successfully",
+      "images_updated": "Slider images updated successfully",
+      "image_deleted": "Slider image deleted successfully",
+      "image_not_found": "Slider image not found"
+    },
+
+    "tags": {
+      "created": "Tag created successfully",
+      "deleted": "Tag deleted successfully",
+      "list_retrieved": "Tags retrieved successfully",
+      "updated": "Tag updated successfully",
+      "order_updated": "Tag order updated successfully",
+      "name_exists": "Tag name already exists",
+      "not_found": "Tag not found",
+      "failed_create": "Failed to create tag",
+      "failed_delete": "Failed to delete tag",
+      "failed_update": "Failed to update tag"
+    },
+
+    "upload": {
+      "image_uploaded": "Image uploaded successfully",
+      "images_uploaded": "Images uploaded successfully",
+      "images_deleted": "Images deleted successfully",
+      "no_file": "No file uploaded",
+      "cloudinary_failed": "Cloudinary upload failed: Internal server error",
+      "no_images_to_delete": "No images to delete"
+    },
+
+    "notifications": {
+      "all_marked_read": "All notifications marked as read",
+      "deleted": "Notification deleted successfully",
+      "marked_read": "Notification marked as read",
+      "sent": "Notification sent successfully",
+      "list_retrieved": "Notifications retrieved successfully"
+    },
+
+    "otp": {
+      "sent_if_exists": "If the email exists, an OTP has been sent",
+      "sent": "OTP sent to your email",
+      "resent": "OTP resent successfully to your email",
+      "verified": "OTP verified successfully",
+      "invalid_or_expired": "Invalid or expired OTP",
+      "expired": "OTP has expired. Please request a new one",
+      "no_otp": "No OTP found. Please request a new one"
+    },
+
+    "payment": {
+      "method_created": "Payment method created successfully",
+      "method_deleted": "Payment method deleted successfully",
+      "method_retrieved": "Payment method retrieved successfully",
+      "methods_retrieved": "Payment methods retrieved successfully",
+      "method_updated": "Payment method updated successfully"
+    },
+
+    "common": {
+      "internal_error": "Internal server error",
+      "invalid_input": "Invalid input data",
+      "not_found": "Not found",
+      "user_not_found": "User not found",
+      "quantity_gt_zero": "Quantity must be greater than 0",
+      "stock_negative": "Stock cannot be negative",
+      "not_enough_stock": "Not enough stock available",
+      "option_not_in_stock": "Option not found in stock",
+      "translation_failed": "Translation failed",
+      "translation_successful": "Translation successful",
+      "hello": "Hello world!",
+      "test": "Test",
+      "api_operational": "API is operational",
+      "server_running": "Server is up and running",
+      "auth_check_completed": "Authentication check completed"
+    },
+
+    "validation": {
+      "image_url_invalid": "Image must be a valid URL",
+      "password_required": "Password is required",
+      "name_too_short": "Name must be at least 2 characters",
+      "name_too_long": "Name must not exceed 255 characters",
+      "profile_image_string": "Profile image must be a string"
+    }
+  }
+}
