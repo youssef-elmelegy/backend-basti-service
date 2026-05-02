@@ -47,9 +47,10 @@ export class FeaturedCakeService {
     if (tagResult.length === 0) {
       throw new BadRequestException(
         errorResponse(
-          `Tag with ID ${tagId} not found`,
+          'routes.tags.not_found_with_id',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { id: tagId },
         ),
       );
     }
@@ -61,8 +62,8 @@ export class FeaturedCakeService {
       description,
       images,
       capacity,
-      flavorList,
-      pipingPaletteList,
+      flavorList = [],
+      pipingPaletteList = [],
       tagId,
       isActive = true,
       minPrepHours = 0,
@@ -105,7 +106,7 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(newCake, tagName),
-        'Cake created successfully',
+        'routes.featured_cakes.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -115,7 +116,7 @@ export class FeaturedCakeService {
       const errorMsg = this.getErrorMessage(error);
       this.logger.error(`Failed to create cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to create cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -141,7 +142,7 @@ export class FeaturedCakeService {
 
       let allCakesResult: Array<{
         cake: typeof featuredCakes.$inferSelect;
-        tagName: string;
+        tagName: string | null;
         price?: string;
       }> = [];
       let total = 0;
@@ -262,13 +263,13 @@ export class FeaturedCakeService {
           limit,
           totalPages,
         },
-        'Cakes retrieved successfully',
+        'routes.featured_cakes.list_retrieved',
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to retrieve cakes: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to retrieve cakes', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_retrieve', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -288,14 +289,14 @@ export class FeaturedCakeService {
       if (!cakeResult.length) {
         this.logger.warn(`Cake not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
       const { cake, tagName } = cakeResult[0];
 
       this.logger.debug(`Retrieved cake: ${id}`);
-      return successResponse(this.mapToCakeResponse(cake, tagName), 'Cake retrieved successfully');
+      return successResponse(this.mapToCakeResponse(cake, tagName || ''), 'routes.featured_cakes.retrieved');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -303,7 +304,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to retrieve cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to retrieve cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_retrieve', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -320,7 +321,7 @@ export class FeaturedCakeService {
       if (!existingCake) {
         this.logger.warn(`Cake not found for update: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -357,7 +358,7 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(updatedCake, tagName),
-        'Cake updated successfully',
+        'routes.featured_cakes.updated',
       );
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
@@ -366,7 +367,7 @@ export class FeaturedCakeService {
       const errorMsg = this.getErrorMessage(error);
       this.logger.error(`Failed to update cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to update cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_update', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -378,7 +379,7 @@ export class FeaturedCakeService {
       if (!cake) {
         this.logger.warn(`Cake not found for deletion: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -386,7 +387,7 @@ export class FeaturedCakeService {
 
       this.logger.log(`Cake deleted: ${id}`);
 
-      return successResponse({ message: 'Cake deleted successfully' }, 'Cake deleted successfully');
+      return successResponse({ message: 'routes.featured_cakes.deleted' }, 'routes.featured_cakes.deleted');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -394,7 +395,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to delete cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to delete cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_delete', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -410,7 +411,7 @@ export class FeaturedCakeService {
       if (!existingCake) {
         this.logger.warn(`Cake not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -440,7 +441,7 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(updatedCake, tagName),
-        `Cake ${statusText} successfully`,
+        'routes.featured_cakes.status_toggled',
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -449,7 +450,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to toggle cake status: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to toggle cake status', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_toggle_status', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -467,7 +468,7 @@ export class FeaturedCakeService {
     if (cakeResult.length === 0) {
       throw new BadRequestException(
         errorResponse(
-          `Featured cake with ID ${cakeId} not found`,
+          'routes.featured_cakes.not_found',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
         ),
@@ -488,7 +489,7 @@ export class FeaturedCakeService {
     if (regionResult.length === 0) {
       throw new BadRequestException(
         errorResponse(
-          `Region with ID ${regionId} not found`,
+          'routes.regions.not_found',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
         ),
@@ -560,7 +561,7 @@ export class FeaturedCakeService {
           createdAt: regionItemPrice.createdAt,
           updatedAt: regionItemPrice.updatedAt,
         },
-        'Region pricing created successfully',
+        'routes.featured_cakes.region_pricing_created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -570,14 +571,14 @@ export class FeaturedCakeService {
       const errorMsg = this.getErrorMessage(error);
       this.logger.error(`Failed to create region pricing: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to create region pricing', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.region_pricing_failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
 
   private mapToCakeResponse(
     cake: typeof featuredCakes.$inferSelect,
-    tagName?: string,
+    tagName?: string | null,
     price?: string,
   ) {
     const response: Record<string, unknown> = {

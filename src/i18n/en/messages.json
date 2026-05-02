@@ -35,7 +35,16 @@
       "reset_token_must_be_string": "Reset token must be a string",
       "invalid_or_expired_token": "Invalid or expired token",
       "invalid_or_expired_refresh_token": "Invalid or expired refresh token",
-      "refresh_token_not_found": "Refresh token not found"
+      "refresh_token_not_found": "Refresh token not found",
+      "registered_otp_sent": "User registered successfully. OTP sent to your email",
+      "failed_create": "Failed to create user",
+      "email_already_verified": "Email already verified",
+      "account_deleted": "Account deleted successfully",
+      "email_exists": "User with this email already exists",
+      "email_not_found": "User with this email not found",
+      "user_not_found": "User not found",
+      "failed_verify_email": "Failed to verify email",
+      "email_not_verified": "Email not verified. Please verify your email first"
     },
 
     "admin": {
@@ -117,7 +126,19 @@
       "list_retrieved": "Featured cakes retrieved successfully",
       "status_toggled": "Featured cake status toggled successfully",
       "added_to_cart": "Featured cake added to cart successfully",
-      "updated": "Featured cake updated successfully"
+      "updated": "Featured cake updated successfully",
+      "failed_create": "Failed to create featured cake",
+      "failed_retrieve": "Failed to retrieve featured cake",
+      "failed_update": "Failed to update featured cake",
+      "failed_delete": "Failed to delete featured cake",
+      "failed_toggle_status": "Failed to toggle featured cake status",
+      "region_pricing_created": "Region pricing created successfully",
+      "region_pricing_failed_create": "Failed to create region pricing",
+      "region_pricing_updated": "Region pricing updated successfully",
+      "region_pricing_failed_update": "Failed to update region pricing",
+      "region_pricing_deleted": "Region pricing deleted successfully",
+      "region_pricing_failed_delete": "Failed to delete region pricing",
+      "not_found": "Featured cake not found"
     },
 
     "predesigned": {
@@ -153,6 +174,13 @@
       "list_retrieved": "Regions retrieved successfully",
       "updated": "Region updated successfully",
       "order_updated": "Region order updated successfully",
+      "failed_create": "Failed to create region",
+      "failed_list": "Failed to retrieve regions",
+      "failed_retrieve": "Failed to retrieve regional products",
+      "failed_update": "Failed to update region",
+      "failed_delete": "Failed to delete region",
+      "failed_change_order": "Failed to change region order",
+      "invalid_order_position": "Invalid order position. Must be between 1 and {{max}}",
       "pricing_created": "Region pricing created successfully",
       "regional_products_retrieved": "Regional products retrieved successfully",
       "regional_pricing_created": "Regional pricing created successfully",
@@ -160,7 +188,9 @@
       "item_price_removed_success": "Regional item price removed successfully",
       "name_exists": "Region with this name already exists",
       "not_found": "Region not found",
-      "invalid_id": "Region ID is invalid"
+      "invalid_id": "Region ID is invalid",
+      "product_pricing_not_found": "Product pricing not found for this region",
+      "invalid_product_type": "Invalid product type"
     },
 
     "orders": {
@@ -208,6 +238,7 @@
       "order_updated": "Tag order updated successfully",
       "name_exists": "Tag name already exists",
       "not_found": "Tag not found",
+      "not_found_with_id": "Tag with ID: {id} not found",
       "failed_create": "Failed to create tag",
       "failed_delete": "Failed to delete tag",
       "failed_update": "Failed to update tag"
@@ -227,17 +258,34 @@
       "deleted": "Notification deleted successfully",
       "marked_read": "Notification marked as read",
       "sent": "Notification sent successfully",
+      "failed_send": "Failed to send notification",
       "list_retrieved": "Notifications retrieved successfully"
+      ,"fcm_token_registered": "FCM token registered successfully",
+      "failed_register_fcm": "Failed to register FCM token",
+      "fcm_token_cleared": "FCM token cleared successfully",
+      "failed_clear_fcm": "Failed to clear FCM token",
+      "failed_retrieve": "Failed to retrieve notifications",
+      "unread_count_retrieved": "Unread count retrieved successfully",
+      "failed_unread_count": "Failed to retrieve unread count",
+      "not_found": "Notification not found",
+      "failed_mark_read": "Failed to mark notification as read",
+      "failed_mark_all_read": "Failed to mark notifications as read",
+      "failed_delete": "Failed to delete notification",
+      "forbidden": "You do not have access to this notification",
+      "user_not_found": "User not found",
+      "admin_not_found": "Admin not found"
     },
 
     "otp": {
       "sent_if_exists": "If the email exists, an OTP has been sent",
       "sent": "OTP sent to your email",
       "resent": "OTP resent successfully to your email",
+      "failed_resend_otp": "Failed to resend OTP",
       "verified": "OTP verified successfully",
       "invalid_or_expired": "Invalid or expired OTP",
       "expired": "OTP has expired. Please request a new one",
-      "no_otp": "No OTP found. Please request a new one"
+      "no_otp": "No OTP found. Please request a new one",
+      "too_many_requests": "Too many OTP resend attempts. Please try again later"
     },
 
     "payment": {

@@ -36,7 +36,7 @@ export class NotificationService {
 
         if (!updated) {
           throw new NotFoundException(
-            errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+            errorResponse('routes.notifications.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
           );
         }
       } else {
@@ -48,7 +48,7 @@ export class NotificationService {
 
         if (!updated) {
           throw new NotFoundException(
-            errorResponse('Admin not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+            errorResponse('routes.notifications.admin_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
           );
         }
       }
@@ -56,8 +56,8 @@ export class NotificationService {
       this.logger.log(`FCM token registered for ${recipientKind} ${recipientId}`);
 
       return successResponse(
-        { message: 'FCM token registered successfully' },
-        'FCM token registered successfully',
+        { message: 'routes.notifications.fcm_token_registered' },
+        'routes.notifications.fcm_token_registered',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -66,7 +66,7 @@ export class NotificationService {
       this.logger.error(`Failed to register FCM token: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to register FCM token',
+          'routes.notifications.failed_register_fcm',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -94,8 +94,8 @@ export class NotificationService {
       this.logger.log(`FCM token cleared for ${recipientKind} ${recipientId}`);
 
       return successResponse(
-        { message: 'FCM token cleared successfully' },
-        'FCM token cleared successfully',
+        { message: 'routes.notifications.fcm_token_cleared' },
+        'routes.notifications.fcm_token_cleared',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -103,7 +103,7 @@ export class NotificationService {
       this.logger.error(`Failed to clear FCM token: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to clear FCM token',
+          'routes.notifications.failed_clear_fcm',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -125,7 +125,7 @@ export class NotificationService {
 
       if (!user) {
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.notifications.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
       fcmToken = user.fcmToken;
@@ -138,7 +138,7 @@ export class NotificationService {
 
       if (!admin) {
         throw new NotFoundException(
-          errorResponse('Admin not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.notifications.admin_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
       fcmToken = admin.fcmToken;
@@ -193,7 +193,7 @@ export class NotificationService {
 
       return successResponse(
         this.formatNotificationResponse(created),
-        'Notification sent successfully',
+        'routes.notifications.sent',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -202,7 +202,7 @@ export class NotificationService {
       this.logger.error(`Failed to send notification: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to send notification',
+          'routes.notifications.failed_send',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -261,7 +261,7 @@ export class NotificationService {
           items: rows.map((n) => this.formatNotificationResponse(n)),
           pagination: { total, totalPages, page, limit },
         },
-        'Notifications retrieved successfully',
+        'routes.notifications.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -269,7 +269,7 @@ export class NotificationService {
       this.logger.error(`Failed to retrieve notifications: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve notifications',
+          'routes.notifications.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -294,13 +294,13 @@ export class NotificationService {
 
       const unreadCount = typeof count === 'string' ? parseInt(count, 10) : count;
 
-      return successResponse({ unreadCount }, 'Unread count retrieved successfully', HttpStatus.OK);
+      return successResponse({ unreadCount }, 'routes.notifications.unread_count_retrieved', HttpStatus.OK);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to get unread count: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve unread count',
+          'routes.notifications.failed_unread_count',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -321,7 +321,7 @@ export class NotificationService {
 
     if (!existing) {
       throw new NotFoundException(
-        errorResponse('Notification not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.notifications.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -338,7 +338,7 @@ export class NotificationService {
 
       return successResponse(
         this.formatNotificationResponse(updated),
-        'Notification marked as read',
+        'routes.notifications.marked_read',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -346,7 +346,7 @@ export class NotificationService {
       this.logger.error(`Failed to mark notification as read: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to mark notification as read',
+          'routes.notifications.failed_mark_read',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -373,13 +373,13 @@ export class NotificationService {
       const message = `${updatedRows.length} notifications marked as read`;
       this.logger.log(`${recipientKind} ${recipientId}: ${message}`);
 
-      return successResponse({ message }, 'All notifications marked as read', HttpStatus.OK);
+      return successResponse({ message }, 'routes.notifications.all_marked_read', HttpStatus.OK);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to mark all as read: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to mark notifications as read',
+          'routes.notifications.failed_mark_all_read',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -400,7 +400,7 @@ export class NotificationService {
 
     if (!existing) {
       throw new NotFoundException(
-        errorResponse('Notification not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.notifications.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -411,8 +411,8 @@ export class NotificationService {
       this.logger.log(`Notification ${id} deleted by ${recipientKind} ${recipientId}`);
 
       return successResponse(
-        { message: 'Notification deleted successfully' },
-        'Notification deleted successfully',
+        { message: 'routes.notifications.deleted' },
+        'routes.notifications.deleted',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -420,7 +420,7 @@ export class NotificationService {
       this.logger.error(`Failed to delete notification: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete notification',
+          'routes.notifications.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -437,7 +437,7 @@ export class NotificationService {
     if (ownerId !== recipientId) {
       throw new ForbiddenException(
         errorResponse(
-          'You do not have access to this notification',
+          'routes.notifications.forbidden',
           HttpStatus.FORBIDDEN,
           'ForbiddenException',
         ),

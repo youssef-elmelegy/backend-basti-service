@@ -51,7 +51,7 @@ export class TranslationService {
         to: targetLanguage,
       });
 
-      return successResponse({ result: res }, "Translation successful");
+      return successResponse({ result: res }, 'routes.common.translation_successful');
     } catch (error) {
       if (error instanceof Error) {
         this.logger.error(`Translation failed for text: ${text}`, error.stack);

@@ -9,10 +9,10 @@ export class AppService {
     return successResponse(
       {
         health: true,
-        message: 'Server is up and running',
+        message: 'routes.common.server_running',
         version,
       },
-      'API is operational',
+      'routes.common.api_operational',
       HttpStatus.OK,
     );
   }
