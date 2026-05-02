@@ -1,4 +1,4 @@
-export interface TranslationString {
+export interface TranslationObject {
   en: string;
   ar: string;
 }

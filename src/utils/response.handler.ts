@@ -12,12 +12,14 @@ export function successResponse<T>(
   data: T,
   message: string = 'Success',
   code: number = HttpStatus.OK,
+  args: object = {},
 ): SuccessResponse<T> {
   return {
     code,
     success: true,
     message,
     data,
+    args,
     timestamp: new Date().toISOString(),
   };
 }
@@ -35,6 +37,7 @@ export function errorResponse(
   code: number = HttpStatus.INTERNAL_SERVER_ERROR,
   error?: string,
   data?: object,
+  args?: object,
 ): ErrorResponse {
   return {
     code,
@@ -42,6 +45,7 @@ export function errorResponse(
     message,
     error,
     data,
+    args,
     timestamp: new Date().toISOString(),
   };
 }

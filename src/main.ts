@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { env } from './env';
+import { I18nExceptionFilter } from './common/filters/i18n-translation.filter';
+import { I18nResponseInterceptor } from './common/interceptors/i18n-transaltion.interceptor';
 
 // Map env log levels to NestJS logger levels
 type NestLogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose' | 'fatal';
@@ -22,6 +24,28 @@ async function bootstrap() {
   app.useLogger(logLevelMap[env.LOG_LEVEL] || logLevelMap.info);
 
   app.setGlobalPrefix('api');
+
+  /*
+    instead of replacing all response and exception messages with the i18n logic in 
+    every single module, a filter and an interceptor are used to catch all messages
+    and translate them using the i18n context 
+  */
+  app.useGlobalFilters(new I18nExceptionFilter());
+  app.useGlobalInterceptors(new I18nResponseInterceptor());
+
+//   /*
+//     instead of using the default validation pipe, a custom pipe is used to 
+//     translate the error messages using the i18n context
+//   */
+//   app.useGlobalPipes(
+//   new ValidationPipe({
+//     whitelist: true,
+//     // Tell NestJS to throw the raw validation error objects
+//     exceptionFactory: (validationErrors) => {
+//       return new BadRequestException(validationErrors);
+//     },
+//   }),
+// );
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   app.use(cookieParser());
