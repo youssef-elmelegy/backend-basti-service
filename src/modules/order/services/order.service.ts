@@ -31,22 +31,22 @@ import {
   regions,
   regionItemPrices,
 } from '@/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
 import { errorResponse } from '@/utils';
 import { randomBytes } from 'crypto';
-import { CartService } from '@/modules/cart/services/cart.service';
-import { ItemService } from './item.service';
+import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
 import { SchedulerService } from './scheduler.service';
+import { TranslationService } from '@/common';
 
 /* eslint-disable */
 @Injectable()
 export class OrderService {
   constructor(
-    private readonly cartService: CartService,
     private readonly itemService: ItemService,
     private readonly stockService: StockService,
     private readonly schedulerService: SchedulerService,
+    private readonly translationService: TranslationService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
@@ -78,12 +78,19 @@ export class OrderService {
       let connectedPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[] = [];
 
-      const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+      const [region] = await db
+        .select({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        })
+        .from(regions)
+        .where(eq(regions.id, regionId))
+        .limit(1);
 
       if (!region) {
         this.logger.warn(`Region with id ${regionId} not found`);
         throw new BadRequestException(
-          errorResponse('Invalid region ID', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -92,7 +99,7 @@ export class OrderService {
       if (!user) {
         this.logger.warn(`User not found`);
         throw new BadRequestException(
-          errorResponse('User not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.users.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -109,7 +116,7 @@ export class OrderService {
           );
           throw new BadRequestException(
             errorResponse(
-              'Invalid location ID or location does not belong to the user',
+              'routes.orders.invalid_location',
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
             ),
@@ -131,7 +138,7 @@ export class OrderService {
           );
           throw new BadRequestException(
             errorResponse(
-              'Invalid Payment method ID or location does not belong to the user',
+              'routes.orders.invalid_payment_method',
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
             ),
@@ -156,9 +163,10 @@ export class OrderService {
           this.logger.warn(`Cart is empty for user ${userId} and type ${type}`);
           throw new BadRequestException(
             errorResponse(
-              `Cart is empty for user ${userId} and type ${type}`,
+              `routes.cart.orders.cart_empty`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { userId, type },
             ),
           );
         }
@@ -403,7 +411,12 @@ export class OrderService {
         if (itemsToInsert.length === 0) {
           this.logger.warn(`No items found in the cart for user ${userId} and type ${type}`);
           throw new BadRequestException(
-            errorResponse('No items found in the cart', HttpStatus.BAD_REQUEST, 'BadRequest'),
+            errorResponse(
+              'routes.cart.orders.cart_empty_for_user', 
+              HttpStatus.BAD_REQUEST, 
+              'BadRequest',
+              { userId, type }
+            ),
           );
         }
 
@@ -467,9 +480,10 @@ export class OrderService {
 
       throw new InternalServerErrorException(
         errorResponse(
-          `Failed to place the order: ${errMsg}`,
+          `routes.orders.failed_place`,
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
+          { error: errMsg },
         ),
       );
     }
@@ -497,7 +511,7 @@ export class OrderService {
       this.logger.error(`Failed to retrieve orders for user ${userId}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve orders',
+          'routes.orders.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -520,7 +534,7 @@ export class OrderService {
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
         throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -552,7 +566,7 @@ export class OrderService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve the order',
+          'routes.orders.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -616,7 +630,7 @@ export class OrderService {
       this.logger.error(`Failed to retrieve all orders`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve orders',
+          'routes.orders.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -636,7 +650,7 @@ export class OrderService {
       if (!bakery) {
         this.logger.warn(`Bakery with id: ${bakeryId} not found`);
         throw new NotFoundException(
-          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -699,7 +713,7 @@ export class OrderService {
       this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve bakery orders',
+          'routes.orders.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -717,7 +731,7 @@ export class OrderService {
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
         throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -749,7 +763,7 @@ export class OrderService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve the order',
+          'routes.orders.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -768,7 +782,7 @@ export class OrderService {
         this.logger.warn(`Order with id: ${orderId} not found for user: ${userId}`);
         throw new NotFoundException(
           errorResponse(
-            'Order not found or you are not authorized to cancel it',
+            'routes.orders.not_found_or_not_authorized_to_cancel',
             HttpStatus.NOT_FOUND,
             'NotFoundException',
           ),
@@ -781,9 +795,10 @@ export class OrderService {
         );
         throw new BadRequestException(
           errorResponse(
-            `Order cannot be cancelled. Status: ${order.orderStatus}`,
+            `routes.orders.cannot_be_cancelled`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
+            { status: order.orderStatus },
           ),
         );
       }
@@ -808,7 +823,7 @@ export class OrderService {
 
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to cancel the order',
+          'routes.orders.failed_cancel',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -823,7 +838,7 @@ export class OrderService {
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
         throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -843,7 +858,7 @@ export class OrderService {
       this.logger.error(`Failed to refuse order ${orderId}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to refuse order',
+          'routes.orders.failed_refuse',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -861,7 +876,7 @@ export class OrderService {
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
         throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -884,7 +899,7 @@ export class OrderService {
       this.logger.error(`Failed to change order status for order ${orderId} to ${status}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change order status',
+          'routes.orders.failed_change_status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -901,7 +916,7 @@ export class OrderService {
     if (!order) {
       this.logger.warn(`Order with id: ${orderId} not found`);
       throw new NotFoundException(
-        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -911,9 +926,10 @@ export class OrderService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+          `routes.orders.not_pending`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { orderId, status: order.orderStatus },
         ),
       );
     }
@@ -923,7 +939,7 @@ export class OrderService {
     if (!bakery) {
       this.logger.warn(`Bakery with id: ${bakeryId} not found`);
       throw new NotFoundException(
-        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -933,9 +949,10 @@ export class OrderService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Bakery with id: ${bakeryId} does not belong to the same region as the order`,
+          `routes.orders.not_same_region`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { bakeryId, orderId },
         ),
       );
     }
@@ -990,7 +1007,7 @@ export class OrderService {
       this.logger.error(`Failed to assign order ${orderId} to bakery ${bakeryId}:`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to assign order to bakery',
+          'routes.orders.failed_assign_to_bakery',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1007,7 +1024,7 @@ export class OrderService {
     if (!order) {
       this.logger.warn(`Order with id: ${orderId} not found`);
       throw new NotFoundException(
-        errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -1015,9 +1032,10 @@ export class OrderService {
       this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} is not assigned to a bakery`,
+          'routes.orders.not_assigned_to_bakery',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { orderId },
         ),
       );
     }
@@ -1028,9 +1046,10 @@ export class OrderService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+          `routes.orders.not_pending`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { orderId, status: order.orderStatus },
         ),
       );
     }
@@ -1039,9 +1058,10 @@ export class OrderService {
       this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} is not assigned to a bakery`,
+          `routes.orders.not_assigned_to_bakery`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { orderId },
         ),
       );
     }
@@ -1055,9 +1075,10 @@ export class OrderService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
+          `routes.orders.assinged_for_too_long`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { orderId },
         ),
       );
     }
@@ -1121,7 +1142,7 @@ export class OrderService {
       this.logger.error(`Failed to unassign order ${orderId} from bakery:`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to unassign order from bakery',
+          'routes.orders.failed_unassign_from_bakery',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1140,7 +1161,7 @@ export class OrderService {
       this.logger.warn(`At least one final image is required to finalize the order`);
       throw new BadRequestException(
         errorResponse(
-          'At least one final image is required to finalize the order',
+          'routes.orders.final_images_required',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
         ),
@@ -1154,7 +1175,7 @@ export class OrderService {
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
         throw new NotFoundException(
-          errorResponse('Order not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -1165,9 +1186,10 @@ export class OrderService {
         );
         throw new BadRequestException(
           errorResponse(
-            `Order with id: ${orderId} must be in preparing status to be finalized. Current status: ${order.orderStatus}`,
+            `routes.orders.not_preparing`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
+            { orderId, status: order.orderStatus },
           ),
         );
       }
@@ -1179,9 +1201,10 @@ export class OrderService {
         );
         throw new BadRequestException(
           errorResponse(
-            `Order with id: ${orderId} is not assigned to bakery ${bakeryId}. Current bakery: ${order.bakeryId}`,
+            'routes.orders.not_assined_to_this_bakery',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
+            { orderId, bakeryId, currentBakeryId: order.bakeryId },
           ),
         );
       }
@@ -1214,7 +1237,7 @@ export class OrderService {
       this.logger.error(`Failed to finalize order ${orderId} for bakery ${bakeryId}:`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to finalize order',
+          'routes.orders.failed_finalize',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1384,7 +1407,7 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.predesignedCakeId) {
-        const pdc = await this.cartService.getPredesignedCake(item.predesignedCakeId, regionId);
+        const [pdc] = await this.itemService.getPredesignedCakes([item.predesignedCakeId], regionId);
         predesignedCakeItems.push({
           data: {
             id: pdc.id,
@@ -1441,7 +1464,7 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.featuredCakeId) {
-        const fc = await this.cartService.getFeaturedCake(item.featuredCakeId, regionId);
+        const [fc] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
         featuredCakeItems.push({
           data: {
             id: fc.id,
@@ -1468,7 +1491,7 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.addonId) {
-        const addon = await this.cartService.getAddon(item.addonId, regionId);
+        const [addon] = await this.itemService.getAddons([{ id: item.addonId }], regionId);
         addonItems.push({
           data: {
             id: addon.id,
@@ -1495,7 +1518,7 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.sweetId) {
-        const sweet = await this.cartService.getSweet(item.sweetId, regionId);
+        const [sweet] = await this.itemService.getSweets([item.sweetId], regionId);
         sweetItems.push({
           data: {
             id: sweet.id,

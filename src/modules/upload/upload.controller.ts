@@ -21,6 +21,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Public } from '@/common';
+import { getErrorMessage } from '@/utils';
 
 export interface DeleteImageDto {
   urls: string[];
@@ -39,16 +40,6 @@ export class UploadController {
    * @param folder - Target folder in Cloudinary (e.g., 'basti/chefs', 'basti/products')
    * @returns CloudinaryUploadResult with secure_url
    */
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    if (typeof error === 'string') {
-      return error;
-    }
-    return 'unknown error';
-  }
-
   @Public()
   @Post('image')
   // @UseGuards(FlexibleJwtGuard)
@@ -78,10 +69,10 @@ export class UploadController {
       );
 
       this.logger.log(`Image uploaded to ${folder}: ${result.public_id}`);
-      return successResponse(result, 'Image uploaded successfully', 201);
+      return successResponse(result, 'route.upload.image_uploaded', 201);
     } catch (error) {
-      this.logger.error(`Upload failed: ${error.message}`);
-      throw new InternalServerErrorException('Failed to upload image to Cloudinary');
+      this.logger.error(`Upload failed: ${getErrorMessage(error)}`);
+      throw new InternalServerErrorException('route.upload.image_failed_upload');
     }
   }
 
@@ -98,12 +89,12 @@ export class UploadController {
 
     if (!urls || urls.length === 0) {
       this.logger.warn('No URLs provided for deletion');
-      return successResponse({ results: {}, success: 0, failed: 0 }, 'No images to delete', 200);
+      return successResponse({ results: {}, success: 0, failed: 0 }, 'route.upload.no_images_to_delete');
     }
 
     const result = await this.cloudinaryService.deleteFilesByUrls(urls);
 
     this.logger.log(`Image deletion completed: ${result.success} success, ${result.failed} failed`);
-    return successResponse(result, 'Images deleted', 200);
+    return successResponse(result, 'route.upload.images_deleted');
   }
 }

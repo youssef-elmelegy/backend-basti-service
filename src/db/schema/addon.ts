@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { addonCategoryEnum, addonInfoTypeEnum, orderItems, cartItems, tags } from '.';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const addons = pgTable(
   'addons',
@@ -17,8 +18,8 @@ export const addons = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: varchar('name', { length: 255 }).notNull(),
-    description: text('description'),
+    name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     category: addonCategoryEnum('category').notNull(),
     images: jsonb('images').notNull().$type<string[]>(),
     tagId: uuid('tag_id'),

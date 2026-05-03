@@ -228,7 +228,7 @@ export class AdminAuthController {
       let refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
 
       if (isMobileClient && !refreshToken) {
-        refreshToken = req.headers.authorization?.replace('Bearer ', '');
+        refreshToken = req.headers.authorization?.replace('Bearer ', '') as string;
       }
 
       if (!refreshToken) {
@@ -236,7 +236,7 @@ export class AdminAuthController {
         res.status(401).json({
           code: 401,
           success: false,
-          message: 'Refresh token not found',
+          message: 'routes.auth.refresh_token_not_found',
           error: 'Unauthorized',
           timestamp: new Date().toISOString(),
         });
@@ -290,7 +290,7 @@ export class AdminAuthController {
         res.json({
           code: 200,
           success: true,
-          message: 'Tokens refreshed successfully',
+          message: 'routes.auth.tokens_refreshed',
           data: responseData,
           timestamp: new Date().toISOString(),
         });
@@ -300,7 +300,7 @@ export class AdminAuthController {
         res.status(401).json({
           code: 401,
           success: false,
-          message: 'Invalid or expired refresh token',
+          message: 'routes.auth.invalid_or_expired_refresh_token',
           error: 'Unauthorized',
           timestamp: new Date().toISOString(),
         });
@@ -324,7 +324,7 @@ export class AdminAuthController {
         return res.json({
           code: 200,
           success: true,
-          message: 'Authentication check completed',
+          message: 'routes.auth.check_completed',
           data: {
             isAuthenticated: true,
             admin: {
@@ -344,7 +344,7 @@ export class AdminAuthController {
       return res.json({
         code: 200,
         success: true,
-        message: 'Authentication check completed',
+        message: 'routes.auth.check_completed',
         data: {
           isAuthenticated: false,
         },
@@ -355,7 +355,7 @@ export class AdminAuthController {
       return res.json({
         code: 200,
         success: true,
-        message: 'Authentication check completed',
+        message: 'routes.auth.check_failed',
         data: {
           isAuthenticated: false,
         },

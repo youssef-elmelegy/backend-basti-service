@@ -26,17 +26,26 @@ import {
   shapes,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL } from 'drizzle-orm';
+import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { TranslationService } from '@/common/index';
+import { PgTableWithColumns, PgColumn } from 'drizzle-orm/pg-core';
+
+type FlattenedFlavor = Omit<typeof flavors.$inferSelect, 'title' | 'description'> & { 
+  title: string; 
+  description: string; 
+};
 
 @Injectable()
 export class FlavorService {
   private readonly logger = new Logger(FlavorService.name);
 
+  constructor(private readonly translationService: TranslationService) {}
+
   /**
    * Map flavor data to response DTO
    */
-  private mapToFlavorResponse(flavor: typeof flavors.$inferSelect): FlavorDataDto {
+  private mapToFlavorResponse(flavor: FlattenedFlavor): FlavorDataDto {
     return {
       id: flavor.id,
       title: flavor.title,
@@ -57,20 +66,27 @@ export class FlavorService {
 
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
+      const titleObject = await this.translationService.getTranslationObject(createDto.title);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
-          title: createDto.title,
-          description: createDto.description,
+          title: titleObject,
+          description: descriptionObject,
           flavorUrl: createDto.flavorUrl,
           order: nextOrder,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        });
 
       this.logger.log(`Flavor created: ${newFlavor.id}`);
       return successResponse(
         this.mapToFlavorResponse(newFlavor),
-        'Flavor created successfully',
+        'routes.flavors.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -81,7 +97,7 @@ export class FlavorService {
       this.logger.error(`Flavor creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create flavor',
+          'routes.flavors.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -112,7 +128,7 @@ export class FlavorService {
 
     if (!shapeExists.length) {
       throw new BadRequestException(
-        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.shapes.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
@@ -126,7 +142,7 @@ export class FlavorService {
 
     if (!regionExists.length) {
       throw new BadRequestException(
-        errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
@@ -148,19 +164,23 @@ export class FlavorService {
     }
 
     let allFlavorsResult: Array<{
-      flavor: typeof flavors.$inferSelect;
+      flavor: FlattenedFlavor;
       image: typeof shapeVariantImages.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
     }> = [];
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           image: shapeVariantImages,
           pricing: regionItemPrices,
         })
@@ -174,7 +194,11 @@ export class FlavorService {
     } else {
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           image: shapeVariantImages,
           pricing: regionItemPrices,
         })
@@ -192,7 +216,7 @@ export class FlavorService {
     if (query.search) {
       const searchPattern = `%${query.search}%`;
       const whereConditionsCount: SQL<unknown>[] = [];
-      whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
       }
@@ -269,7 +293,7 @@ export class FlavorService {
 
     if (!shapeExists.length) {
       throw new BadRequestException(
-        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.shapes.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
@@ -285,19 +309,23 @@ export class FlavorService {
     }
 
     let allFlavorsResult: Array<{
-      flavor: typeof flavors.$inferSelect;
+      flavor: FlattenedFlavor;
       image: typeof shapeVariantImages.$inferSelect;
     }> = [];
     let total = 0;
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           image: shapeVariantImages,
         })
         .from(flavors)
@@ -308,7 +336,7 @@ export class FlavorService {
         .offset(offset);
 
       const whereConditionsCount: SQL<unknown>[] = [];
-      whereConditionsCount.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
       }
@@ -321,7 +349,11 @@ export class FlavorService {
     } else {
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           image: shapeVariantImages,
         })
         .from(flavors)
@@ -396,7 +428,7 @@ export class FlavorService {
     }
 
     let allFlavorsResult: Array<{
-      flavor: typeof flavors.$inferSelect;
+      flavor: FlattenedFlavor;
       pricing: typeof regionItemPrices.$inferSelect;
     }> = [];
     let total = 0;
@@ -404,7 +436,7 @@ export class FlavorService {
     // If search is also provided, combine both filters
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       const [{ count: combinedCount }] = await db
@@ -417,7 +449,11 @@ export class FlavorService {
 
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           pricing: regionItemPrices,
         })
         .from(flavors)
@@ -438,7 +474,11 @@ export class FlavorService {
 
       allFlavorsResult = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
           pricing: regionItemPrices,
         })
         .from(flavors)
@@ -476,7 +516,7 @@ export class FlavorService {
   }> {
     const searchPattern = `%${query.search}%`;
     const whereConditions: SQL<unknown>[] = [];
-    whereConditions.push(sql`LOWER(${flavors.title}) LIKE LOWER(${searchPattern})`);
+    whereConditions.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -490,7 +530,11 @@ export class FlavorService {
 
     const allFlavorsResult = await db
       .select({
-        flavor: flavors,
+        flavor: {
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        },
       })
       .from(flavors)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
@@ -534,7 +578,11 @@ export class FlavorService {
 
     const allFlavorsResult = await db
       .select({
-        flavor: flavors,
+        flavor: {
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        },
       })
       .from(flavors)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
@@ -606,7 +654,7 @@ export class FlavorService {
             limit: query.limit,
           },
         },
-        'Flavors retrieved successfully',
+        'routes.flavors.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -617,7 +665,7 @@ export class FlavorService {
       this.logger.error(`Failed to retrieve flavors: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve flavors',
+          'routes.flavors.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -629,7 +677,11 @@ export class FlavorService {
     try {
       const [item] = await db
         .select({
-          flavor: flavors,
+          flavor: {
+            ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
+          },
         })
         .from(flavors)
         .where(eq(flavors.id, id))
@@ -638,13 +690,13 @@ export class FlavorService {
       if (!item) {
         this.logger.warn(`Flavor not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       return successResponse(
         this.mapToFlavorResponse(item.flavor),
-        'Flavor retrieved successfully',
+        'routes.flavors.retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -653,7 +705,7 @@ export class FlavorService {
       this.logger.error(`Failed to retrieve flavor ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve flavor',
+          'routes.flavors.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -672,20 +724,28 @@ export class FlavorService {
 
       if (!existingFlavor.length) {
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
-      const updateFields: Record<string, string> = {};
-      if (updateDto.title !== undefined) updateFields.title = updateDto.title;
-      if (updateDto.description !== undefined) updateFields.description = updateDto.description;
+      const updateFields: Record<string, any> = {};
+      if (updateDto.title !== undefined) {
+        updateFields.title = await this.translationService.getTranslationObject(updateDto.title);
+      }
+      if (updateDto.description !== undefined) {
+        updateFields.description = await this.translationService.getTranslationObject(updateDto.description);
+      }
       if (updateDto.flavorUrl !== undefined) updateFields.flavorUrl = updateDto.flavorUrl;
 
       const [updatedFlavor] = await db
         .update(flavors)
         .set(updateFields)
         .where(eq(flavors.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        });
 
       // Replace variant images if provided
       if (updateDto.variantImages !== undefined) {
@@ -701,9 +761,10 @@ export class FlavorService {
             const missing = shapeIds.filter((sid) => !existing.includes(sid));
             throw new BadRequestException(
               errorResponse(
-                `Shape(s) not found: ${missing.join(', ')}`,
+                `routes.flavors.shapes_not_found`,
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
+                { missing: missing.join(', ') },
               ),
             );
           }
@@ -728,7 +789,7 @@ export class FlavorService {
       this.logger.log(`Flavor updated: ${id}`);
       return successResponse(
         this.mapToFlavorResponse(updatedFlavor),
-        'Flavor updated successfully',
+        'routes.flavors.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -739,7 +800,7 @@ export class FlavorService {
       this.logger.error(`Failed to update flavor ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update flavor',
+          'routes.flavors.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -757,7 +818,7 @@ export class FlavorService {
 
       if (!existingFlavor.length) {
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -776,7 +837,7 @@ export class FlavorService {
         ];
         throw new ConflictException({
           ...errorResponse(
-            'Cannot delete flavor because it is used in predesigned cake configurations',
+            'routes.flavors.delete_conflict',
             HttpStatus.CONFLICT,
             'ConflictException',
           ),
@@ -792,7 +853,7 @@ export class FlavorService {
       await db.delete(flavors).where(eq(flavors.id, id));
 
       this.logger.log(`Flavor deleted: ${id}`);
-      return successResponse(null, 'Flavor deleted successfully', HttpStatus.OK);
+      return successResponse(null, 'routes.flavors.deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
@@ -801,7 +862,7 @@ export class FlavorService {
       this.logger.error(`Failed to delete flavor ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete flavor',
+          'routes.flavors.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -824,7 +885,7 @@ export class FlavorService {
 
       if (!existingFlavor.length) {
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -857,7 +918,7 @@ export class FlavorService {
       );
       return successResponse(
         null,
-        'Flavor and related records deleted successfully',
+        'routes.flavors.force_deleted',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -868,7 +929,7 @@ export class FlavorService {
       this.logger.error(`Failed to force-delete flavor ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to force-delete flavor',
+          'routes.flavors.failed_force_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -883,7 +944,7 @@ export class FlavorService {
       if (!existingFlavor) {
         this.logger.warn(`Flavor not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -909,7 +970,7 @@ export class FlavorService {
           createdAt: updatedFlavor.createdAt,
           updatedAt: updatedFlavor.updatedAt,
         },
-        `Flavor status ${statusText} successfully`,
+        `routes.flavors.status_toggled`,
         HttpStatus.OK,
       );
     } catch (error) {
@@ -920,7 +981,7 @@ export class FlavorService {
       this.logger.error(`Failed to toggle flavor status ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to toggle flavor status',
+          'routes.flavors.failed_toggle_status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -941,7 +1002,7 @@ export class FlavorService {
 
       if (!regionExists.length) {
         throw new BadRequestException(
-          errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -953,7 +1014,7 @@ export class FlavorService {
 
       if (!flavorExists.length) {
         throw new BadRequestException(
-          errorResponse('Flavor not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -982,7 +1043,7 @@ export class FlavorService {
 
         result = updateResult[0];
         this.logger.log(`Flavor region price updated: ${result.id}`);
-        return successResponse(result, 'Flavor region price updated successfully', HttpStatus.OK);
+        return successResponse(result, 'routes.flavors.region_pricing_updated', HttpStatus.OK);
       } else {
         // Create new pricing
         const insertResult = await db
@@ -1003,7 +1064,7 @@ export class FlavorService {
         this.logger.log(`Flavor region price created: ${result.id}`);
         return successResponse(
           result,
-          'Flavor region price created successfully',
+          'routes.flavors.region_pricing_created',
           HttpStatus.CREATED,
         );
       }
@@ -1015,7 +1076,7 @@ export class FlavorService {
       this.logger.error(`Failed to create flavor region price: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create flavor region price',
+          'routes.flavors.region_pricing_failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1039,9 +1100,10 @@ export class FlavorService {
           const missingShapeIds = shapeIds.filter((id) => !existingShapeIds.includes(id));
           throw new BadRequestException(
             errorResponse(
-              `Shape(s) not found: ${missingShapeIds.join(', ')}`,
+              `routes.flavors.shapes_not_found`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { missing: missingShapeIds.join(', ') },
             ),
           );
         }
@@ -1054,15 +1116,22 @@ export class FlavorService {
 
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
+      const titleObject = await this.translationService.getTranslationObject(createDto.title);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+
       const [newFlavor] = await db
         .insert(flavors)
         .values({
-          title: createDto.title,
-          description: createDto.description,
+          title: titleObject,
+          description: descriptionObject,
           flavorUrl: createDto.flavorUrl,
           order: nextOrder,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        });
 
       if (createDto.variantImages && createDto.variantImages.length > 0) {
         await db.insert(shapeVariantImages).values(
@@ -1082,7 +1151,7 @@ export class FlavorService {
       );
       return successResponse(
         this.mapToFlavorResponse(newFlavor),
-        'Flavor and variant images created successfully',
+        'routes.flavors.created_with_variant_images',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -1093,7 +1162,7 @@ export class FlavorService {
       this.logger.error(`Flavor creation with variant images error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create flavor with variant images',
+          'routes.flavors.failed_create_with_variant_images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1111,7 +1180,7 @@ export class FlavorService {
 
       if (!flavorExists) {
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -1130,14 +1199,14 @@ export class FlavorService {
         updatedAt: v.updatedAt,
       }));
 
-      return successResponse(data, 'Flavor variant images retrieved successfully', HttpStatus.OK);
+      return successResponse(data, 'routes.flavors.retrieved_with_variant_images', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve flavor variant images ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve flavor variant images',
+          'routes.flavors.failed_retrieve_with_variant_images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1157,13 +1226,13 @@ export class FlavorService {
 
       if (!flavor) {
         throw new NotFoundException(
-          errorResponse('Flavor not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       if (newOrder < 1) {
         throw new BadRequestException(
-          errorResponse('Order must be at least 1', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.flavors.order_must_be_at_least', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -1245,11 +1314,18 @@ export class FlavorService {
       }
 
       // Return all flavors sorted by order
-      const allFlavors = await db.select().from(flavors).orderBy(asc(flavors.order));
+      const allFlavors = await db
+        .select({
+          ...getTableColumns(flavors),
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
+        })
+        .from(flavors)
+        .orderBy(asc(flavors.order));
 
       return successResponse(
         allFlavors.map((f) => this.mapToFlavorResponse(f)),
-        'Flavor order successfully changed, returns all flavors sorted by order',
+        'routes.flavors.order_updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -1260,7 +1336,7 @@ export class FlavorService {
       this.logger.error(`Flavor order change error for ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change flavor order',
+          'routes.flavors.failed_change_order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1268,3 +1344,4 @@ export class FlavorService {
     }
   }
 }
+

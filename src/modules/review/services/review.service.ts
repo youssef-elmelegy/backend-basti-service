@@ -36,7 +36,7 @@ export class ReviewService {
       if (!order) {
         throw new BadRequestException(
           errorResponse(
-            'Order not found or does not belong to you',
+            'routes.reviews.not_found_or_does_not_belong_to_you',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -46,7 +46,7 @@ export class ReviewService {
       if (order.orderStatus && order.orderStatus !== 'delivered') {
         throw new BadRequestException(
           errorResponse(
-            'Order is not delivered yet',
+            'routes.reviews.order_is_not_delivered',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -56,7 +56,7 @@ export class ReviewService {
       if (!order.bakeryId) {
         throw new BadRequestException(
           errorResponse(
-            'Order does not belong to a bakery',
+            'routes.reviews.order_does_not_belong_to_a_bakery',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -71,7 +71,7 @@ export class ReviewService {
 
       if (!bakery) {
         throw new BadRequestException(
-          errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.bakery.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -84,7 +84,7 @@ export class ReviewService {
       if (existingReview) {
         throw new BadRequestException(
           errorResponse(
-            'You have already reviewed this order',
+            'routes.reviews.already_reviewed',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -126,7 +126,7 @@ export class ReviewService {
       this.logger.error(`Review creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create review',
+          'routes.reviews.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -166,7 +166,7 @@ export class ReviewService {
               limit,
             },
           },
-          'No reviews available',
+          'routes.reviews.no_reviews',
           HttpStatus.OK,
         );
       }
@@ -192,13 +192,20 @@ export class ReviewService {
         .limit(limit)
         .offset(offset);
 
+      const sanitizedReviews = bakeryReviews.map(review => ({
+        ...review,
+        firstName: review.firstName ?? '',
+        lastName: review.lastName ?? '',
+        profileImage: review.profileImage ?? '',
+      }));
+
       this.logger.debug(
         `Retrieved ${bakeryReviews.length} reviews for bakery: ${bakeryId} (page ${page}, limit ${limit})`,
       );
 
       return successResponse(
         {
-          reviews: bakeryReviews,
+          reviews: sanitizedReviews,
           averageRating: Number(bakery.averageRating || '0'),
           totalReviews: bakery.totalReviews,
           pagination: {
@@ -208,7 +215,7 @@ export class ReviewService {
             limit,
           },
         },
-        'Reviews fetched successfully',
+        'routes.reviews.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -220,7 +227,7 @@ export class ReviewService {
       this.logger.error(`Failed to retrieve reviews: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve reviews',
+          'routes.reviews.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -244,7 +251,7 @@ export class ReviewService {
       this.logger.error(`Failed to retrieve reviews: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve reviews',
+          'routes.reviews.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -267,7 +274,7 @@ export class ReviewService {
       this.logger.error(`Failed to retrieve review: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve review',
+          'routes.reviews.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -283,7 +290,7 @@ export class ReviewService {
       if (review.userId !== userId) {
         throw new ForbiddenException(
           errorResponse(
-            'You are not authorized to update this review',
+            'routes.reviews.not_authorized',
             HttpStatus.FORBIDDEN,
             'ForbiddenException',
           ),
@@ -301,7 +308,7 @@ export class ReviewService {
 
       if (!bakery) {
         throw new BadRequestException(
-          errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.bakery.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -316,7 +323,7 @@ export class ReviewService {
         .returning();
 
       const newAverageRating =
-        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + updateDto.rating) /
+        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + updateDto.rating!) /
         bakery.totalReviews;
 
       await db
@@ -337,7 +344,7 @@ export class ReviewService {
       this.logger.error(`Failed to update review: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update review',
+          'routes.reviews.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -353,7 +360,7 @@ export class ReviewService {
       if (review.userId !== userId) {
         throw new ForbiddenException(
           errorResponse(
-            'You are not authorized to delete this review',
+            'routes.reviews.not_authorized_delete',
             HttpStatus.FORBIDDEN,
             'ForbiddenException',
           ),
@@ -373,7 +380,7 @@ export class ReviewService {
       this.logger.error(`Failed to delete review: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete review',
+          'routes.reviews.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -381,7 +388,7 @@ export class ReviewService {
     }
   }
 
-  async removeByAdmin(id: string): Promise<{ message: 'Review deleted successfully' }> {
+  async removeByAdmin(id: string): Promise<{ message: string }> {
     try {
       const review = await this.findReviewOrFail(id);
 
@@ -408,7 +415,7 @@ export class ReviewService {
 
       this.logger.log(`Review deleted by admin: ${id}`);
 
-      return { message: 'Review deleted successfully' };
+      return { message: 'routes.reviews.deleted' };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -417,7 +424,7 @@ export class ReviewService {
       this.logger.error(`Failed to delete review: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete review',
+          'routes.reviews.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -430,7 +437,12 @@ export class ReviewService {
 
     if (!review) {
       throw new NotFoundException(
-        errorResponse(`Review with ID ${id} not found`, HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse(
+          `routes.reviews.not_found_with_id`, 
+          HttpStatus.NOT_FOUND, 
+          'NotFoundException', 
+          { reviewId: id }
+        ),
       );
     }
 
@@ -442,9 +454,10 @@ export class ReviewService {
     if (!bakery) {
       throw new NotFoundException(
         errorResponse(
-          `Bakery with ID ${review.bakeryId} not found`,
-          HttpStatus.NOT_FOUND,
-          'NotFoundException',
+          `routes.bakery.not_found_with_id`, 
+          HttpStatus.NOT_FOUND, 
+          'NotFoundException', 
+          { bakeryId: review.bakeryId }
         ),
       );
     }

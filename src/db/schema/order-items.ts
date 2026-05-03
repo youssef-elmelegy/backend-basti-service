@@ -16,7 +16,7 @@ import {
   FeaturedCakeData,
   PredesignedCakeData,
   CustomCakeData,
-} from '@/modules/order/dto/items-interface';
+} from '@/modules/items/items-interface';
 
 export const orderItems = pgTable(
   'order_items',

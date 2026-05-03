@@ -29,10 +29,10 @@ import { successResponse } from '@/utils';
 export class AdminAuthService {
   private passwordSchema = z
     .string()
-    .min(8, 'Password must be at least 8 characters long')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/\d/, 'Password must contain at least one digit');
+    .min(8, 'validation.password_min')
+    .regex(/[a-z]/, 'validation.password_lowercase')
+    .regex(/[A-Z]/, 'validation.password_uppercase')
+    .regex(/\d/, 'validation.password_digit');
 
   constructor(
     private jwtService: JwtService,
@@ -47,16 +47,16 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('routes.auth.invalid_credentials');
     }
 
     if (admin.isBlocked) {
-      throw new UnauthorizedException('Admin account is blocked');
+      throw new UnauthorizedException('routes.admin.account_blocked');
     }
 
     const passwordMatch = await bcrypt.compare(password, admin.password);
     if (!passwordMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('routes.auth.invalid_credentials');
     }
 
     const accessToken = this.jwtService.sign(
@@ -91,7 +91,7 @@ export class AdminAuthService {
           updatedAt: admin.updatedAt,
         },
       },
-      'Admin logged in successfully',
+      'routes.admin.logged_in',
       HttpStatus.OK,
     );
   }
@@ -104,7 +104,7 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin with this email not found');
+      throw new NotFoundException('routes.admin.email_not_found');
     }
 
     const otp = this.emailService.generateOtp(6);
@@ -125,7 +125,7 @@ export class AdminAuthService {
       {
         email,
       },
-      'OTP sent to your email',
+      'routes.otp.sent',
       HttpStatus.OK,
     );
   }
@@ -138,19 +138,19 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin with this email not found');
+      throw new NotFoundException('routes.admin.email_not_found');
     }
 
     if (!admin.otpCode) {
-      throw new BadRequestException('No OTP found. Please request a new one');
+      throw new BadRequestException('routes.otp.no_otp');
     }
 
     if (admin.otpExpiresAt && admin.otpExpiresAt < new Date()) {
-      throw new BadRequestException('OTP has expired. Please request a new one');
+      throw new BadRequestException('routes.otp.expired');
     }
 
     if (admin.otpCode !== otp) {
-      throw new UnauthorizedException('Invalid OTP code');
+      throw new UnauthorizedException('routes.otp.invalid_or_expired');
     }
 
     const resetToken = this.jwtService.sign(
@@ -167,7 +167,7 @@ export class AdminAuthService {
         resetToken,
         email,
       },
-      'OTP verified successfully',
+      'routes.otp.verified',
       HttpStatus.OK,
     );
   }
@@ -176,13 +176,14 @@ export class AdminAuthService {
     const password = resetPasswordDto.newPassword;
 
     if (!password) {
-      throw new BadRequestException('Password is required');
+      throw new BadRequestException('routes.auth.password_required');
     }
 
     try {
       this.passwordSchema.parse(password);
     } catch (error) {
-      const message = error instanceof z.ZodError ? error.issues[0].message : 'Invalid password';
+      const message =
+        error instanceof z.ZodError ? error.issues[0].message : 'routes.auth.invalid_password';
       throw new BadRequestException(message);
     }
 
@@ -199,11 +200,11 @@ export class AdminAuthService {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error('Reset token verification error:', message);
-      throw new UnauthorizedException('Invalid or expired reset token');
+      throw new UnauthorizedException('routes.auth.reset_token_invalid');
     }
 
     if (decoded.type !== 'reset') {
-      throw new UnauthorizedException('Invalid token type');
+      throw new UnauthorizedException('routes.auth.invalid_token_type');
     }
 
     const adminId = decoded.id;
@@ -220,14 +221,14 @@ export class AdminAuthService {
       })
       .where(eq(admins.id, adminId));
 
-    return successResponse(null, 'Password reset successfully', HttpStatus.OK);
+    return successResponse(null, 'routes.auth.password_reset', HttpStatus.OK);
   }
 
   async changePassword(adminId: string, changePasswordDto: AdminChangePasswordDto) {
     const { currentPassword, newPassword, confirmPassword } = changePasswordDto;
 
     if (newPassword !== confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
+      throw new BadRequestException('routes.auth.passwords_not_match');
     }
 
     const admin = await db.query.admins.findFirst({
@@ -235,24 +236,25 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin not found');
+      throw new NotFoundException('routes.admin.not_found');
     }
 
     const passwordMatch = await bcrypt.compare(currentPassword, admin.password);
     if (!passwordMatch) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('routes.auth.current_password_incorrect');
     }
 
     try {
       this.passwordSchema.parse(newPassword);
     } catch (error) {
-      const message = error instanceof z.ZodError ? error.issues[0].message : 'Invalid password';
+      const message =
+        error instanceof z.ZodError ? error.issues[0].message : 'routes.auth.invalid_password';
       throw new BadRequestException(message);
     }
 
     const isSamePassword = await bcrypt.compare(newPassword, admin.password);
     if (isSamePassword) {
-      throw new BadRequestException('New password must be different from current password');
+      throw new BadRequestException('routes.auth.new_password_differs');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, env.BCRYPT_SALT_ROUNDS);
@@ -265,11 +267,11 @@ export class AdminAuthService {
       })
       .where(eq(admins.id, adminId));
 
-    return successResponse(null, 'Password changed successfully', HttpStatus.OK);
+    return successResponse(null, 'routes.auth.password_changed', HttpStatus.OK);
   }
 
   logout() {
-    return successResponse(null, 'Logout successful', HttpStatus.OK);
+    return successResponse(null, 'routes.auth.logout', HttpStatus.OK);
   }
 
   async getAdminById(adminId: string) {
@@ -278,7 +280,7 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin not found');
+      throw new NotFoundException('routes.admin.not_found');
     }
 
     return admin;
@@ -319,7 +321,7 @@ export class AdminAuthService {
           updatedAt: admin.updatedAt,
         },
       },
-      'Tokens refreshed successfully',
+      'routes.auth.tokens_refreshed',
       HttpStatus.OK,
     );
   }
@@ -331,7 +333,7 @@ export class AdminAuthService {
         id: (decoded as Record<string, unknown>).id as string,
       };
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException('routes.auth.invalid_or_expired_refresh_token');
     }
   }
 
@@ -344,7 +346,7 @@ export class AdminAuthService {
     });
 
     if (existingAdmin) {
-      throw new BadRequestException('Admin with this email already exists');
+      throw new BadRequestException('routes.admin.email_exists');
     }
 
     // Validate password
@@ -374,7 +376,7 @@ export class AdminAuthService {
         createdAt: newAdmin.createdAt,
         updatedAt: newAdmin.updatedAt,
       },
-      'Admin created successfully',
+      'routes.admin.created',
       HttpStatus.CREATED,
     );
   }
@@ -387,7 +389,7 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin not found');
+      throw new NotFoundException('routes.admin.not_found');
     }
 
     const [updatedAdmin] = await db
@@ -410,7 +412,7 @@ export class AdminAuthService {
         createdAt: updatedAdmin.createdAt,
         updatedAt: updatedAdmin.updatedAt,
       },
-      isBlocked ? 'Admin blocked successfully' : 'Admin unblocked successfully',
+      isBlocked ? 'routes.admin.blocked' : 'routes.admin.unblocked',
       HttpStatus.OK,
     );
   }
@@ -424,7 +426,7 @@ export class AdminAuthService {
     });
 
     if (!admin) {
-      throw new NotFoundException('Admin not found');
+      throw new NotFoundException('routes.admin.not_found');
     }
 
     const updateData: Record<string, unknown> = {};
@@ -448,7 +450,7 @@ export class AdminAuthService {
         createdAt: updatedAdmin.createdAt,
         updatedAt: updatedAdmin.updatedAt,
       },
-      'Admin updated successfully',
+      'routes.admin.updated',
       HttpStatus.OK,
     );
   }
@@ -472,7 +474,7 @@ export class AdminAuthService {
         admins: formattedAdmins,
         total: formattedAdmins.length,
       },
-      'Admins retrieved successfully',
+      'routes.admin.list_retrieved',
       HttpStatus.OK,
     );
   }

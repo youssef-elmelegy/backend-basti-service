@@ -23,17 +23,25 @@ import {
   shapeVariantImages,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL } from 'drizzle-orm';
+import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { TranslationService } from '@/common';
+
+type FlattenedShape = Omit<typeof shapes.$inferSelect, 'title' | 'description'> & { 
+  title: string; 
+  description: string; 
+};
 
 @Injectable()
 export class ShapeService {
   private readonly logger = new Logger(ShapeService.name);
 
+  constructor(private readonly translationService: TranslationService) {}
+
   /**
    * Map shape data to response DTO
    */
-  private mapToShapeResponse(shape: typeof shapes.$inferSelect, price?: string): ShapeDataDto {
+  private mapToShapeResponse(shape: FlattenedShape, price?: string): ShapeDataDto {
     const response: ShapeDataDto = {
       id: shape.id,
       title: shape.title,
@@ -64,11 +72,14 @@ export class ShapeService {
 
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
+      const titleObject = await this.translationService.getTranslationObject(createDto.title);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+
       const [newShape] = await db
         .insert(shapes)
         .values({
-          title: createDto.title,
-          description: createDto.description,
+          title: titleObject,
+          description: descriptionObject,
           shapeUrl: createDto.shapeUrl,
           size: createDto.size,
           capacity: createDto.capacity,
@@ -76,12 +87,16 @@ export class ShapeService {
           visualKey: createDto.visualKey,
           order: nextOrder,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(shapes),
+          title: this.translationService.getLocalized(shapes.title, 'title'),
+          description: this.translationService.getLocalized(shapes.description, 'description'),
+        });
 
       this.logger.log(`Shape created: ${newShape.id}`);
       return successResponse(
         this.mapToShapeResponse(newShape),
-        'Shape created successfully',
+        'routes.shapes.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -92,7 +107,7 @@ export class ShapeService {
       this.logger.error(`Shape creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create shape',
+          'routes.shapes.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -110,7 +125,7 @@ export class ShapeService {
       }
 
       let allShapesResult: Array<{
-        shape: typeof shapes.$inferSelect;
+        shape: FlattenedShape;
         price?: string;
       }> = [];
 
@@ -125,7 +140,7 @@ export class ShapeService {
 
         if (!regionExists.length) {
           throw new BadRequestException(
-            errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+            errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
           );
         }
 
@@ -137,12 +152,16 @@ export class ShapeService {
         // If search is also provided, combine both filters
         if (query.search) {
           const searchPattern = `%${query.search}%`;
-          const searchCondition = sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`;
+          const searchCondition = sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
           whereConditions.push(searchCondition);
 
           allShapesResult = await db
             .select({
-              shape: shapes,
+              shape: {
+                ...getTableColumns(shapes),
+                title: this.translationService.getLocalized(shapes.title, 'title'),
+                description: this.translationService.getLocalized(shapes.description, 'description'),
+              },
               price: regionItemPrices.price,
             })
             .from(shapes)
@@ -153,7 +172,11 @@ export class ShapeService {
           // Only regionId, no search
           allShapesResult = await db
             .select({
-              shape: shapes,
+              shape: {
+                ...getTableColumns(shapes),
+                title: this.translationService.getLocalized(shapes.title, 'title'),
+                description: this.translationService.getLocalized(shapes.description, 'description'),
+              },
               price: regionItemPrices.price,
             })
             .from(shapes)
@@ -165,11 +188,15 @@ export class ShapeService {
       // Search by title if provided
       else if (query.search) {
         const searchPattern = `%${query.search}%`;
-        whereConditions.push(sql`LOWER(${shapes.title}) LIKE LOWER(${searchPattern})`);
+        whereConditions.push(sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
 
         allShapesResult = await db
           .select({
-            shape: shapes,
+            shape: {
+              ...getTableColumns(shapes),
+              title: this.translationService.getLocalized(shapes.title, 'title'),
+              description: this.translationService.getLocalized(shapes.description, 'description'),
+            },
           })
           .from(shapes)
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
@@ -179,7 +206,11 @@ export class ShapeService {
       else {
         allShapesResult = await db
           .select({
-            shape: shapes,
+            shape: {
+              ...getTableColumns(shapes),
+              title: this.translationService.getLocalized(shapes.title, 'title'),
+              description: this.translationService.getLocalized(shapes.description, 'description'),
+            },
           })
           .from(shapes)
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
@@ -188,7 +219,7 @@ export class ShapeService {
 
       return successResponse(
         allShapesResult.map((row) => this.mapToShapeResponse(row.shape, row.price || undefined)),
-        'Shapes retrieved successfully',
+        'routes.shapes.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -196,7 +227,7 @@ export class ShapeService {
       this.logger.error(`Failed to retrieve shapes: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve shapes',
+          'routes.shapes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -208,7 +239,11 @@ export class ShapeService {
     try {
       const [item] = await db
         .select({
-          shape: shapes,
+          shape: {
+            ...getTableColumns(shapes),
+            title: this.translationService.getLocalized(shapes.title, 'title'),
+            description: this.translationService.getLocalized(shapes.description, 'description'),
+          },
         })
         .from(shapes)
         .where(eq(shapes.id, id))
@@ -217,13 +252,13 @@ export class ShapeService {
       if (!item) {
         this.logger.warn(`Shape not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       return successResponse(
         this.mapToShapeResponse(item.shape),
-        'Shape retrieved successfully',
+        'routes.shapes.retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -232,7 +267,7 @@ export class ShapeService {
       this.logger.error(`Failed to retrieve shape ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve shape',
+          'routes.shapes.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -251,7 +286,7 @@ export class ShapeService {
 
       if (!existingShape.length) {
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -260,16 +295,27 @@ export class ShapeService {
         Object.entries(updateDto).filter(([, value]) => value !== undefined),
       );
 
+      if (updateData.title !== undefined) {
+        updateData.title = await this.translationService.getTranslationObject(updateData.title);
+      }
+      if (updateData.description !== undefined) {
+        updateData.description = await this.translationService.getTranslationObject(updateData.description);
+      }
+
       const [updatedShape] = await db
         .update(shapes)
         .set(updateData)
         .where(eq(shapes.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(shapes),
+          title: this.translationService.getLocalized(shapes.title, 'title'),
+          description: this.translationService.getLocalized(shapes.description, 'description'),
+        });
 
       this.logger.log(`Shape updated: ${id}`);
       return successResponse(
         this.mapToShapeResponse(updatedShape),
-        'Shape updated successfully',
+        'routes.shapes.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -280,7 +326,7 @@ export class ShapeService {
       this.logger.error(`Failed to update shape ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update shape',
+          'routes.shapes.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -298,7 +344,7 @@ export class ShapeService {
 
       if (!existingShape.length) {
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -317,7 +363,7 @@ export class ShapeService {
         ];
         throw new ConflictException({
           ...errorResponse(
-            'Cannot delete shape because it is used in predesigned cake configurations',
+            'routes.shapes.delete_conflict',
             HttpStatus.CONFLICT,
             'ConflictException',
           ),
@@ -333,7 +379,7 @@ export class ShapeService {
       await db.delete(shapes).where(eq(shapes.id, id));
 
       this.logger.log(`Shape deleted: ${id}`);
-      return successResponse(null, 'Shape deleted successfully', HttpStatus.OK);
+      return successResponse(null, 'routes.shapes.deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
@@ -342,7 +388,7 @@ export class ShapeService {
       this.logger.error(`Failed to delete shape ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete shape',
+          'routes.shapes.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -364,7 +410,7 @@ export class ShapeService {
 
       if (!existingShape.length) {
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -389,7 +435,7 @@ export class ShapeService {
       await db.delete(shapes).where(eq(shapes.id, id));
 
       this.logger.log(`Force-deleted shape ${id}`);
-      return successResponse(null, 'Shape and related records deleted successfully', HttpStatus.OK);
+      return successResponse(null, 'routes.shapes.force_deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -398,7 +444,7 @@ export class ShapeService {
       this.logger.error(`Failed to force-delete shape ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to force-delete shape',
+          'routes.shapes.failed_force_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -413,7 +459,7 @@ export class ShapeService {
       if (!existingShape) {
         this.logger.warn(`Shape not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -440,7 +486,7 @@ export class ShapeService {
           createdAt: updatedShape.createdAt,
           updatedAt: updatedShape.updatedAt,
         },
-        `Shape status ${statusText} successfully`,
+        `routes.shapes.status_toggled`,
         HttpStatus.OK,
       );
     } catch (error) {
@@ -451,7 +497,7 @@ export class ShapeService {
       this.logger.error(`Failed to toggle shape status ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to toggle shape status',
+          'routes.shapes.failed_toggle_status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -472,7 +518,7 @@ export class ShapeService {
 
       if (!regionExists.length) {
         throw new BadRequestException(
-          errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -485,7 +531,7 @@ export class ShapeService {
 
       if (!shapeExists.length) {
         throw new BadRequestException(
-          errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -515,7 +561,7 @@ export class ShapeService {
         result = updateResult[0];
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         this.logger.log(`Shape region price updated: ${result.id}`);
-        return successResponse(result, 'Shape region price updated successfully', HttpStatus.OK);
+        return successResponse(result, 'routes.shapes.region_pricing_updated', HttpStatus.OK);
       } else {
         // Create new pricing
         const insertResult = await db
@@ -537,7 +583,7 @@ export class ShapeService {
         this.logger.log(`Shape region price created: ${result.id}`);
         return successResponse(
           result,
-          'Shape region price created successfully',
+          'routes.shapes.region_pricing_created',
           HttpStatus.CREATED,
         );
       }
@@ -549,7 +595,7 @@ export class ShapeService {
       this.logger.error(`Failed to create shape region price: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create shape region price',
+          'routes.shapes.region_pricing_failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -569,13 +615,13 @@ export class ShapeService {
 
       if (!shape) {
         throw new NotFoundException(
-          errorResponse('Shape not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       if (newOrder < 1) {
         throw new BadRequestException(
-          errorResponse('Order must be at least 1', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.shapes.order_must_be_at_least', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -654,11 +700,18 @@ export class ShapeService {
       }
 
       // Fetch all shapes sorted by order
-      const allShapes = await db.select().from(shapes).orderBy(asc(shapes.order));
+      const allShapes = await db
+        .select({
+          ...getTableColumns(shapes),
+          title: this.translationService.getLocalized(shapes.title, 'title'),
+          description: this.translationService.getLocalized(shapes.description, 'description'),
+        })
+        .from(shapes)
+        .orderBy(asc(shapes.order));
 
       return successResponse(
         allShapes.map((shape) => this.mapToShapeResponse(shape)),
-        'Shape order updated successfully',
+        'routes.shapes.order_updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -670,7 +723,7 @@ export class ShapeService {
       this.logger.error(errMsg);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change shape order',
+          'routes.shapes.failed_change_order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

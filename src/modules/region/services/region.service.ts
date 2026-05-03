@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { regions, regionItemPrices } from '@/db/schema';
-import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql } from 'drizzle-orm';
+import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql, getTableColumns } from 'drizzle-orm';
 import {
   CreateRegionDto,
   UpdateRegionDto,
@@ -31,6 +31,7 @@ import { SortBy } from '@/modules/sweet/dto';
 import { FlavorSortBy } from '@/modules/custom-cakes/dto';
 import { ShapeSortBy, ShapeDataDto } from '@/modules/custom-cakes/dto';
 import { DecorationSortBy } from '@/modules/custom-cakes/dto';
+import { TranslationService } from '@/common';
 
 interface RegionalProduct {
   [key: string]: unknown;
@@ -48,12 +49,20 @@ export class RegionService {
     private readonly shapeService: ShapeService,
     private readonly decorationService: DecorationService,
     private readonly predesignedCakesService: PredesignedCakesService,
+    private readonly translationService: TranslationService,
   ) {}
 
   async create(createRegionDto: CreateRegionDto): Promise<SuccessResponse<RegionResponse>> {
     const { name, image, isAvailable } = createRegionDto;
 
-    const existingRegion = await db.select().from(regions).where(eq(regions.name, name)).limit(1);
+    const existingRegion = await db
+      .select()
+      .from(regions)
+      .where(eq(
+        this.translationService.getLocalized(regions.name, null, 'en'),
+        name
+      ))
+      .limit(1);
 
     if (existingRegion.length > 0) {
       this.logger.warn(`Region creation failed: Name already exists - ${name}`);
@@ -76,10 +85,20 @@ export class RegionService {
 
       const nextOrder = (maxOrderResult?.maxOrder || 0) + 1;
 
+      const nameObject = await this.translationService.getTranslationObject(name);
+
       const [newRegion] = await db
         .insert(regions)
-        .values({ name, image, isAvailable, order: nextOrder })
-        .returning();
+        .values({ 
+          name: nameObject, 
+          image, 
+          isAvailable, 
+          order: nextOrder 
+        })
+        .returning({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        });
 
       this.logger.log(`Region created: ${newRegion.id} (${name}) with order: ${nextOrder}`);
 
@@ -131,12 +150,18 @@ export class RegionService {
       const allRegions =
         filter.length > 0
           ? await db
-              .select()
+              .select({
+                ...getTableColumns(regions),
+                name: this.translationService.getLocalized(regions.name, 'name'),
+              })
               .from(regions)
               .where(and(...filter))
               .orderBy(...orderByConditions)
           : await db
-              .select()
+              .select({
+                ...getTableColumns(regions),
+                name: this.translationService.getLocalized(regions.name, 'name'),
+              })
               .from(regions)
               .orderBy(...orderByConditions);
 
@@ -176,7 +201,14 @@ export class RegionService {
   }
 
   async findOne(id: string): Promise<SuccessResponse<RegionResponse>> {
-    const [region] = await db.select().from(regions).where(eq(regions.id, id)).limit(1);
+    const [region] = await db
+      .select({
+        ...getTableColumns(regions),
+        name: this.translationService.getLocalized(regions.name, 'name'),
+      })
+      .from(regions)
+      .where(eq(regions.id, id))
+      .limit(1);
 
     if (!region) {
       this.logger.warn(`Region not found: ${id}`);
@@ -221,7 +253,10 @@ export class RegionService {
       const [duplicateRegion] = await db
         .select()
         .from(regions)
-        .where(eq(regions.name, name))
+        .where(eq(
+          this.translationService.getLocalized(regions.name, null, 'en'),
+          name
+        ))
         .limit(1);
 
       if (duplicateRegion && duplicateRegion.id !== id) {
@@ -236,17 +271,35 @@ export class RegionService {
       }
     }
 
+    const updateData: Record<string, any> = {};
+
+    if (name) {
+      updateData.name = await this.translationService.getTranslationObject(name);
+    }
+    if (image) updateData.image = image;
+    if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException(
+        errorResponse(
+          'routes.common.no_fields_to_update',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    updateData.updatedAt = new Date();
+
     try {
       const [updatedRegion] = await db
         .update(regions)
-        .set({
-          ...(name && { name }),
-          ...(image && { image }),
-          ...(isAvailable !== undefined && { isAvailable }),
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(regions.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        });
 
       this.logger.log(`Region updated: ${id}`);
 
@@ -443,7 +496,13 @@ export class RegionService {
       }
 
       // Fetch all regions sorted by order
-      const allRegions = await db.select().from(regions).orderBy(asc(regions.order));
+      const allRegions = await db
+        .select({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        })
+        .from(regions)
+        .orderBy(asc(regions.order));
 
       return successResponse(
         allRegions.map((region) => ({

@@ -8,53 +8,32 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { featuredCakes, tags, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, sql, asc, and } from 'drizzle-orm';
+import { eq, desc, sql, asc, and, getTableColumns } from 'drizzle-orm';
 import {
   CreateFeaturedCakeDto,
   UpdateFeaturedCakeDto,
   GetFeaturedCakesQueryDto,
   CreateRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse } from '@/utils';
+import { errorResponse, successResponse, validateCakeExists } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
+import { TranslationService } from '@/common';
+import { getErrorMessage } from '@/utils';
+import { validateTagExists, validateRegionExists } from '@/utils';
+
+type FlattenedFeaturedCake = Omit<typeof featuredCakes.$inferSelect, 'name' | 'description'> & { 
+  name: string; 
+  description: string; 
+};
 
 @Injectable()
 export class FeaturedCakeService {
   private readonly logger = new Logger(FeaturedCakeService.name);
 
-  constructor(private readonly bakeryItemStoreService: BakeryItemStoreService) {}
-
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    if (typeof error === 'string') {
-      return error;
-    }
-    return 'unknown error';
-  }
-
-  /**
-   * Validate that a tag exists by ID
-   */
-  private async validateTagExists(tagId: string): Promise<void> {
-    const tagResult = await db
-      .select({ id: tags.id })
-      .from(tags)
-      .where(eq(tags.id, tagId))
-      .limit(1);
-
-    if (tagResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          'routes.tags.not_found_with_id',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { id: tagId },
-        ),
-      );
-    }
-  }
+  constructor(
+    private readonly bakeryItemStoreService: BakeryItemStoreService,
+    private readonly translationService: TranslationService,
+  ) {}
 
   async create(createFeaturedCakeDto: CreateFeaturedCakeDto) {
     const {
@@ -71,14 +50,17 @@ export class FeaturedCakeService {
 
     try {
       if (tagId) {
-        await this.validateTagExists(tagId);
+        await validateTagExists(tagId);
       }
+
+      const nameObject = await this.translationService.getTranslationObject(name);
+      const descriptionObject = await this.translationService.getTranslationObject(description);
 
       const [newCake] = await db
         .insert(featuredCakes)
         .values({
-          name,
-          description,
+          name: nameObject,
+          description: descriptionObject,
           images,
           capacity,
           flavorList,
@@ -87,7 +69,11 @@ export class FeaturedCakeService {
           isActive,
           minPrepHours,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       this.logger.log(`Cake created: ${newCake.id} (${name})`);
 
@@ -95,7 +81,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (newCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, newCake.tagId))
           .limit(1);
@@ -113,7 +101,7 @@ export class FeaturedCakeService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to create cake: ${errorMsg}`);
       throw new InternalServerErrorException(
         errorResponse('routes.featured_cakes.failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
@@ -141,7 +129,7 @@ export class FeaturedCakeService {
       const sortColumn = sort === 'alpha' ? featuredCakes.name : featuredCakes.createdAt;
 
       let allCakesResult: Array<{
-        cake: typeof featuredCakes.$inferSelect;
+        cake: FlattenedFeaturedCake;
         tagName: string | null;
         price?: string;
       }> = [];
@@ -155,11 +143,14 @@ export class FeaturedCakeService {
 
         const whereConditions: ReturnType<typeof eq | typeof sql>[] = [];
         if (tag) {
-          whereConditions.push(eq(tags.name, tag));
+          whereConditions.push(eq(
+            this.translationService.getLocalized(tags.name, null, 'en'),
+            tag
+          ));
         }
         if (search) {
           const searchPattern = `%${search}%`;
-          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: regionCount }] = await db
@@ -173,8 +164,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
           })
           .from(featuredCakes)
@@ -185,10 +180,13 @@ export class FeaturedCakeService {
           .limit(limit)
           .offset(offset);
       } else if (tag) {
-        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(tags.name, tag)];
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(
+          this.translationService.getLocalized(tags.name, null, 'en'),
+          tag
+        )];
         if (search) {
           const searchPattern = `%${search}%`;
-          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: tagCount }] = await db
@@ -201,8 +199,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .innerJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -215,18 +217,22 @@ export class FeaturedCakeService {
         const [{ count: searchCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${featuredCakes.id})` })
           .from(featuredCakes)
-          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          .where(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
 
         total = Number(searchCount);
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`)
+          .where(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
           .offset(offset);
@@ -239,8 +245,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -278,8 +288,12 @@ export class FeaturedCakeService {
     try {
       const cakeResult = await db
         .select({
-          cake: featuredCakes,
-          tagName: tags.name,
+          cake: {
+            ...getTableColumns(featuredCakes),
+            name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+          },
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(featuredCakes)
         .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -326,7 +340,7 @@ export class FeaturedCakeService {
       }
 
       if (updateFeaturedCakeDto.tagId) {
-        await this.validateTagExists(updateFeaturedCakeDto.tagId);
+        await validateTagExists(updateFeaturedCakeDto.tagId);
       }
 
       const updateData: Record<string, unknown> = Object.fromEntries(
@@ -334,12 +348,23 @@ export class FeaturedCakeService {
       );
 
       updateData.updatedAt = new Date();
+      
+      if(updateData.name !== undefined) {
+        updateData.name = await this.translationService.getTranslationObject(updateData.name);
+      }
+      if(updateData.description !== undefined) {
+        updateData.description = await this.translationService.getTranslationObject(updateData.description);
+      }
 
       const [updatedCake] = await db
         .update(featuredCakes)
         .set(updateData)
         .where(eq(featuredCakes.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       this.logger.log(`Cake updated: ${id}`);
 
@@ -347,7 +372,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (updatedCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedCake.tagId))
           .limit(1);
@@ -364,7 +391,7 @@ export class FeaturedCakeService {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to update cake: ${errorMsg}`);
       throw new InternalServerErrorException(
         errorResponse('routes.featured_cakes.failed_update', HttpStatus.INTERNAL_SERVER_ERROR),
@@ -422,7 +449,11 @@ export class FeaturedCakeService {
           updatedAt: new Date(),
         })
         .where(eq(featuredCakes.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Cake status toggled (${statusText}): ${id}`);
@@ -430,7 +461,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (updatedCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedCake.tagId))
           .limit(1);
@@ -455,55 +488,13 @@ export class FeaturedCakeService {
     }
   }
 
-  /**
-   * Validate that a featured cake exists by ID
-   */
-  private async validateCakeExists(cakeId: string): Promise<void> {
-    const cakeResult = await db
-      .select({ id: featuredCakes.id })
-      .from(featuredCakes)
-      .where(eq(featuredCakes.id, cakeId))
-      .limit(1);
-
-    if (cakeResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          'routes.featured_cakes.not_found',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Validate that a region exists by ID
-   */
-  private async validateRegionExists(regionId: string): Promise<void> {
-    const regionResult = await db
-      .select({ id: regions.id })
-      .from(regions)
-      .where(eq(regions.id, regionId))
-      .limit(1);
-
-    if (regionResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          'routes.regions.not_found',
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-  }
-
   async createRegionItemPrice(createRegionItemPriceDto: CreateRegionItemPriceDto) {
     const { featuredCakeId, regionId, price } = createRegionItemPriceDto;
 
     try {
       // Validate both IDs exist
-      await this.validateCakeExists(featuredCakeId);
-      await this.validateRegionExists(regionId);
+      await validateCakeExists(featuredCakeId);
+      await validateRegionExists(regionId);
 
       // Check if pricing already exists for this cake and region
       const existingPrice = await db
@@ -568,7 +559,7 @@ export class FeaturedCakeService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to create region pricing: ${errorMsg}`);
       throw new InternalServerErrorException(
         errorResponse('routes.featured_cakes.region_pricing_failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
@@ -577,7 +568,7 @@ export class FeaturedCakeService {
   }
 
   private mapToCakeResponse(
-    cake: typeof featuredCakes.$inferSelect,
+    cake: FlattenedFeaturedCake,
     tagName?: string | null,
     price?: string,
   ) {

@@ -8,10 +8,11 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { notifications, users, admins } from '@/db/schema';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { SendNotificationDto, PaginationDto, NotificationResponse, NotificationType } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { FirebaseService } from '@/common/services';
+import { TranslationService } from '@/common';
 
 export type RecipientKind = 'user' | 'admin';
 
@@ -19,7 +20,10 @@ export type RecipientKind = 'user' | 'admin';
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly firebaseService: FirebaseService) {}
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly translationService: TranslationService,
+  ) {}
 
   async registerFcmToken(
     recipientKind: RecipientKind,
@@ -144,18 +148,35 @@ export class NotificationService {
       fcmToken = admin.fcmToken;
     }
 
+    // const titleObject = await this.translationService.getTranslationObject(title);
+    // const bodyObject = await this.translationService.getTranslationObject(body);
+
+    const titleObject = {
+      ar: title,
+      en: title,
+    };
+
+    const bodyObject = {
+      ar: title,
+      en: title,
+    };
+
     try {
       const [created] = await db
         .insert(notifications)
         .values({
-          title,
-          body,
+          title: titleObject,
+          body: bodyObject,
           type,
           userId: recipientType === 'user' ? recipientId : null,
           adminId: recipientType === 'admin' ? recipientId : null,
           redirectId: redirectId ?? null,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(notifications),
+          title: this.translationService.getLocalized(notifications.title, 'title'),
+          body: this.translationService.getLocalized(notifications.body, 'body'),
+        });
 
       this.logger.log(
         `Notification ${created.id} stored for ${recipientType} ${recipientId} (type=${type})`,
@@ -243,7 +264,11 @@ export class NotificationService {
       const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       const rows = await db
-        .select()
+        .select({
+          ...getTableColumns(notifications),
+          title: this.translationService.getLocalized(notifications.title, 'title'),
+          body: this.translationService.getLocalized(notifications.body, 'body'),
+        })
         .from(notifications)
         .where(whereExpr)
         .orderBy(desc(notifications.createdAt))
@@ -332,7 +357,11 @@ export class NotificationService {
         .update(notifications)
         .set({ isRead: true, readAt: new Date() })
         .where(eq(notifications.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(notifications),
+          title: this.translationService.getLocalized(notifications.title, 'title'),
+          body: this.translationService.getLocalized(notifications.body, 'body'),
+        });
 
       this.logger.log(`Notification ${id} marked as read by ${recipientKind} ${recipientId}`);
 

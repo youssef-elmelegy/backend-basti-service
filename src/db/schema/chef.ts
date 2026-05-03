@@ -1,6 +1,7 @@
-import { pgTable, varchar, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { bakeries } from '.';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const chefs = pgTable(
   'chefs',
@@ -14,8 +15,8 @@ export const chefs = pgTable(
 
     fullName: varchar('full_name', { length: 255 }).notNull(),
     image: text('image'),
-    specialization: varchar('specialization', { length: 255 }).notNull(),
-    bio: text('bio'),
+    specialization: jsonb('specialization').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    bio: jsonb('bio').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

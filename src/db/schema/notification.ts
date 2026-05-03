@@ -1,6 +1,7 @@
-import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, boolean, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { notificationTypeEnum, users, admins } from '.';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const notifications = pgTable(
   'notifications',
@@ -9,8 +10,8 @@ export const notifications = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
 
-    title: varchar('title', { length: 255 }).notNull(),
-    body: text('body').notNull(),
+    title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    body: jsonb('body').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     type: notificationTypeEnum('type').notNull(),
 
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),

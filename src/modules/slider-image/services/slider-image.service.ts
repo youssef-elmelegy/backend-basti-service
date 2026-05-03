@@ -10,11 +10,14 @@ import { sliderImages, tags } from '@/db/schema';
 import { SliderImageWithTagsResponseDto, SliderImageResponseDto, SliderImageItemDto } from '../dto';
 import { TagDto } from '@/modules/tags/dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { eq } from 'drizzle-orm';
+import { eq, getTableColumns } from 'drizzle-orm';
+import { TranslationService } from '@/common/translation/translation.service';
 
 @Injectable()
 export class SliderImageService {
   private readonly logger = new Logger(SliderImageService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   /**
    * Get all slider images with tags matching the same display order
@@ -24,13 +27,13 @@ export class SliderImageService {
       const rows = await db
         .select({
           id: sliderImages.id,
-          title: sliderImages.title,
+          title: this.translationService.getLocalized(sliderImages.title, 'title'),
           imageUrl: sliderImages.imageUrl,
           displayOrder: sliderImages.displayOrder,
           createdAt: sliderImages.createdAt,
           tagId: tags.id,
           tagTypes: tags.types,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
           tagDisplayOrder: tags.displayOrder,
           tagCreatedAt: tags.createdAt,
           tagUpdatedAt: tags.updatedAt,
@@ -72,12 +75,12 @@ export class SliderImageService {
 
       this.logger.log(`Retrieved ${images.length} slider images`);
 
-      return successResponse(images, 'Slider images retrieved successfully', HttpStatus.OK);
+      return successResponse(images, 'routes.slider.images_retrieved', HttpStatus.OK);
     } catch (error) {
       this.logger.error('Failed to retrieve slider images', error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve slider images',
+          'routes.slider.images_failed',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -94,22 +97,33 @@ export class SliderImageService {
 
       this.logger.log('Deleted all existing slider images');
 
-      const imagesToInsert = images.map((item) => ({
-        title: item.title,
-        imageUrl: item.imageUrl,
-        displayOrder: item.displayOrder,
-      }));
+      const imagesToInsert: any[] = [];
 
-      const insertedImages = await db.insert(sliderImages).values(imagesToInsert).returning();
+      for (const image of images) {
+        const imageObject = await this.translationService.getTranslationObject(image.title);
+        imagesToInsert.push({
+          title: imageObject,
+          imageUrl: image.imageUrl,
+          displayOrder: image.displayOrder,
+        });
+      }
+
+      const insertedImages = await db
+        .insert(sliderImages)
+        .values(imagesToInsert)
+        .returning({
+          ...getTableColumns(sliderImages),
+          title: this.translationService.getLocalized(sliderImages.title, 'title'),
+        });
 
       this.logger.log(`Inserted ${insertedImages.length} new slider images in bulk`);
 
-      return successResponse(insertedImages, 'Slider images updated successfully', HttpStatus.OK);
+      return successResponse(insertedImages, 'routes.slider.images_updated', HttpStatus.OK);
     } catch (error) {
       this.logger.error('Failed to update slider images', error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update slider images',
+          'routes.slider.images_failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -131,7 +145,7 @@ export class SliderImageService {
       if (!existingImage) {
         this.logger.warn(`Slider image not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Slider image not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.slider.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -140,8 +154,8 @@ export class SliderImageService {
       this.logger.log(`Deleted slider image: ${id}`);
 
       return successResponse(
-        { message: 'Slider image deleted successfully' },
-        'Slider image deleted successfully',
+        { message: 'routes.slider.image_deleted' },
+        'routes.slider.image_deleted',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -151,7 +165,7 @@ export class SliderImageService {
       this.logger.error(`Failed to delete slider image: ${id}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete slider image',
+          'routes.slider.image_failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

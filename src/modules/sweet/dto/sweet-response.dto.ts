@@ -11,7 +11,7 @@ export class SweetDataDto {
   description: string;
 
   @ApiProperty({ nullable: true })
-  tagId: string;
+  tagId?: string;
 
   @ApiProperty({ nullable: true })
   tagName?: string;

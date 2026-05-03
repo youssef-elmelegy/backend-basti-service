@@ -6,8 +6,8 @@ export interface AuthResponse {
     email: string;
     firstName: string;
     lastName: string;
-    phoneNumber?: string;
-    profileImage?: string;
+    phoneNumber?: string | null;
+    profileImage?: string | null;
     isEmailVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
