@@ -83,6 +83,17 @@ async function bootstrap() {
     .addTag('upload', 'File upload endpoints')
     .addTag('custom-cakes', 'Custom cake management endpoints')
     .addBearerAuth()
+    .addGlobalParameters({
+      in: 'header',
+      name: 'Accept-Language',
+      required: false,
+      description: 'Language preference',
+      schema: {
+        type: 'string',
+        enum: ['en', 'ar'],
+        default: 'en',
+      },
+    })
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
