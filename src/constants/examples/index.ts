@@ -17,3 +17,4 @@ export * from './location-examples';
 export * from './config-examples';
 export * from './payment-method-examples';
 export * from './notification-examples';
+export * from './coupon-examples';

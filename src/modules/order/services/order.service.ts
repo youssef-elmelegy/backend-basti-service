@@ -38,6 +38,7 @@ import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
 import { SchedulerService } from './scheduler.service';
 import { TranslationService } from '@/common';
+import { CouponService } from '@/modules/coupon/services/coupon.service';
 
 /* eslint-disable */
 @Injectable()
@@ -47,6 +48,7 @@ export class OrderService {
     private readonly stockService: StockService,
     private readonly schedulerService: SchedulerService,
     private readonly translationService: TranslationService,
+    private readonly couponservice: CouponService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);

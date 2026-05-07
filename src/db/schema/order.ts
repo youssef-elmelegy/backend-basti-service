@@ -21,6 +21,7 @@ import {
   reviews,
   orderItems,
   CartTypeEnum,
+  couponUsages,
 } from '.';
 
 export const orders = pgTable(
@@ -136,4 +137,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   }),
   orderItems: many(orderItems),
   review: one(reviews),
+  couponUsages: one(couponUsages, {
+    fields: [orders.id],
+    references: [couponUsages.orderId],
+  }),
 }));

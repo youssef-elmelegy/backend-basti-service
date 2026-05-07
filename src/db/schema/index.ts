@@ -9,6 +9,7 @@ export {
   CartTypeEnum,
   visualKeyTypeEnum,
   notificationTypeEnum,
+  discountType,
 } from './enums';
 
 export * from './user';
@@ -37,3 +38,4 @@ export * from './decoration';
 export * from './shape-variant-images';
 export * from './app-config';
 export * from './notification';
+export * from './coupon';

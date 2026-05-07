@@ -140,7 +140,7 @@
     "chef": {
       "created": "Chef created successfully",
       "deleted": "Chef deleted successfully",
-      "retrieved": "Failed to retrieve chef",
+      "retrieved": "Chef retrieved successfully",
       "updated": "Chef updated successfully",
       "rated": "Chef rated successfully",
       "list_retrieved": "Chefs retrieved successfully",
@@ -156,6 +156,42 @@
       "updated": "Config updated successfully",
       "failed_update": "Failed to update config",
       "failed_retrieve": "Failed to retrieve config"
+    },
+
+    "coupons": {
+      "generate": "Coupon generated successfully",
+      "create": "Coupon created successfully",
+      "failed_generate": "Failed to generate coupon",
+      "failed_create": "Failed to create coupon",
+
+      "list_retrieved": "Coupons retrieved successfully",
+      "failed_list": "Failed to retrieve coupons",
+
+      "retrieved": "Coupon retrieved successfully",
+      "failed_retrieve": "Failed to retrieve coupon",
+
+      "updated": "Coupon updated successfully",
+      "failed_update": "Failed to update coupon",
+
+      "deleted": "Coupon deleted successfully",
+      "failed_delete": "Failed to delete coupon",
+
+      "toggled": "Coupon status toggled successfully",
+      "failed_toggle": "Failed to toggle coupon status",
+
+      "expired": "Coupon has expired",
+      "invalid": "Invalid coupon code",
+      "usage_limit_reached": "Coupon usage limit reached",
+      "invalid_region": "Coupon is not valid for this region",
+      "already_used": "Coupon has already been used",
+      "invalid_cart_total": "Invalid cart total",
+      "code_exists": "Coupon code already exists",
+      "failed_to_check_code": "Failed to check coupon code exists",
+
+      "verify": "Coupon verified successfully",
+      "verify_failed": "Failed to verify coupon",
+
+      "not_found": "Coupon not found"
     },
 
     "decorations": {

@@ -24,6 +24,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { I18nModule, AcceptLanguageResolver, QueryResolver, HeaderResolver } from 'nestjs-i18n';
 import * as path from 'path';
 import { TranslationModule } from '@/common/translation/translation.module';
+import { CouponModule } from './modules/coupon/coupon.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { TranslationModule } from '@/common/translation/translation.module';
     SliderImageModule,
     TagsModule,
     NotificationModule,
+    CouponModule,
   ],
   controllers: [AppController],
   providers: [AppService],
