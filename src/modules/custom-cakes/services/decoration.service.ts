@@ -26,39 +26,24 @@ import {
   shapes,
   designedCakeConfigs,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { TranslationService } from '@/common/translation/translation.service';
+import { validateTagExists } from '@/utils';
+
+type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'description'> & { 
+  title: string; 
+  description: string; 
+};
 
 @Injectable()
 export class DecorationService {
   private readonly logger = new Logger(DecorationService.name);
 
-  /**
-   * Validate that a tag exists by ID
-   */
-  private async validateTagExists(tagId: string): Promise<void> {
-    const tagResult = await db
-      .select({ id: tags.id })
-      .from(tags)
-      .where(eq(tags.id, tagId))
-      .limit(1);
+  constructor(private readonly translationService: TranslationService) {}
 
-    if (tagResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          `Tag with ID ${tagId} not found`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Map decoration data to response DTO
-   */
   private mapToDecorationResponse(
-    decoration: typeof decorations.$inferSelect,
+    decoration: FlattenedDecoration,
     tagName?: string,
     price?: string,
   ): DecorationDataDto {
@@ -84,25 +69,34 @@ export class DecorationService {
     try {
       // Validate tag exists if tagId is provided
       if (createDto.tagId) {
-        await this.validateTagExists(createDto.tagId);
+        await validateTagExists(createDto.tagId);
       }
+
+      const titleObject = await this.translationService.getTranslationObject(createDto.title);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
 
       const [newDecoration] = await db
         .insert(decorations)
         .values({
-          title: createDto.title,
-          description: createDto.description,
+          title: titleObject,
+          description: descriptionObject,
           decorationUrl: createDto.decorationUrl,
           tagId: createDto.tagId,
           minPrepHours: createDto.minPrepHours,
           capacity: createDto.capacity,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        });
 
-      let tagName: string;
+      let tagName: string | undefined = undefined;
       if (newDecoration.tagId) {
         const [tag] = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, newDecoration.tagId))
           .limit(1);
@@ -112,7 +106,7 @@ export class DecorationService {
       this.logger.log(`Decoration created: ${newDecoration.id}`);
       return successResponse(
         this.mapToDecorationResponse(newDecoration, tagName),
-        'Decoration created successfully',
+        'routes.decorations.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -123,7 +117,7 @@ export class DecorationService {
       this.logger.error(`Decoration creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create decoration',
+          'routes.decorations.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -148,12 +142,12 @@ export class DecorationService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId))
+      .where(eq(shapes.id, query.shapeId!))
       .limit(1);
 
     if (!shapeExists.length) {
       throw new BadRequestException(
-        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.shapes.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
@@ -161,23 +155,23 @@ export class DecorationService {
     const regionExists = await db
       .select({ id: regions.id })
       .from(regions)
-      .where(eq(regions.id, query.regionId))
+      .where(eq(regions.id, query.regionId!))
       .limit(1);
 
     if (!regionExists.length) {
       throw new BadRequestException(
-        errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
     const shapeJoinConditions = [
       eq(shapeVariantImages.decorationId, decorations.id),
-      eq(shapeVariantImages.shapeId, query.shapeId),
+      eq(shapeVariantImages.shapeId, query.shapeId!),
     ] as const;
 
     const regionJoinConditions = [
       eq(regionItemPrices.decorationId, decorations.id),
-      eq(regionItemPrices.regionId, query.regionId),
+      eq(regionItemPrices.regionId, query.regionId!),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -186,7 +180,7 @@ export class DecorationService {
     }
 
     let allDecorationsResult: Array<{
-      decoration: typeof decorations.$inferSelect;
+      decoration: FlattenedDecoration;
       image: typeof shapeVariantImages.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
       tagName: string;
@@ -195,15 +189,19 @@ export class DecorationService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           image: shapeVariantImages,
           pricing: regionItemPrices,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
@@ -215,7 +213,7 @@ export class DecorationService {
         .offset(offset);
 
       const whereConditionsCount: any[] = [];
-      whereConditionsCount.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(decorations.isActive, query.isActive));
       }
@@ -229,10 +227,14 @@ export class DecorationService {
     } else {
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           image: shapeVariantImages,
           pricing: regionItemPrices,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
@@ -302,18 +304,18 @@ export class DecorationService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId))
+      .where(eq(shapes.id, query.shapeId!))
       .limit(1);
 
     if (!shapeExists.length) {
       throw new BadRequestException(
-        errorResponse('Shape not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.shapes.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
 
     const joinConditions = [
       eq(shapeVariantImages.decorationId, decorations.id),
-      eq(shapeVariantImages.shapeId, query.shapeId),
+      eq(shapeVariantImages.shapeId, query.shapeId!),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -322,7 +324,7 @@ export class DecorationService {
     }
 
     let allDecorationsResult: Array<{
-      decoration: typeof decorations.$inferSelect;
+      decoration: FlattenedDecoration;
       image: typeof shapeVariantImages.$inferSelect;
       tagName: string;
     }> = [];
@@ -330,14 +332,18 @@ export class DecorationService {
 
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           image: shapeVariantImages,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...joinConditions))
@@ -348,7 +354,7 @@ export class DecorationService {
         .offset(offset);
 
       const whereConditionsCount: any[] = [];
-      whereConditionsCount.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(decorations.isActive, query.isActive));
       }
@@ -361,9 +367,13 @@ export class DecorationService {
     } else {
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           image: shapeVariantImages,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...joinConditions))
@@ -428,7 +438,7 @@ export class DecorationService {
   }> {
     const joinConditions = [
       eq(regionItemPrices.decorationId, decorations.id),
-      eq(regionItemPrices.regionId, query.regionId),
+      eq(regionItemPrices.regionId, query.regionId!),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -437,7 +447,7 @@ export class DecorationService {
     }
 
     let allDecorationsResult: Array<{
-      decoration: typeof decorations.$inferSelect;
+      decoration: FlattenedDecoration;
       pricing: typeof regionItemPrices.$inferSelect;
       tagName: string;
     }> = [];
@@ -446,7 +456,7 @@ export class DecorationService {
     // If search is also provided, combine both filters
     if (query.search) {
       const searchPattern = `%${query.search}%`;
-      const searchCondition = sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`;
+      const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
       const [{ count: combinedCount }] = await db
@@ -459,9 +469,13 @@ export class DecorationService {
 
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           pricing: regionItemPrices,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -482,9 +496,13 @@ export class DecorationService {
 
       allDecorationsResult = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           pricing: regionItemPrices,
-          tagName: tags.name,
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -519,7 +537,7 @@ export class DecorationService {
     total: number;
     totalPages: number;
   }> {
-    const whereConditions: any[] = [eq(decorations.tagId, query.tagId)];
+    const whereConditions: any[] = [eq(decorations.tagId, query.tagId!)];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -533,8 +551,12 @@ export class DecorationService {
 
     const allDecorationsResult = await db
       .select({
-        decoration: decorations,
-        tagName: tags.name,
+        decoration: {
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        },
+        tagName: this.translationService.getLocalized(tags.name, 'name'),
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -569,7 +591,7 @@ export class DecorationService {
   }> {
     const searchPattern = `%${query.search}%`;
     const whereConditions: any[] = [];
-    whereConditions.push(sql`LOWER(${decorations.title}) LIKE LOWER(${searchPattern})`);
+    whereConditions.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -583,8 +605,12 @@ export class DecorationService {
 
     const allDecorationsResult = await db
       .select({
-        decoration: decorations,
-        tagName: tags.name,
+        decoration: {
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        },
+        tagName: this.translationService.getLocalized(tags.name, 'name'),
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -631,8 +657,12 @@ export class DecorationService {
 
     const allDecorationsResult = await db
       .select({
-        decoration: decorations,
-        tagName: tags.name,
+        decoration: {
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        },
+        tagName: this.translationService.getLocalized(tags.name, 'name'),
       })
       .from(decorations)
       .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -696,7 +726,7 @@ export class DecorationService {
             limit: query.limit,
           },
         },
-        'Decorations retrieved successfully',
+        'routes.decorations.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -707,7 +737,7 @@ export class DecorationService {
       this.logger.error(`Failed to retrieve decorations: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve decorations',
+          'routes.decorations.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -719,10 +749,14 @@ export class DecorationService {
     try {
       const result = await db
         .select({
-          decoration: decorations,
+          decoration: {
+            ...getTableColumns(decorations),
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+          },
           tag: {
             id: tags.id,
-            tagName: tags.name,
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           },
         })
         .from(decorations)
@@ -735,13 +769,13 @@ export class DecorationService {
       if (!item) {
         this.logger.warn(`Decoration not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       return successResponse(
         this.mapToDecorationResponse(item.decoration, item.tag?.tagName),
-        'Decoration retrieved successfully',
+        'routes.decorations.retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -750,7 +784,7 @@ export class DecorationService {
       this.logger.error(`Failed to retrieve decoration ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve decoration',
+          'routes.decorations.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -772,19 +806,23 @@ export class DecorationService {
 
       if (!existingDecoration.length) {
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       // Validate new tag if provided
       if (updateDto.tagId) {
-        await this.validateTagExists(updateDto.tagId);
+        await validateTagExists(updateDto.tagId);
       }
 
       // Update only provided fields
-      const updateFields: Record<string, string> = {};
-      if (updateDto.title !== undefined) updateFields.title = updateDto.title;
-      if (updateDto.description !== undefined) updateFields.description = updateDto.description;
+      const updateFields: Record<string, any> = {};
+      if (updateDto.title !== undefined) {
+        updateFields.title = await this.translationService.getTranslationObject(updateDto.title);
+      }
+      if (updateDto.description !== undefined) {
+        updateFields.description = await this.translationService.getTranslationObject(updateDto.description);
+      }
       if (updateDto.decorationUrl !== undefined)
         updateFields.decorationUrl = updateDto.decorationUrl;
       if (updateDto.tagId !== undefined) updateFields.tagId = updateDto.tagId;
@@ -796,7 +834,11 @@ export class DecorationService {
         .update(decorations)
         .set(updateFields)
         .where(eq(decorations.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        });
 
       // Replace variant images if provided
       if (updateDto.variantImages !== undefined) {
@@ -812,9 +854,10 @@ export class DecorationService {
             const missing = shapeIds.filter((sid) => !existing.includes(sid));
             throw new BadRequestException(
               errorResponse(
-                `Shape(s) not found: ${missing.join(', ')}`,
+                `routes.decorations.shapes_not_found`,
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
+                { missing: missing.join(', ') },
               ),
             );
           }
@@ -836,10 +879,12 @@ export class DecorationService {
         }
       }
 
-      let tagName: string;
+      let tagName: string | undefined = undefined;
       if (updatedDecoration.tagId) {
         const [tag] = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedDecoration.tagId))
           .limit(1);
@@ -849,7 +894,7 @@ export class DecorationService {
       this.logger.log(`Decoration updated: ${id}`);
       return successResponse(
         this.mapToDecorationResponse(updatedDecoration, tagName),
-        'Decoration updated successfully',
+        'routes.decorations.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -860,7 +905,7 @@ export class DecorationService {
       this.logger.error(`Failed to update decoration ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update decoration',
+          'routes.decorations.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -878,7 +923,7 @@ export class DecorationService {
 
       if (!existingDecoration.length) {
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -897,7 +942,7 @@ export class DecorationService {
         ];
         throw new ConflictException({
           ...errorResponse(
-            'Cannot delete decoration because it is used in predesigned cake configurations',
+            'routes.decorations.delete_conflict',
             HttpStatus.CONFLICT,
             'ConflictException',
           ),
@@ -910,7 +955,7 @@ export class DecorationService {
       await db.delete(decorations).where(eq(decorations.id, id));
 
       this.logger.log(`Decoration deleted: ${id}`);
-      return successResponse(null, 'Decoration deleted successfully', HttpStatus.OK);
+      return successResponse(null, 'routes.decorations.deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
@@ -919,7 +964,7 @@ export class DecorationService {
       this.logger.error(`Failed to delete decoration ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete decoration',
+          'routes.decorations.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -941,7 +986,7 @@ export class DecorationService {
 
       if (!existingDecoration.length) {
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -967,7 +1012,7 @@ export class DecorationService {
       this.logger.log(`Force-deleted decoration ${id}`);
       return successResponse(
         null,
-        'Decoration and related records deleted successfully',
+        'routes.decorations.force_deleted',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -978,7 +1023,7 @@ export class DecorationService {
       this.logger.error(`Failed to force-delete decoration ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to force-delete decoration',
+          'routes.decorations.failed_force_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -997,7 +1042,7 @@ export class DecorationService {
       if (!existingDecoration) {
         this.logger.warn(`Decoration not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -1013,10 +1058,12 @@ export class DecorationService {
       const statusText = updatedDecoration.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Decoration status toggled (${statusText}): ${id}`);
 
-      let tagName: string;
+      let tagName: string | null = null;
       if (updatedDecoration.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedDecoration.tagId))
           .limit(1);
@@ -1035,7 +1082,7 @@ export class DecorationService {
           createdAt: updatedDecoration.createdAt,
           updatedAt: updatedDecoration.updatedAt,
         },
-        `Decoration status ${statusText} successfully`,
+        `routes.decorations.status_toggled`,
         HttpStatus.OK,
       );
     } catch (error) {
@@ -1046,7 +1093,7 @@ export class DecorationService {
       this.logger.error(`Failed to toggle decoration status ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to toggle decoration status',
+          'routes.decorations.failed_toggle_status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1067,7 +1114,7 @@ export class DecorationService {
 
       if (!regionExists.length) {
         throw new BadRequestException(
-          errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -1080,7 +1127,7 @@ export class DecorationService {
 
       if (!decorationExists.length) {
         throw new BadRequestException(
-          errorResponse('Decoration not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -1111,7 +1158,7 @@ export class DecorationService {
         this.logger.log(`Decoration region price updated: ${result.id}`);
         return successResponse(
           result,
-          'Decoration region price updated successfully',
+          'routes.decorations.region_pricing_updated',
           HttpStatus.OK,
         );
       } else {
@@ -1135,7 +1182,7 @@ export class DecorationService {
         this.logger.log(`Decoration region price created: ${result.id}`);
         return successResponse(
           result,
-          'Decoration region price created successfully',
+          'routes.decorations.region_pricing_created',
           HttpStatus.CREATED,
         );
       }
@@ -1147,7 +1194,7 @@ export class DecorationService {
       this.logger.error(`Failed to create decoration region price: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create decoration region price',
+          'routes.decorations.region_pricing_failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1160,7 +1207,7 @@ export class DecorationService {
   ): Promise<SuccessResponse<DecorationDataDto>> {
     try {
       if (createDto.tagId) {
-        await this.validateTagExists(createDto.tagId);
+        await validateTagExists(createDto.tagId);
       }
 
       if (createDto.variantImages && createDto.variantImages.length > 0) {
@@ -1175,26 +1222,34 @@ export class DecorationService {
           const missingShapeIds = shapeIds.filter((id) => !existingShapeIds.includes(id));
           throw new BadRequestException(
             errorResponse(
-              `Shape(s) not found: ${missingShapeIds.join(', ')}`,
+              `routes.decorations.shapes_not_found`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { missing: missingShapeIds.join(', ') },
             ),
           );
         }
       }
 
+      const titleObject = await this.translationService.getTranslationObject(createDto.title);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+
       // Create decoration
       const [newDecoration] = await db
         .insert(decorations)
         .values({
-          title: createDto.title,
-          description: createDto.description,
+          title: titleObject,
+          description: descriptionObject,
           decorationUrl: createDto.decorationUrl,
           tagId: createDto.tagId || null,
           minPrepHours: createDto.minPrepHours,
           capacity: createDto.capacity,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(decorations),
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
+        });
 
       // Create variant images
       if (createDto.variantImages && createDto.variantImages.length > 0) {
@@ -1215,7 +1270,7 @@ export class DecorationService {
       );
       return successResponse(
         this.mapToDecorationResponse(newDecoration),
-        'Decoration and variant images created successfully',
+        'routes.decorations.created_with_variants',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -1226,7 +1281,7 @@ export class DecorationService {
       this.logger.error(`Decoration creation with variant images error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create decoration with variant images',
+          'routes.decorations.failed_create_with_variant_images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1244,7 +1299,7 @@ export class DecorationService {
 
       if (!decorationExists) {
         throw new NotFoundException(
-          errorResponse('Decoration not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -1265,7 +1320,7 @@ export class DecorationService {
 
       return successResponse(
         data,
-        'Decoration variant images retrieved successfully',
+        'routes.decorations.retrieved_with_variant_images',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -1274,7 +1329,7 @@ export class DecorationService {
       this.logger.error(`Failed to retrieve decoration variant images ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve decoration variant images',
+          'routes.decorations.failed_retrieve_with_variant_images',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -6,11 +6,12 @@ import { SweetModule } from '@/modules/sweet/sweet.module';
 import { FeaturedCakeModule } from '@/modules/featured-cake/featured-cake.module';
 import { CustomCakesModule } from '@/modules/custom-cakes/custom-cakes.module';
 import { RegionModule } from '@/modules/region/region.module';
+import { ItemsModule } from '@/modules/items/items.module';
 
 @Module({
   controllers: [CartController],
   providers: [CartService],
-  imports: [AddonModule, SweetModule, FeaturedCakeModule, CustomCakesModule, RegionModule],
+  imports: [AddonModule, SweetModule, FeaturedCakeModule, CustomCakesModule, RegionModule, ItemsModule],
   exports: [CartService],
 })
 export class CartModule {}

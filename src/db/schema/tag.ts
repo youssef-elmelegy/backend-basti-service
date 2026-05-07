@@ -1,5 +1,6 @@
 import { pgTable, uuid, varchar, integer, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const tags = pgTable(
   'tags',
@@ -7,7 +8,7 @@ export const tags = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: varchar('name', { length: 100 }).notNull().unique(),
+    name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     displayOrder: integer('display_order').notNull(),
     types: jsonb('types')
       .$type<string[]>()

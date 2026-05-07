@@ -25,7 +25,7 @@ export class AddonOptionService {
 
     if (!addon) {
       throw new NotFoundException(
-        errorResponse('Add-on not found', HttpStatus.NOT_FOUND, 'NotFound'),
+        errorResponse('routes.addons.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
       );
     }
   }
@@ -49,7 +49,7 @@ export class AddonOptionService {
 
       return successResponse(
         createdOption,
-        'Add-on option created successfully',
+        'routes.addons.option_created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -59,7 +59,7 @@ export class AddonOptionService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to create add-on option: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to create add-on option', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.addons.option_failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -80,7 +80,7 @@ export class AddonOptionService {
 
       if (!existingOption) {
         throw new NotFoundException(
-          errorResponse('Add-on option not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.addons.option_not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -92,7 +92,7 @@ export class AddonOptionService {
       ) {
         throw new BadRequestException(
           errorResponse(
-            'No fields provided to update',
+            'routes.common.no_fields_to_update',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -118,7 +118,7 @@ export class AddonOptionService {
 
       this.logger.log(`Add-on option updated: ${optionId}`);
 
-      return successResponse(updatedOption, 'Add-on option updated successfully');
+      return successResponse(updatedOption, 'routes.addons.option_updated');
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
@@ -126,7 +126,7 @@ export class AddonOptionService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to update add-on option: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to update add-on option', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.addons.option_failed_update', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -143,7 +143,7 @@ export class AddonOptionService {
 
       if (!existingOption) {
         throw new NotFoundException(
-          errorResponse('Add-on option not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.addons.option_not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -154,8 +154,8 @@ export class AddonOptionService {
       this.logger.log(`Add-on option deleted: ${optionId}`);
 
       return successResponse(
-        { message: 'Add-on option deleted successfully' },
-        'Add-on option deleted successfully',
+        { message: 'routes.addons.option_deleted' },
+        'routes.addons.option_deleted',
       );
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
@@ -164,7 +164,7 @@ export class AddonOptionService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to delete add-on option: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to delete add-on option', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.addons.option_failed_delete', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }

@@ -19,6 +19,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { OptionsStockDto } from '../dto';
+import { TranslationService } from '@/common/translation/translation.service';
 
 export interface BakeryItemStoreResponse {
   id: string;
@@ -38,6 +39,8 @@ export interface UpdateStockDto {
 @Injectable()
 export class BakeryItemStoreService {
   private readonly logger = new Logger(BakeryItemStoreService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   /**
    * Create bakery item stores for all bakeries in a region when a region item price is created
@@ -74,7 +77,7 @@ export class BakeryItemStoreService {
       this.logger.error(`Failed to create bakery item stores: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create bakery item stores',
+          'routes.bakery.failed_create_item_stores',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -101,7 +104,7 @@ export class BakeryItemStoreService {
       this.logger.error(`Failed to delete bakery item stores: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete bakery item stores',
+          'routes.bakery.failed_delete_item_stores',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -123,7 +126,7 @@ export class BakeryItemStoreService {
 
       if (!bakeryExists) {
         throw new NotFoundException(
-          errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -154,7 +157,7 @@ export class BakeryItemStoreService {
       // Enrich stores with product data
       const enrichedStores = await Promise.all(
         stores.map(async (store) => {
-          let product = null;
+          let product: any = null;
           let finalOptionsStock = store.optionsStock || [];
 
           // Fetch product based on type
@@ -162,8 +165,8 @@ export class BakeryItemStoreService {
             const [addonData] = await db
               .select({
                 id: addons.id,
-                name: addons.name,
-                description: addons.description,
+                name: this.translationService.getLocalized(addons.name, 'name'),
+                description: this.translationService.getLocalized(addons.description, 'description'),
                 images: addons.images,
               })
               .from(addons)
@@ -237,7 +240,7 @@ export class BakeryItemStoreService {
 
       return successResponse(
         enrichedStores,
-        'Bakery item stores retrieved successfully',
+        'routes.bakery.item_stores_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -248,7 +251,7 @@ export class BakeryItemStoreService {
       this.logger.error(`Failed to get bakery item stores: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve bakery item stores',
+          'routes.bakery.failed_retrieve_item_stores',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -275,14 +278,14 @@ export class BakeryItemStoreService {
 
       if (!storeExists) {
         throw new NotFoundException(
-          errorResponse('Item store not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.bakery.item_store_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       // Validate stock is non-negative
       if (stock < 0) {
         throw new BadRequestException(
-          errorResponse('Stock cannot be negative', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.bakery.stock_negative', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -292,7 +295,7 @@ export class BakeryItemStoreService {
           if (option.stock < 0) {
             throw new BadRequestException(
               errorResponse(
-                'Option stock cannot be negative',
+                'routes.bakery.option_stock_negative',
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
               ),
@@ -329,7 +332,7 @@ export class BakeryItemStoreService {
           createdAt: updated.createdAt,
           updatedAt: updated.updatedAt,
         },
-        'Stock updated successfully',
+        'routes.bakery.stock_updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -340,7 +343,7 @@ export class BakeryItemStoreService {
       this.logger.error(`Failed to update stock: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update stock',
+          'routes.bakery.failed_update_stock',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

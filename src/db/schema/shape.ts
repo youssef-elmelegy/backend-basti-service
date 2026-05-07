@@ -7,10 +7,12 @@ import {
   index,
   boolean,
   integer,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, shapeVariantImages } from '.';
 import { visualKeyTypeEnum } from './enums';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const shapes = pgTable(
   'shapes',
@@ -18,8 +20,8 @@ export const shapes = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    title: varchar('title', { length: 255 }).notNull(),
-    description: text('description').notNull(),
+    title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     shapeUrl: text('shape_url').notNull(),
     size: varchar('size', { length: 50 }).notNull().default('medium'),
     capacity: integer('capacity'),

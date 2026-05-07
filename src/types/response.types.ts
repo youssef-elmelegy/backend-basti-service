@@ -3,6 +3,7 @@ export interface SuccessResponse<T> {
   success: true;
   message: string;
   data: T;
+  args?: object;
   timestamp: string;
 }
 
@@ -12,6 +13,7 @@ export interface ErrorResponse {
   message: string;
   error?: string;
   data?: object;
+  args?: object;
   timestamp: string;
 }
 

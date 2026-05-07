@@ -49,7 +49,7 @@ export class LocationService {
 
       return successResponse(
         this.mapToLocationResponse(newLocation),
-        'Location created successfully',
+        'routes.locations.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -57,7 +57,7 @@ export class LocationService {
       this.logger.error(`Location creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create location',
+          'routes.locations.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -77,14 +77,14 @@ export class LocationService {
 
       return successResponse(
         userLocations.map((loc) => this.mapToLocationResponse(loc)),
-        'Locations retrieved successfully',
+        'routes.locations.list_retrieved',
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve locations: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve locations',
+          'routes.locations.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -100,7 +100,7 @@ export class LocationService {
 
       return successResponse(
         this.mapToLocationResponse(location),
-        'Location retrieved successfully',
+        'routes.locations.retrieved',
       );
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
@@ -110,7 +110,7 @@ export class LocationService {
       this.logger.error(`Failed to retrieve location: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve location',
+          'routes.locations.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -150,7 +150,7 @@ export class LocationService {
 
       this.logger.log(`Location updated: ${id}`);
 
-      return successResponse(this.mapToLocationResponse(updated), 'Location updated successfully');
+      return successResponse(this.mapToLocationResponse(updated), 'routes.locations.updated');
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;
@@ -159,7 +159,7 @@ export class LocationService {
       this.logger.error(`Failed to update location: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update location',
+          'routes.locations.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -176,8 +176,8 @@ export class LocationService {
       this.logger.log(`Location deleted: ${id}`);
 
       return successResponse(
-        { message: 'Location deleted successfully' },
-        'Location deleted successfully',
+        { message: 'routes.locations.deleted' },
+        'routes.locations.deleted',
       );
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
@@ -187,7 +187,7 @@ export class LocationService {
       this.logger.error(`Failed to delete location: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete location',
+          'routes.locations.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -205,9 +205,10 @@ export class LocationService {
     if (!location) {
       throw new NotFoundException(
         errorResponse(
-          `Location with ID ${id} not found`,
+          `routes.locations.not_found_with_id`,
           HttpStatus.NOT_FOUND,
           'NotFoundException',
+          { locationId: id },
         ),
       );
     }

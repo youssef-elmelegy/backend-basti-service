@@ -12,7 +12,7 @@ import {
   CustomCakeFlattenData,
   CustomCakeData,
   ExtraLayerData,
-} from '../dto/items-interface';
+} from './items-interface';
 import { db } from '@/db';
 import { and, eq, getTableColumns, inArray, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -31,10 +31,13 @@ import {
   shapeVariantImages,
 } from '@/db/schema/';
 import { errorResponse } from '@/utils';
+import { TranslationService } from '@/common';
 
 @Injectable()
 export class ItemService {
   private readonly logger = new Logger(ItemService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   async getAddonOptions(addonId: string, addonOptionId: string): Promise<AddonOptionData[]> {
     try {
@@ -58,7 +61,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve addon options',
+          'routes.addons.options.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -83,7 +86,9 @@ export class ItemService {
         const addonsData = await db
           .select({
             ...getTableColumns(addons),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(addons.name, 'name'),
+            description: this.translationService.getLocalized(addons.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             sizesPrices: regionItemPrices.sizesPrices,
           })
@@ -125,7 +130,9 @@ export class ItemService {
         const addonsData = await db
           .select({
             ...getTableColumns(addons),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(addons.name, 'name'),
+            description: this.translationService.getLocalized(addons.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
@@ -164,7 +171,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve addons',
+          'routes.addons.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -184,7 +191,9 @@ export class ItemService {
         const sweetsData = await db
           .select({
             ...getTableColumns(sweets),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(sweets.name, 'name'),
+            description: this.translationService.getLocalized(sweets.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             sizesPrices: regionItemPrices.sizesPrices,
           })
@@ -210,7 +219,9 @@ export class ItemService {
         const sweetsData = await db
           .select({
             ...getTableColumns(sweets),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(sweets.name, 'name'),
+            description: this.translationService.getLocalized(sweets.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(sweets)
           .leftJoin(tags, eq(sweets.tagId, tags.id))
@@ -234,7 +245,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve sweets',
+          'routes.sweet.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -257,7 +268,9 @@ export class ItemService {
         const featuredCakesData = await db
           .select({
             ...getTableColumns(featuredCakes),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             sizesPrices: regionItemPrices.sizesPrices,
           })
@@ -286,7 +299,9 @@ export class ItemService {
         const featuredCakesData = await db
           .select({
             ...getTableColumns(featuredCakes),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -310,7 +325,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve featured cakes',
+          'routes.featured_cakes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -330,6 +345,8 @@ export class ItemService {
         const flavorsData = await db
           .select({
             ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
             price: regionItemPrices.price,
           })
           .from(flavors)
@@ -352,6 +369,8 @@ export class ItemService {
         const flavorsData = await db
           .select({
             ...getTableColumns(flavors),
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
           })
           .from(flavors)
           .where(and(eq(flavors.isActive, true), inArray(flavors.id, flavorIds)))
@@ -373,7 +392,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve flavors',
+          'routes.flavors.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -393,6 +412,8 @@ export class ItemService {
         const shapesData = await db
           .select({
             ...getTableColumns(shapes),
+            title: this.translationService.getLocalized(shapes.title, 'title'),
+            description: this.translationService.getLocalized(shapes.description, 'description'),
             price: regionItemPrices.price,
           })
           .from(shapes)
@@ -415,6 +436,8 @@ export class ItemService {
         const shapesData = await db
           .select({
             ...getTableColumns(shapes),
+            title: this.translationService.getLocalized(shapes.title, 'title'),
+            description: this.translationService.getLocalized(shapes.description, 'description'),
           })
           .from(shapes)
           .where(and(eq(shapes.isActive, true), inArray(shapes.id, shapeIds)))
@@ -436,7 +459,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve shapes',
+          'routes.shapes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -456,7 +479,9 @@ export class ItemService {
         const decorationsData = await db
           .select({
             ...getTableColumns(decorations),
-            tagName: tags.name,
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
           })
           .from(decorations)
@@ -485,7 +510,9 @@ export class ItemService {
         const decorationsData = await db
           .select({
             ...getTableColumns(decorations),
-            tagName: tags.name,
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(decorations)
           .leftJoin(tags, eq(decorations.tagId, tags.id))
@@ -510,7 +537,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve decorations',
+          'routes.decorations.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -533,7 +560,9 @@ export class ItemService {
         const predesignedCakeData = await db
           .select({
             ...getTableColumns(predesignedCakes),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
+            description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             sizesPrices: regionItemPrices.sizesPrices,
           })
@@ -584,7 +613,9 @@ export class ItemService {
         const predesignedCakeData = await db
           .select({
             ...getTableColumns(predesignedCakes),
-            tagName: tags.name,
+            name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
+            description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(predesignedCakes)
           .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
@@ -628,7 +659,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve featured cakes',
+          'routes.predesigned_cakes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -750,7 +781,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve custom cakes',
+          'routes.custom_cakes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -780,8 +811,8 @@ export class ItemService {
           updatedAt: designedCakeConfigs.updatedAt,
           flavor: {
             id: flavors.id,
-            title: flavors.title,
-            description: flavors.description,
+            title: this.translationService.getLocalized(flavors.title, 'title'),
+            description: this.translationService.getLocalized(flavors.description, 'description'),
             flavorUrl: flavors.flavorUrl,
             isActive: flavors.isActive,
             order: flavors.order,
@@ -790,8 +821,8 @@ export class ItemService {
           },
           decoration: {
             id: decorations.id,
-            title: decorations.title,
-            description: decorations.description,
+            title: this.translationService.getLocalized(decorations.title, 'title'),
+            description: this.translationService.getLocalized(decorations.description, 'description'),
             decorationUrl: decorations.decorationUrl,
             capacity: decorations.capacity,
             tagId: decorations.tagId,
@@ -802,8 +833,8 @@ export class ItemService {
           },
           shape: {
             id: shapes.id,
-            title: shapes.title,
-            description: shapes.description,
+            title: this.translationService.getLocalized(shapes.title, 'title'),
+            description: this.translationService.getLocalized(shapes.description, 'description'),
             shapeUrl: shapes.shapeUrl,
             isActive: shapes.isActive,
             order: shapes.order,
@@ -910,7 +941,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve configs for predesigned cake',
+          'routes.predesigned_cakes.failed_retrieve_configs',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -989,7 +1020,7 @@ export class ItemService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve configs price',
+          'routes.predesigned_cakes.failed_retrieve_configs_price',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

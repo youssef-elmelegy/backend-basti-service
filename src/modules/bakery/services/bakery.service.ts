@@ -8,13 +8,16 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { bakeries, regions } from '@/db/schema';
-import { eq, desc, asc, sql } from 'drizzle-orm';
+import { eq, desc, asc, sql, getTableColumns } from 'drizzle-orm';
 import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { TranslationService } from '@/common/translation/translation.service';
 
 @Injectable()
 export class BakeryService {
   private readonly logger = new Logger(BakeryService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   async create(createBakeryDto: CreateBakeryDto): Promise<SuccessResponse<BakeryResponse>> {
     const { name, locationDescription, regionId, capacity, bakeryTypes } = createBakeryDto;
@@ -25,27 +28,39 @@ export class BakeryService {
     if (existingRegion.length === 0) {
       this.logger.warn(`Bakery creation failed: Invalid region ID`);
       throw new BadRequestException(
-        errorResponse('Region ID is invalid', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse(
+          'routes.regions.not_found_with_id',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          { regionId },
+        ),
       );
     }
+
+    const nameObject = await this.translationService.getTranslationObject(name);
+    const locationDescriptionObject = await this.translationService.getTranslationObject(locationDescription);
 
     try {
       const [newBakery] = await db
         .insert(bakeries)
         .values({
-          name,
-          locationDescription,
+          name: nameObject,
+          locationDescription: locationDescriptionObject,
           regionId,
           capacity,
           bakeryTypes: bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[],
         })
-        .returning();
+        .returning({
+          ...getTableColumns(bakeries),
+          name: this.translationService.getLocalized(bakeries.name, 'name'),
+          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+        });
 
       this.logger.log(`Bakery created: ${newBakery.id} (${name})`);
 
       return successResponse(
         this.formatBakeryResponse(newBakery),
-        'Bakery created successfully',
+        'routes.bakery.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -53,7 +68,7 @@ export class BakeryService {
       this.logger.error(`Bakery creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create bakery',
+          'routes.bakery.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -62,8 +77,11 @@ export class BakeryService {
   }
 
   async findAll(pagination: PaginationDto, sort: SortDto) {
+
+    const { page = 1, limit = 10 } = pagination;
+
     try {
-      const offset = (pagination.page - 1) * pagination.limit;
+      const offset = (page - 1) * limit;
 
       // Get total count
       const [{ count }] = await db.select({ count: sql<string>`COUNT(*)` }).from(bakeries);
@@ -72,15 +90,19 @@ export class BakeryService {
       const sortOrder = sort.order === 'desc' ? desc : asc;
 
       const allBakeries = await db
-        .select()
+        .select({
+          ...getTableColumns(bakeries),
+          name: this.translationService.getLocalized(bakeries.name, 'name'),
+          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+        })
         .from(bakeries)
         .orderBy(sort.sort === 'alpha' ? sortOrder(bakeries.name) : sortOrder(bakeries.createdAt))
-        .limit(pagination.limit)
+        .limit(limit)
         .offset(offset);
 
-      const totalPages = Math.ceil(total / pagination.limit);
+      const totalPages = Math.ceil(total / limit);
 
-      this.logger.debug(`Retrieved bakeries: page ${pagination.page}, total ${total}`);
+      this.logger.debug(`Retrieved bakeries: page ${page}, total ${total}`);
 
       const formattedBakeries = allBakeries.map((bakery) => this.formatBakeryResponse(bakery));
 
@@ -92,11 +114,11 @@ export class BakeryService {
           pagination: {
             total,
             totalPages,
-            page: pagination.page,
-            limit: pagination.limit,
+            page,
+            limit: limit,
           },
         },
-        'Bakeries retrieved successfully',
+        'routes.bakery.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -104,7 +126,7 @@ export class BakeryService {
       this.logger.error(`Failed to retrieve bakeries: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve bakeries',
+          'routes.bakery.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -113,12 +135,21 @@ export class BakeryService {
   }
 
   async findOne(id: string): Promise<SuccessResponse<BakeryResponse>> {
-    const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, id)).limit(1);
+
+    const [bakery] = await db
+      .select({
+        ...getTableColumns(bakeries),
+        name: this.translationService.getLocalized(bakeries.name, 'name'),
+        locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+      })
+      .from(bakeries)
+      .where(eq(bakeries.id, id))
+      .limit(1);
 
     if (!bakery) {
       this.logger.warn(`Bakery not found: ${id}`);
       throw new NotFoundException(
-        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -126,7 +157,7 @@ export class BakeryService {
 
     return successResponse(
       this.formatBakeryResponse(bakery),
-      'Bakery retrieved successfully',
+      'routes.bakery.retrieved',
       HttpStatus.OK,
     );
   }
@@ -142,7 +173,7 @@ export class BakeryService {
     if (!existingBakery) {
       this.logger.warn(`Bakery update failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -157,15 +188,20 @@ export class BakeryService {
       if (existingRegion.length === 0) {
         this.logger.warn(`Bakery update failed: Invalid region ID`);
         throw new BadRequestException(
-          errorResponse('Region ID is invalid', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
     }
 
     try {
-      const updateData: Record<string, string | number | Date | Array<string>> = {};
-      if (name !== undefined) updateData.name = name;
-      if (locationDescription !== undefined) updateData.locationDescription = locationDescription;
+      const updateData: Record<string, any> = {};
+
+      if (name !== undefined) {
+        updateData.name = await this.translationService.getTranslationObject(name);
+      }
+      if (locationDescription !== undefined) {
+        updateData.locationDescription = await this.translationService.getTranslationObject(locationDescription);
+      }
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
       if (bakeryTypes !== undefined)
@@ -174,16 +210,19 @@ export class BakeryService {
 
       const [updatedBakery] = await db
         .update(bakeries)
-
         .set(updateData)
         .where(eq(bakeries.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(bakeries),
+          name: this.translationService.getLocalized(bakeries.name, 'name'),
+          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+        });
 
       this.logger.log(`Bakery updated: ${id}`);
 
       return successResponse(
         this.formatBakeryResponse(updatedBakery),
-        'Bakery updated successfully',
+        'routes.bakery.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -191,7 +230,7 @@ export class BakeryService {
       this.logger.error(`Bakery update error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update bakery',
+          'routes.bakery.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -205,7 +244,7 @@ export class BakeryService {
     if (!existingBakery) {
       this.logger.warn(`Bakery deletion failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Bakery not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -215,15 +254,15 @@ export class BakeryService {
       this.logger.log(`Bakery deleted: ${id}`);
 
       return successResponse(
-        { message: 'Bakery deleted successfully' },
-        'Bakery deleted successfully',
+        { message: 'routes.bakery.deleted' },
+        'routes.bakery.deleted',
         HttpStatus.OK,
       );
     } catch {
       this.logger.error(`Bakery deletion error for ${id}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete bakery',
+          'routes.bakery.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -238,7 +277,7 @@ export class BakeryService {
     locationDescription: string;
     capacity: number;
     bakeryTypes: Array<string>;
-    averageRating?: string;
+    averageRating?: string | null;
     totalReviews: number;
     createdAt: Date;
     updatedAt: Date;
@@ -250,7 +289,7 @@ export class BakeryService {
       capacity: bakery.capacity,
       regionId: bakery.regionId,
       types: bakery.bakeryTypes,
-      averageRating: bakery.averageRating ? parseFloat(bakery.averageRating) : null,
+      averageRating: bakery.averageRating ? parseFloat(bakery.averageRating) : undefined,
       totalReviews: bakery.totalReviews,
       createdAt: bakery.createdAt,
       updatedAt: bakery.updatedAt,

@@ -8,52 +8,32 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { featuredCakes, tags, regionItemPrices, regions } from '@/db/schema';
-import { eq, desc, sql, asc, and } from 'drizzle-orm';
+import { eq, desc, sql, asc, and, getTableColumns } from 'drizzle-orm';
 import {
   CreateFeaturedCakeDto,
   UpdateFeaturedCakeDto,
   GetFeaturedCakesQueryDto,
   CreateRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse } from '@/utils';
+import { errorResponse, successResponse, validateCakeExists } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
+import { TranslationService } from '@/common';
+import { getErrorMessage } from '@/utils';
+import { validateTagExists, validateRegionExists } from '@/utils';
+
+type FlattenedFeaturedCake = Omit<typeof featuredCakes.$inferSelect, 'name' | 'description'> & { 
+  name: string; 
+  description: string; 
+};
 
 @Injectable()
 export class FeaturedCakeService {
   private readonly logger = new Logger(FeaturedCakeService.name);
 
-  constructor(private readonly bakeryItemStoreService: BakeryItemStoreService) {}
-
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    if (typeof error === 'string') {
-      return error;
-    }
-    return 'unknown error';
-  }
-
-  /**
-   * Validate that a tag exists by ID
-   */
-  private async validateTagExists(tagId: string): Promise<void> {
-    const tagResult = await db
-      .select({ id: tags.id })
-      .from(tags)
-      .where(eq(tags.id, tagId))
-      .limit(1);
-
-    if (tagResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          `Tag with ID ${tagId} not found`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-  }
+  constructor(
+    private readonly bakeryItemStoreService: BakeryItemStoreService,
+    private readonly translationService: TranslationService,
+  ) {}
 
   async create(createFeaturedCakeDto: CreateFeaturedCakeDto) {
     const {
@@ -61,8 +41,8 @@ export class FeaturedCakeService {
       description,
       images,
       capacity,
-      flavorList,
-      pipingPaletteList,
+      flavorList = [],
+      pipingPaletteList = [],
       tagId,
       isActive = true,
       minPrepHours = 0,
@@ -70,14 +50,17 @@ export class FeaturedCakeService {
 
     try {
       if (tagId) {
-        await this.validateTagExists(tagId);
+        await validateTagExists(tagId);
       }
+
+      const nameObject = await this.translationService.getTranslationObject(name);
+      const descriptionObject = await this.translationService.getTranslationObject(description);
 
       const [newCake] = await db
         .insert(featuredCakes)
         .values({
-          name,
-          description,
+          name: nameObject,
+          description: descriptionObject,
           images,
           capacity,
           flavorList,
@@ -86,7 +69,11 @@ export class FeaturedCakeService {
           isActive,
           minPrepHours,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       this.logger.log(`Cake created: ${newCake.id} (${name})`);
 
@@ -94,7 +81,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (newCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, newCake.tagId))
           .limit(1);
@@ -105,17 +94,17 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(newCake, tagName),
-        'Cake created successfully',
+        'routes.featured_cakes.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to create cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to create cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -140,8 +129,8 @@ export class FeaturedCakeService {
       const sortColumn = sort === 'alpha' ? featuredCakes.name : featuredCakes.createdAt;
 
       let allCakesResult: Array<{
-        cake: typeof featuredCakes.$inferSelect;
-        tagName: string;
+        cake: FlattenedFeaturedCake;
+        tagName: string | null;
         price?: string;
       }> = [];
       let total = 0;
@@ -154,11 +143,14 @@ export class FeaturedCakeService {
 
         const whereConditions: ReturnType<typeof eq | typeof sql>[] = [];
         if (tag) {
-          whereConditions.push(eq(tags.name, tag));
+          whereConditions.push(eq(
+            this.translationService.getLocalized(tags.name, null, 'en'),
+            tag
+          ));
         }
         if (search) {
           const searchPattern = `%${search}%`;
-          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: regionCount }] = await db
@@ -172,8 +164,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
           })
           .from(featuredCakes)
@@ -184,10 +180,13 @@ export class FeaturedCakeService {
           .limit(limit)
           .offset(offset);
       } else if (tag) {
-        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(tags.name, tag)];
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(
+          this.translationService.getLocalized(tags.name, null, 'en'),
+          tag
+        )];
         if (search) {
           const searchPattern = `%${search}%`;
-          whereConditions.push(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
         }
 
         const [{ count: tagCount }] = await db
@@ -200,8 +199,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .innerJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -214,18 +217,22 @@ export class FeaturedCakeService {
         const [{ count: searchCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${featuredCakes.id})` })
           .from(featuredCakes)
-          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`);
+          .where(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
 
         total = Number(searchCount);
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .where(sql`LOWER(${featuredCakes.name}) LIKE LOWER(${searchPattern})`)
+          .where(sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
           .offset(offset);
@@ -238,8 +245,12 @@ export class FeaturedCakeService {
 
         allCakesResult = await db
           .select({
-            cake: featuredCakes,
-            tagName: tags.name,
+            cake: {
+              ...getTableColumns(featuredCakes),
+              name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+              description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            },
+            tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -262,13 +273,13 @@ export class FeaturedCakeService {
           limit,
           totalPages,
         },
-        'Cakes retrieved successfully',
+        'routes.featured_cakes.list_retrieved',
       );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to retrieve cakes: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to retrieve cakes', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_retrieve', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -277,8 +288,12 @@ export class FeaturedCakeService {
     try {
       const cakeResult = await db
         .select({
-          cake: featuredCakes,
-          tagName: tags.name,
+          cake: {
+            ...getTableColumns(featuredCakes),
+            name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+          },
+          tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(featuredCakes)
         .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
@@ -288,14 +303,14 @@ export class FeaturedCakeService {
       if (!cakeResult.length) {
         this.logger.warn(`Cake not found: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
       const { cake, tagName } = cakeResult[0];
 
       this.logger.debug(`Retrieved cake: ${id}`);
-      return successResponse(this.mapToCakeResponse(cake, tagName), 'Cake retrieved successfully');
+      return successResponse(this.mapToCakeResponse(cake, tagName || ''), 'routes.featured_cakes.retrieved');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -303,7 +318,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to retrieve cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to retrieve cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_retrieve', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -320,12 +335,12 @@ export class FeaturedCakeService {
       if (!existingCake) {
         this.logger.warn(`Cake not found for update: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
       if (updateFeaturedCakeDto.tagId) {
-        await this.validateTagExists(updateFeaturedCakeDto.tagId);
+        await validateTagExists(updateFeaturedCakeDto.tagId);
       }
 
       const updateData: Record<string, unknown> = Object.fromEntries(
@@ -333,12 +348,23 @@ export class FeaturedCakeService {
       );
 
       updateData.updatedAt = new Date();
+      
+      if(updateData.name !== undefined) {
+        updateData.name = await this.translationService.getTranslationObject(updateData.name);
+      }
+      if(updateData.description !== undefined) {
+        updateData.description = await this.translationService.getTranslationObject(updateData.description);
+      }
 
       const [updatedCake] = await db
         .update(featuredCakes)
         .set(updateData)
         .where(eq(featuredCakes.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       this.logger.log(`Cake updated: ${id}`);
 
@@ -346,7 +372,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (updatedCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedCake.tagId))
           .limit(1);
@@ -357,16 +385,16 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(updatedCake, tagName),
-        'Cake updated successfully',
+        'routes.featured_cakes.updated',
       );
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to update cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to update cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_update', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -378,7 +406,7 @@ export class FeaturedCakeService {
       if (!cake) {
         this.logger.warn(`Cake not found for deletion: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -386,7 +414,7 @@ export class FeaturedCakeService {
 
       this.logger.log(`Cake deleted: ${id}`);
 
-      return successResponse({ message: 'Cake deleted successfully' }, 'Cake deleted successfully');
+      return successResponse({ message: 'routes.featured_cakes.deleted' }, 'routes.featured_cakes.deleted');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -394,7 +422,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to delete cake: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to delete cake', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.failed_delete', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -410,7 +438,7 @@ export class FeaturedCakeService {
       if (!existingCake) {
         this.logger.warn(`Cake not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.featured_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -421,7 +449,11 @@ export class FeaturedCakeService {
           updatedAt: new Date(),
         })
         .where(eq(featuredCakes.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(featuredCakes),
+          name: this.translationService.getLocalized(featuredCakes.name, 'name'),
+          description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+        });
 
       const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Cake status toggled (${statusText}): ${id}`);
@@ -429,7 +461,9 @@ export class FeaturedCakeService {
       let tagName: string;
       if (updatedCake.tagId) {
         const tagResult = await db
-          .select({ name: tags.name })
+          .select({ 
+            name: this.translationService.getLocalized(tags.name, 'name'),
+          })
           .from(tags)
           .where(eq(tags.id, updatedCake.tagId))
           .limit(1);
@@ -440,7 +474,7 @@ export class FeaturedCakeService {
 
       return successResponse(
         this.mapToCakeResponse(updatedCake, tagName),
-        `Cake ${statusText} successfully`,
+        'routes.featured_cakes.status_toggled',
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -449,49 +483,7 @@ export class FeaturedCakeService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to toggle cake status: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to toggle cake status', HttpStatus.INTERNAL_SERVER_ERROR),
-      );
-    }
-  }
-
-  /**
-   * Validate that a featured cake exists by ID
-   */
-  private async validateCakeExists(cakeId: string): Promise<void> {
-    const cakeResult = await db
-      .select({ id: featuredCakes.id })
-      .from(featuredCakes)
-      .where(eq(featuredCakes.id, cakeId))
-      .limit(1);
-
-    if (cakeResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          `Featured cake with ID ${cakeId} not found`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Validate that a region exists by ID
-   */
-  private async validateRegionExists(regionId: string): Promise<void> {
-    const regionResult = await db
-      .select({ id: regions.id })
-      .from(regions)
-      .where(eq(regions.id, regionId))
-      .limit(1);
-
-    if (regionResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          `Region with ID ${regionId} not found`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-        ),
+        errorResponse('routes.featured_cakes.failed_toggle_status', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -501,8 +493,8 @@ export class FeaturedCakeService {
 
     try {
       // Validate both IDs exist
-      await this.validateCakeExists(featuredCakeId);
-      await this.validateRegionExists(regionId);
+      await validateCakeExists(featuredCakeId);
+      await validateRegionExists(regionId);
 
       // Check if pricing already exists for this cake and region
       const existingPrice = await db
@@ -560,24 +552,24 @@ export class FeaturedCakeService {
           createdAt: regionItemPrice.createdAt,
           updatedAt: regionItemPrice.updatedAt,
         },
-        'Region pricing created successfully',
+        'routes.featured_cakes.region_pricing_created',
         HttpStatus.CREATED,
       );
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      const errorMsg = this.getErrorMessage(error);
+      const errorMsg = getErrorMessage(error);
       this.logger.error(`Failed to create region pricing: ${errorMsg}`);
       throw new InternalServerErrorException(
-        errorResponse('Failed to create region pricing', HttpStatus.INTERNAL_SERVER_ERROR),
+        errorResponse('routes.featured_cakes.region_pricing_failed_create', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
 
   private mapToCakeResponse(
-    cake: typeof featuredCakes.$inferSelect,
-    tagName?: string,
+    cake: FlattenedFeaturedCake,
+    tagName?: string | null,
     price?: string,
   ) {
     const response: Record<string, unknown> = {

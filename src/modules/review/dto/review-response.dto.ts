@@ -24,7 +24,7 @@ export class ReviewResponseDto {
   @ApiProperty({
     example: 'The cake was delicious and beautifully decorated!',
   })
-  reviewText: string;
+  reviewText?: string | null;
 }
 
 export class ReviewDeleteResponseDto {

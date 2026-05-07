@@ -372,6 +372,11 @@ export class CreateOrderDto {
   @Type(() => CreateLocationDto)
   locationData?: CreateLocationDto;
 
+  @ApiProperty({ description: 'Coupon code to be used for the order.' })
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
+
   @ApiProperty({
     description: 'The ID of the payment method to be used for the order.',
     required: false,

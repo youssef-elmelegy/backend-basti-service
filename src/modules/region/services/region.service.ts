@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { regions, regionItemPrices } from '@/db/schema';
-import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql } from 'drizzle-orm';
+import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql, getTableColumns } from 'drizzle-orm';
 import {
   CreateRegionDto,
   UpdateRegionDto,
@@ -31,6 +31,7 @@ import { SortBy } from '@/modules/sweet/dto';
 import { FlavorSortBy } from '@/modules/custom-cakes/dto';
 import { ShapeSortBy, ShapeDataDto } from '@/modules/custom-cakes/dto';
 import { DecorationSortBy } from '@/modules/custom-cakes/dto';
+import { TranslationService } from '@/common';
 
 interface RegionalProduct {
   [key: string]: unknown;
@@ -48,18 +49,26 @@ export class RegionService {
     private readonly shapeService: ShapeService,
     private readonly decorationService: DecorationService,
     private readonly predesignedCakesService: PredesignedCakesService,
+    private readonly translationService: TranslationService,
   ) {}
 
   async create(createRegionDto: CreateRegionDto): Promise<SuccessResponse<RegionResponse>> {
     const { name, image, isAvailable } = createRegionDto;
 
-    const existingRegion = await db.select().from(regions).where(eq(regions.name, name)).limit(1);
+    const existingRegion = await db
+      .select()
+      .from(regions)
+      .where(eq(
+        this.translationService.getLocalized(regions.name, null, 'en'),
+        name
+      ))
+      .limit(1);
 
     if (existingRegion.length > 0) {
       this.logger.warn(`Region creation failed: Name already exists - ${name}`);
       throw new ConflictException(
         errorResponse(
-          'Region with this name already exists',
+          'routes.regions.name_exists',
           HttpStatus.CONFLICT,
           'ConflictException',
         ),
@@ -76,10 +85,20 @@ export class RegionService {
 
       const nextOrder = (maxOrderResult?.maxOrder || 0) + 1;
 
+      const nameObject = await this.translationService.getTranslationObject(name);
+
       const [newRegion] = await db
         .insert(regions)
-        .values({ name, image, isAvailable, order: nextOrder })
-        .returning();
+        .values({ 
+          name: nameObject, 
+          image, 
+          isAvailable, 
+          order: nextOrder 
+        })
+        .returning({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        });
 
       this.logger.log(`Region created: ${newRegion.id} (${name}) with order: ${nextOrder}`);
 
@@ -87,20 +106,20 @@ export class RegionService {
         {
           id: newRegion.id,
           name: newRegion.name,
-          image: newRegion.image,
+          image: newRegion.image || '',
           isAvailable: newRegion.isAvailable,
           order: newRegion.order,
           createdAt: newRegion.createdAt,
           updatedAt: newRegion.updatedAt,
         },
-        'Region created successfully',
+        'routes.regions.created',
         HttpStatus.CREATED,
       );
     } catch {
       this.logger.error(`Region creation error for ${name}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create region',
+          'routes.regions.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -131,12 +150,18 @@ export class RegionService {
       const allRegions =
         filter.length > 0
           ? await db
-              .select()
+              .select({
+                ...getTableColumns(regions),
+                name: this.translationService.getLocalized(regions.name, 'name'),
+              })
               .from(regions)
               .where(and(...filter))
               .orderBy(...orderByConditions)
           : await db
-              .select()
+              .select({
+                ...getTableColumns(regions),
+                name: this.translationService.getLocalized(regions.name, 'name'),
+              })
               .from(regions)
               .orderBy(...orderByConditions);
 
@@ -160,14 +185,14 @@ export class RegionService {
           createdAt: region.createdAt,
           updatedAt: region.updatedAt,
         })),
-        'Regions retrieved successfully',
+        'routes.regions.list_retrieved',
         HttpStatus.OK,
       );
     } catch {
       this.logger.error('Failed to retrieve regions');
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve regions',
+          'routes.regions.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -176,12 +201,19 @@ export class RegionService {
   }
 
   async findOne(id: string): Promise<SuccessResponse<RegionResponse>> {
-    const [region] = await db.select().from(regions).where(eq(regions.id, id)).limit(1);
+    const [region] = await db
+      .select({
+        ...getTableColumns(regions),
+        name: this.translationService.getLocalized(regions.name, 'name'),
+      })
+      .from(regions)
+      .where(eq(regions.id, id))
+      .limit(1);
 
     if (!region) {
       this.logger.warn(`Region not found: ${id}`);
       throw new NotFoundException(
-        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -197,7 +229,7 @@ export class RegionService {
         createdAt: region.createdAt,
         updatedAt: region.updatedAt,
       },
-      'Region retrieved successfully',
+      'routes.regions.retrieved',
       HttpStatus.OK,
     );
   }
@@ -213,7 +245,7 @@ export class RegionService {
     if (!existingRegion) {
       this.logger.warn(`Region update failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -221,14 +253,17 @@ export class RegionService {
       const [duplicateRegion] = await db
         .select()
         .from(regions)
-        .where(eq(regions.name, name))
+        .where(eq(
+          this.translationService.getLocalized(regions.name, null, 'en'),
+          name
+        ))
         .limit(1);
 
       if (duplicateRegion && duplicateRegion.id !== id) {
         this.logger.warn(`Region update failed: Name already exists - ${name}`);
         throw new ConflictException(
           errorResponse(
-            'Region with this name already exists',
+            'routes.regions.name_exists',
             HttpStatus.CONFLICT,
             'ConflictException',
           ),
@@ -236,17 +271,35 @@ export class RegionService {
       }
     }
 
+    const updateData: Record<string, any> = {};
+
+    if (name) {
+      updateData.name = await this.translationService.getTranslationObject(name);
+    }
+    if (image) updateData.image = image;
+    if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException(
+        errorResponse(
+          'routes.common.no_fields_to_update',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    updateData.updatedAt = new Date();
+
     try {
       const [updatedRegion] = await db
         .update(regions)
-        .set({
-          ...(name && { name }),
-          ...(image && { image }),
-          ...(isAvailable !== undefined && { isAvailable }),
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(regions.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        });
 
       this.logger.log(`Region updated: ${id}`);
 
@@ -254,20 +307,20 @@ export class RegionService {
         {
           id: updatedRegion.id,
           name: updatedRegion.name,
-          image: updatedRegion.image,
+          image: updatedRegion.image || '',
           isAvailable: updatedRegion.isAvailable,
           order: updatedRegion.order,
           createdAt: updatedRegion.createdAt,
           updatedAt: updatedRegion.updatedAt,
         },
-        'Region updated successfully',
+        'routes.regions.updated',
         HttpStatus.OK,
       );
     } catch {
       this.logger.error(`Region update error for ${id}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update region',
+          'routes.regions.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -281,7 +334,7 @@ export class RegionService {
     if (!existingRegion) {
       this.logger.warn(`Region deletion failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -305,15 +358,15 @@ export class RegionService {
       );
 
       return successResponse(
-        { message: 'Region deleted successfully' },
-        'Region deleted successfully',
+        { message: 'routes.regions.deleted' },
+        'routes.regions.deleted',
         HttpStatus.OK,
       );
     } catch {
       this.logger.error(`Region deletion error for ${id}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete region',
+          'routes.regions.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -333,7 +386,7 @@ export class RegionService {
     if (!region) {
       this.logger.warn(`Region order change failed: Region not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -353,7 +406,7 @@ export class RegionService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Invalid order position. Must be between 1 and ${totalCount}`,
+          'routes.regions.invalid_order_position',
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
         ),
@@ -443,7 +496,13 @@ export class RegionService {
       }
 
       // Fetch all regions sorted by order
-      const allRegions = await db.select().from(regions).orderBy(asc(regions.order));
+      const allRegions = await db
+        .select({
+          ...getTableColumns(regions),
+          name: this.translationService.getLocalized(regions.name, 'name'),
+        })
+        .from(regions)
+        .orderBy(asc(regions.order));
 
       return successResponse(
         allRegions.map((region) => ({
@@ -455,7 +514,7 @@ export class RegionService {
           createdAt: region.createdAt,
           updatedAt: region.updatedAt,
         })),
-        'Region order updated successfully',
+        'routes.regions.order_updated',
         HttpStatus.OK,
       );
     } catch (err) {
@@ -465,7 +524,7 @@ export class RegionService {
       this.logger.error(`Region order change error for ${id}:`, err);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change region order',
+          'routes.regions.failed_change_order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -493,7 +552,7 @@ export class RegionService {
       if (!region.length) {
         this.logger.warn(`Region not found: ${regionId}`);
         throw new NotFoundException(
-          errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -787,7 +846,7 @@ export class RegionService {
             totalPages: Math.ceil(totalCount / limit),
           },
         },
-        'Regional products retrieved successfully',
+        'routes.regions.regional_products_retrieved',
         HttpStatus.OK,
       );
     } catch (err) {
@@ -797,7 +856,7 @@ export class RegionService {
       this.logger.error(`Error fetching regional products for region ${regionId}:`, err);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve regional products',
+          'routes.regions.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -816,7 +875,7 @@ export class RegionService {
     if (!region) {
       this.logger.warn(`Regional item price deletion failed: Region not found - ${regionId}`);
       throw new NotFoundException(
-        errorResponse('Region not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -836,7 +895,7 @@ export class RegionService {
     if (!productField) {
       this.logger.warn(`Invalid product type: ${productType}`);
       throw new NotFoundException(
-        errorResponse('Invalid product type', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.regions.invalid_product_type', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -855,7 +914,7 @@ export class RegionService {
       );
       throw new NotFoundException(
         errorResponse(
-          'Product pricing not found for this region',
+          'routes.regions.product_pricing_not_found',
           HttpStatus.NOT_FOUND,
           'NotFoundException',
         ),
@@ -870,8 +929,8 @@ export class RegionService {
       );
 
       return successResponse(
-        { message: 'Regional item price removed successfully' },
-        'Regional item price removed',
+        { message: 'routes.regions.item_price_removed_success' },
+        'routes.regions.item_price_removed',
         HttpStatus.OK,
       );
     } catch (err) {
@@ -881,7 +940,7 @@ export class RegionService {
       );
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete regional item price',
+          'routes.regions.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { chefs, bakeries } from '@/db/schema';
-import { eq, sql, asc, desc, and } from 'drizzle-orm';
+import { eq, sql, asc, desc, and, getTableColumns } from 'drizzle-orm';
 import {
   CreateChefDto,
   UpdateChefDto,
@@ -19,10 +19,13 @@ import {
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import { TranslationService } from '@/common/translation/translation.service';
 
 @Injectable()
 export class ChefService {
   private readonly logger = new Logger(ChefService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   async create(createChefDto: CreateChefDto): Promise<SuccessResponse<ChefResponse>> {
     const { name, specialization, image, bio, bakeryId } = createChefDto;
@@ -32,27 +35,34 @@ export class ChefService {
     if (!bakery) {
       this.logger.warn(`Chef creation failed: Bakery not found - ${bakeryId}`);
       throw new BadRequestException(
-        errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse('routes.bakery.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
       );
     }
+
+    const specializationObject = await this.translationService.getTranslationObject(specialization);
+    const bioObject = await this.translationService.getTranslationObject(bio);
 
     try {
       const [newChef] = await db
         .insert(chefs)
         .values({
           fullName: name,
-          specialization,
+          specialization: specializationObject,
           image,
-          bio,
+          bio: bioObject,
           bakeryId,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(chefs),
+          specialization: this.translationService.getLocalized(chefs.specialization, 'specialization'),
+          bio: this.translationService.getLocalized(chefs.bio, 'bio'),
+        });
 
       this.logger.log(`Chef created: ${newChef.id} (${name})`);
 
       return successResponse(
         await this.formatChefResponse(newChef.id),
-        'Chef created successfully',
+        'routes.chef.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -60,7 +70,7 @@ export class ChefService {
       this.logger.error(`Chef creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create chef',
+          'routes.chef.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -122,7 +132,7 @@ export class ChefService {
             totalPages,
           },
         },
-        'Chefs retrieved successfully',
+        'routes.chef.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -130,7 +140,7 @@ export class ChefService {
       this.logger.error(`Failed to retrieve chefs: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve chefs',
+          'routes.chef.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -144,7 +154,7 @@ export class ChefService {
     if (!chef) {
       this.logger.warn(`Chef not found: ${id}`);
       throw new NotFoundException(
-        errorResponse('Chef not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.chef.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -152,7 +162,7 @@ export class ChefService {
 
     return successResponse(
       await this.formatChefResponse(id),
-      'Chef retrieved successfully',
+      'routes.chef.retrieved',
       HttpStatus.OK,
     );
   }
@@ -165,7 +175,7 @@ export class ChefService {
     if (!existingChef) {
       this.logger.warn(`Chef update failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Chef not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.chef.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -175,29 +185,42 @@ export class ChefService {
       if (!bakery) {
         this.logger.warn(`Chef update failed: Bakery not found - ${bakeryId}`);
         throw new BadRequestException(
-          errorResponse('Bakery not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.bakery.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
+    }
+
+    const updateData: Record<string, any> = {};
+
+    if (name !== undefined) {
+      updateData.fullName = name;
+    }
+    if (specialization !== undefined) {
+      updateData.specialization = await this.translationService.getTranslationObject(specialization);
+    }
+    if (bio !== undefined) {
+      updateData.bio = await this.translationService.getTranslationObject(bio);
+    }
+    if (image !== undefined) updateData.image = image;
+    if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException(
+        errorResponse('routes.common.no_fields_to_update', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+      );
     }
 
     try {
       await db
         .update(chefs)
-        .set({
-          ...(name && { fullName: name }),
-          ...(specialization && { specialization }),
-          ...(image !== undefined && { image }),
-          ...(bio !== undefined && { bio }),
-          ...(bakeryId && { bakeryId }),
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(chefs.id, id));
 
       this.logger.log(`Chef updated: ${id}`);
 
       return successResponse(
         await this.formatChefResponse(id),
-        'Chef updated successfully',
+        'routes.chef.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -205,7 +228,7 @@ export class ChefService {
       this.logger.error(`Chef update error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update chef',
+          'routes.chef.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -219,7 +242,7 @@ export class ChefService {
     if (!existingChef) {
       this.logger.warn(`Chef deletion failed: Not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Chef not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.chef.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -229,8 +252,8 @@ export class ChefService {
       this.logger.log(`Chef deleted: ${id}`);
 
       return successResponse(
-        { message: 'Chef deleted successfully' },
-        'Chef deleted successfully',
+        { message: 'routes.chef.deleted' },
+        'routes.chef.deleted',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -238,7 +261,7 @@ export class ChefService {
       this.logger.error(`Chef deletion error for ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete chef',
+          'routes.chef.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -338,13 +361,21 @@ export class ChefService {
   // }
 
   private async formatChefResponse(chefId: string): Promise<ChefResponse> {
-    const [chef] = await db.select().from(chefs).where(eq(chefs.id, chefId)).limit(1);
+    const [chef] = await db
+      .select({
+        ...getTableColumns(chefs),
+        specialization: this.translationService.getLocalized(chefs.specialization, 'specialization'),
+        bio: this.translationService.getLocalized(chefs.bio, 'bio'),
+      })
+      .from(chefs)
+      .where(eq(chefs.id, chefId))
+      .limit(1);
 
     return {
       id: chef.id,
       name: chef.fullName,
       specialization: chef.specialization,
-      image: chef.image ?? null,
+      image: chef.image ?? undefined,
       bio: chef.bio ?? null,
       bakeryId: chef.bakeryId,
       createdAt: chef.createdAt,

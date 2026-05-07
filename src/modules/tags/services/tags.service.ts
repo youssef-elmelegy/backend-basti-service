@@ -8,30 +8,30 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { tags } from '@/db/schema';
-import { asc, eq, and, lt, gt, gte, lte, sql } from 'drizzle-orm';
+import { asc, eq, and, lt, gt, gte, lte, sql, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TagDto, CreateTagDto, UpdateTagDto, FindAllQueryDto } from '../dto';
+import { TranslationService } from '@/common/translation/translation.service';
+import { getErrorMessage } from '@/utils';
 
 @Injectable()
 export class TagsService {
   private readonly logger = new Logger(TagsService.name);
 
-  private getErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    if (typeof error === 'string') {
-      return error;
-    }
-    return 'unknown error';
-  }
+  constructor(private readonly translationService: TranslationService) {}
 
   /**
    * Get all tags from the tags table, ordered by display_order
    */
   async findAll(query: FindAllQueryDto): Promise<SuccessResponse<TagDto[]>> {
     try {
-      let allTags = await db.select().from(tags).orderBy(asc(tags.displayOrder));
+      let allTags = await db.
+        select({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        }).
+        from(tags).
+        orderBy(asc(tags.displayOrder));
 
       if (query.type && query.type.trim() !== '') {
         const typeLower = query.type.toLowerCase();
@@ -40,12 +40,12 @@ export class TagsService {
 
       this.logger.log(`Retrieved ${allTags.length} tags`);
 
-      return successResponse(allTags, 'Tags retrieved successfully', HttpStatus.OK);
+      return successResponse(allTags, 'routes.tags.list_retrieved', HttpStatus.OK);
     } catch (error) {
       this.logger.error('Failed to retrieve tags', error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve tags',
+          'routes.tags.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -63,52 +63,69 @@ export class TagsService {
       const tagNameLower: string = tagName.toLowerCase();
       const tagTypes: string[] = createTagDto.types;
 
-      const existingTag = await db.select().from(tags).where(eq(tags.name, tagNameLower)).limit(1);
+      const existingTag = await db
+        .select({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        })
+        .from(tags)
+        .where(eq(
+          this.translationService.getLocalized(tags.name, null, 'en'),
+          tagNameLower
+        ))
+        .limit(1);
 
       if (existingTag.length > 0) {
         throw new BadRequestException(
-          errorResponse('Tag name already exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.tags.name_exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
-      }
+      }      
 
       const existingDisplayOrder = await db
         .select()
         .from(tags)
         .where(eq(tags.displayOrder, displayOrderValue))
-        .limit(1);
+        .limit(1);  
 
       if (existingDisplayOrder.length > 0) {
         throw new BadRequestException(
           errorResponse(
-            'Display order already exists',
+            'routes.tags.display_order_exists',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
-      }
+      }      
+
+      let nameObject = await this.translationService.getTranslationObject(tagName);
+
+      nameObject.en = nameObject.en.toLowerCase(); 
 
       const [newTag] = await db
         .insert(tags)
         .values({
-          name: tagNameLower,
+          name: nameObject,
           displayOrder: displayOrderValue,
           types: tagTypes,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        });      
 
       this.logger.log(
         `Tag created: ${newTag.id} (${newTag.name}) with types ${newTag.types.join(', ')}`,
       );
 
-      return successResponse(newTag, 'Tag created successfully', HttpStatus.CREATED);
+      return successResponse(newTag, 'routes.tags.created', HttpStatus.CREATED);
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Tag creation error: ${this.getErrorMessage(error)}`);
+      this.logger.error(`Tag creation error: ${getErrorMessage(error)}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create tag',
+          'routes.tags.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -128,58 +145,72 @@ export class TagsService {
       ) {
         throw new BadRequestException(
           errorResponse(
-            'At least one field (name or displayOrder, or types array) must be provided for update',
+            'routes.tags.no_fields_to_update',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
       }
 
-      const [selectedTag] = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+      const [selectedTag] = await db
+        .select({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        })
+        .from(tags)
+        .where(eq(tags.id, id))
+        .limit(1);
 
       if (!selectedTag) {
         throw new NotFoundException(
-          errorResponse('Tag not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.tags.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
-      // Prepare normalized values
-      const newNameLower = editTagDto.name ? editTagDto.name.toLowerCase() : undefined;
-      const newDisplayOrder = editTagDto.displayOrder;
+      const updateData: Record<string, any> = {};
 
-      // Compute resulting values after update (use current if not provided)
-      const resultingName = newNameLower ?? selectedTag.name;
-      const resultingDisplayOrder =
-        newDisplayOrder !== undefined ? newDisplayOrder : selectedTag.displayOrder;
-
-      // types to all-lowercase
-      const normalizedTypes = editTagDto.types?.map((type) => type.toLowerCase()) ?? [];
+      if (editTagDto.name) {
+        const nameObject = await this.translationService.getTranslationObject(editTagDto.name);
+        nameObject.en = nameObject.en.toLowerCase();
+        updateData.name = nameObject;
+      }
+      if (editTagDto.displayOrder !== undefined) 
+        updateData.displayOrder = editTagDto.displayOrder;
+      if (editTagDto.types !== undefined) {
+        updateData.types = editTagDto.types;
+        updateData.types = updateData.types.map((type) => type.toLowerCase());
+      }
 
       // If nothing would change, reject
       if (
-        resultingName === selectedTag.name &&
-        resultingDisplayOrder === selectedTag.displayOrder &&
-        normalizedTypes.length === 0
+        updateData.name === selectedTag.name &&
+        updateData.displayOrder === selectedTag.displayOrder &&
+        updateData.types.length === 0
       ) {
         throw new BadRequestException(
           errorResponse(
-            'No changes detected. Please provide a different name or display order to update.',
+            'routes.tags.no_fields_to_update',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
         );
       }
 
-      // Ensure name uniqueness excluding current record
       const [existingTagName] = await db
-        .select()
+        .select({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        })
         .from(tags)
-        .where(eq(tags.name, resultingName))
+        .where(eq(
+          this.translationService.getLocalized(tags.name, null, 'en'),
+          updateData.name
+        ))
         .limit(1);
 
       if (existingTagName && existingTagName.id !== id) {
         throw new BadRequestException(
-          errorResponse('Tag name already exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.tags.name_exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -187,13 +218,13 @@ export class TagsService {
       const [existingDisplayOrder] = await db
         .select()
         .from(tags)
-        .where(eq(tags.displayOrder, resultingDisplayOrder))
+        .where(eq(tags.displayOrder, updateData.displayOrder))
         .limit(1);
 
       if (existingDisplayOrder && existingDisplayOrder.id !== id) {
         throw new BadRequestException(
           errorResponse(
-            'Display order already exists',
+            'routes.tags.display_order_exists',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -203,25 +234,26 @@ export class TagsService {
       const [updatedTag] = await db
         .update(tags)
         .set({
-          ...(newNameLower !== undefined && { name: resultingName }),
-          ...(newDisplayOrder !== undefined && { displayOrder: resultingDisplayOrder }),
-          ...(normalizedTypes.length > 0 && { types: normalizedTypes }),
+          ...updateData,
           updatedAt: new Date(),
         })
         .where(eq(tags.id, id))
-        .returning();
+        .returning({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        });
 
       this.logger.log(`Tag updated: ${updatedTag.id} (${updatedTag.name})`);
 
-      return successResponse(updatedTag, 'Tag updated successfully', HttpStatus.OK);
+      return successResponse(updatedTag, 'routes.tags.updated', HttpStatus.OK);
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error(`Tag update error: ${this.getErrorMessage(error)}`);
+      this.logger.error(`Tag update error: ${getErrorMessage(error)}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update tag',
+          'routes.tags.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -238,7 +270,7 @@ export class TagsService {
 
       if (tag.length === 0) {
         throw new NotFoundException(
-          errorResponse('Tag not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.tags.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -247,18 +279,18 @@ export class TagsService {
       this.logger.log(`Tag deleted: ${id}`);
 
       return successResponse(
-        { message: 'Tag deleted successfully' },
-        'Tag deleted successfully',
+        { message: 'routes.tags.deleted' },
+        'routes.tags.deleted',
         HttpStatus.OK,
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
-      this.logger.error(`Tag deletion error: ${this.getErrorMessage(error)}`);
+      this.logger.error(`Tag deletion error: ${getErrorMessage(error)}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete tag',
+          'routes.tags.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -276,7 +308,7 @@ export class TagsService {
     if (!tag) {
       this.logger.warn(`Tag order change failed: Tag not found - ${id}`);
       throw new NotFoundException(
-        errorResponse('Tag not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.tags.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -296,9 +328,10 @@ export class TagsService {
       );
       throw new BadRequestException(
         errorResponse(
-          `Invalid order position. Must be between 1 and ${totalCount}`,
+          `routes.tags.invalid_display_order_range`,
           HttpStatus.BAD_REQUEST,
           'BadRequestException',
+          { max: totalCount },
         ),
       );
     }
@@ -381,16 +414,22 @@ export class TagsService {
         }
       }
 
-      const updatedTags = await db.select().from(tags).orderBy(asc(tags.displayOrder));
+      const updatedTags = await db
+        .select({
+          ...getTableColumns(tags),
+          name: this.translationService.getLocalized(tags.name, 'name'),
+        })
+        .from(tags)
+        .orderBy(asc(tags.displayOrder));
 
       this.logger.log(`Tag order changed: ${id} moved from order ${currentOrder} to ${newOrder}`);
 
-      return successResponse(updatedTags, 'Tag order updated successfully', HttpStatus.OK);
+      return successResponse(updatedTags, 'routes.tags.order_updated', HttpStatus.OK);
     } catch (error) {
-      this.logger.error(`Tag order change error: ${this.getErrorMessage(error)}`);
+      this.logger.error(`Tag order change error: ${getErrorMessage(error)}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change tag order',
+          'routes.tags.failed_change_order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

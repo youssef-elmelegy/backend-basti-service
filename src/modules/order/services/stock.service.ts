@@ -5,6 +5,7 @@ import { eq, and, gte, sql } from 'drizzle-orm';
 
 @Injectable()
 export class StockService {
+
   async incrementStock(
     bakeryId: string,
     regionItemPriceId: string,
@@ -12,7 +13,7 @@ export class StockService {
     optionId?: string | null,
   ) {
     if (quantity <= 0) {
-      throw new BadRequestException('Quantity must be greater than 0');
+      throw new BadRequestException('routes.Stock.invalid_quantity');
     }
 
     try {
@@ -31,7 +32,7 @@ export class StockService {
         .limit(1);
 
       if (!currentStock) {
-        throw new BadRequestException('Item store not found');
+        throw new BadRequestException('routes.Stock.item_store_not_found');
       }
 
       if (optionId) {
@@ -39,7 +40,7 @@ export class StockService {
           !currentStock.optionsStock ||
           !currentStock.optionsStock.find((option) => option.optionId === optionId)
         ) {
-          throw new BadRequestException('Option not found in stock');
+          throw new BadRequestException('routes.Stock.option_not_in_stock');
         }
 
         const newOptionStock = currentStock.optionsStock.map((option) => {
@@ -81,7 +82,7 @@ export class StockService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to increment stock');
+      throw new InternalServerErrorException('routes.Stock.failed_increment');
     }
   }
 
@@ -92,7 +93,7 @@ export class StockService {
     optionId?: string | null,
   ) {
     if (quantity <= 0) {
-      throw new BadRequestException('Quantity must be greater than 0');
+      throw new BadRequestException('routes.Stock.invalid_quantity');
     }
 
     try {
@@ -111,28 +112,28 @@ export class StockService {
         .limit(1);
 
       if (!currentStock) {
-        throw new BadRequestException('Item store not found');
+        throw new BadRequestException('routes.Stock.item_store_not_found');
       }
 
       if (currentStock.stock < quantity) {
-        throw new BadRequestException('Not enough stock available');
+        throw new BadRequestException('routes.Stock.not_enough_stock');
       }
 
       if (optionId) {
         const optionsStock = currentStock.optionsStock;
 
         if (!optionsStock) {
-          throw new BadRequestException('Option not found in stock');
+          throw new BadRequestException('routes.Stock.option_not_in_stock');
         }
 
         const targetOption = optionsStock.find((option) => option.optionId === optionId);
 
         if (!targetOption) {
-          throw new BadRequestException('Option not found in stock');
+          throw new BadRequestException('routes.Stock.option_not_in_stock');
         }
 
         if (targetOption.stock < quantity) {
-          throw new BadRequestException('Not enough option stock available');
+          throw new BadRequestException('routes.Stock.not_enough_stock');
         }
 
         const newOptionStock = optionsStock.map((option) => {
@@ -175,7 +176,7 @@ export class StockService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to decrement stock');
+      throw new InternalServerErrorException('routes.Stock.failed_decrement');
     }
   }
 }

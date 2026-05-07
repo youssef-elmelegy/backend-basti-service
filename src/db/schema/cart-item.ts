@@ -11,14 +11,17 @@ export const cartItems = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id, {
       onDelete: 'cascade',
     }),
+
     addonId: uuid('addon_id').references(() => addons.id, { onDelete: 'cascade' }),
     sweetId: uuid('sweet_id').references(() => sweets.id, { onDelete: 'cascade' }),
     predesignedCakeId: uuid('predesigned_cake_id').references(() => predesignedCakes.id, {
       onDelete: 'cascade',
     }),
+    
     customCake: jsonb('custom_cake').$type<{
       shapeId: string;
       flavorId: string;

@@ -22,28 +22,28 @@ export class PaymentMethodDataDto {
     example: 'Ahmed Hassan',
     nullable: true,
   })
-  cardHolderName: string;
+  cardHolderName: string | null;
 
   @ApiProperty({
     description: 'Last four digits of the card number',
     example: '4242',
     nullable: true,
   })
-  cardLastFourDigits: string;
+  cardLastFourDigits: string | null;
 
   @ApiProperty({
     description: 'Card expiry month (1-12)',
     example: 12,
     nullable: true,
   })
-  cardExpiryMonth: number;
+  cardExpiryMonth: number | null;
 
   @ApiProperty({
     description: 'Card expiry year',
     example: 2025,
     nullable: true,
   })
-  cardExpiryYear?: number;
+  cardExpiryYear?: number | null;
 
   @ApiProperty({
     description: 'Whether this is the default payment method',

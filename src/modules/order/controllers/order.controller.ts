@@ -57,7 +57,7 @@ export class OrderController {
     this.logger.debug(`processing order`);
     const result = await this.orderService.create(orderData, userId);
     this.logger.debug(`order placed with order id: ${result.id}`);
-    return successResponse(result, 'Order placed successfully');
+    return successResponse(result, 'routes.orders.placed');
   }
 
   @Public()
@@ -67,7 +67,7 @@ export class OrderController {
     this.logger.debug(`getting delivery dates status`);
     const result = await this.schedulerService.getDeliveryDate(deliveryDateDto);
     this.logger.debug(`Retrived delivery dates status successfully`);
-    return successResponse(result, 'Retrived delivery dates status successfully');
+    return successResponse(result, 'routes.orders.delivery_dates_retrieved');
   }
 
   @UseGuards(JwtAuthGuard)
@@ -76,7 +76,7 @@ export class OrderController {
   async getMyOrders(@CurrentUser('sub') userId: string, @Query() { regionId }: RegionFilterDto) {
     this.logger.debug(`getting orders for user: ${userId}`);
     const result = await this.orderService.getOrdersForUser(userId, regionId);
-    return successResponse(result, 'Orders retrieved successfully');
+    return successResponse(result, 'routes.orders.list_retrieved');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -91,7 +91,7 @@ export class OrderController {
     // Normalize status to array format
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
     const result = await this.orderService.getAllOrders(regionId, statusArray);
-    return successResponse(result, 'Orders retrieved successfully');
+    return successResponse(result, 'routes.orders.list_retrieved');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -107,7 +107,7 @@ export class OrderController {
     // Normalize status to array format
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
     const result = await this.orderService.getBakeryOrders(bakeryId, regionId, statusArray);
-    return successResponse(result, 'Bakery orders retrieved successfully');
+    return successResponse(result, 'routes.orders.list_retrieved');
   }
 
   @UseGuards(JwtAuthGuard)
@@ -120,7 +120,7 @@ export class OrderController {
   ) {
     this.logger.debug(`getting order by id: ${id}`);
     const result = await this.orderService.getOrderByIdForUser(id, userId, regionId);
-    return successResponse(result, 'Order retrieved successfully');
+    return successResponse(result, 'routes.orders.retrieved');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -133,7 +133,7 @@ export class OrderController {
   ) {
     this.logger.debug(`getting order by id: ${id}`);
     const result = await this.orderService.getOrderById(id, regionId);
-    return successResponse(result, 'Order retrieved successfully');
+    return successResponse(result, 'routes.orders.retrieved');
   }
 
   @UseGuards(JwtAuthGuard)
@@ -143,7 +143,7 @@ export class OrderController {
     this.logger.debug(`canceling order: ${id}`);
     const result = await this.orderService.cancelOrder(id, userId);
     this.logger.debug(`order cancelled: ${id}`);
-    return successResponse(result, 'Order cancelled successfully');
+    return successResponse(result, 'routes.orders.cancelled');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -154,7 +154,7 @@ export class OrderController {
     this.logger.debug(`refusing order: ${id}`);
     const result = await this.orderService.refuseOrder(id);
     this.logger.debug(`order refused: ${id}`);
-    return successResponse(result, 'Order refused successfully');
+    return successResponse(result, 'routes.orders.refused');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -168,7 +168,7 @@ export class OrderController {
     this.logger.debug(`assigning bakery to order: ${id}`);
     const result = await this.orderService.assignToBakery(id, assignBakeryDto);
     this.logger.debug(`bakery assigned to order: ${id}`);
-    return successResponse(result, 'Bakery assigned to order successfully');
+    return successResponse(result, 'routes.bakery.assigned_to_order');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -182,7 +182,7 @@ export class OrderController {
     this.logger.debug(`unassigning order from bakery: ${id}`);
     const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason);
     this.logger.debug(`order unassigned from bakery: ${id}`);
-    return successResponse(result, 'Order unassigned from bakery successfully');
+    return successResponse(result, 'routes.orders.unassigned_from_bakery');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -196,7 +196,7 @@ export class OrderController {
     this.logger.debug(`changing order status: ${id}`);
     const result = await this.orderService.changeOrderStatus(id, changeOrderStatusDto);
     this.logger.debug(`order status changed: ${id} to ${changeOrderStatusDto.status}`);
-    return successResponse(result, 'Order status updated successfully');
+    return successResponse(result, 'routes.orders.status_updated');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -210,6 +210,6 @@ export class OrderController {
     this.logger.debug(`finalizing order: ${orderId}`);
     const result = await this.orderService.finalizeOrderData(orderId, finalizeOrderDto);
     this.logger.debug(`order finalized: ${orderId}`);
-    return successResponse(result, 'Order finalized successfully');
+    return successResponse(result, 'routes.orders.finalized');
   }
 }

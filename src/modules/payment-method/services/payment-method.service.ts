@@ -49,7 +49,7 @@ export class PaymentMethodService {
 
       return successResponse(
         this.mapToPaymentMethodResponse(newPaymentMethod),
-        'Payment method created successfully',
+        'routes.payment-method.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -57,7 +57,7 @@ export class PaymentMethodService {
       this.logger.error(`Payment method creation error: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create payment method',
+          'routes.payment-method.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -79,14 +79,14 @@ export class PaymentMethodService {
 
       return successResponse(
         userPaymentMethods.map((pm) => this.mapToPaymentMethodResponse(pm)),
-        'Payment methods retrieved successfully',
+        'routes.payment-method.list_retrieved',
       );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to retrieve payment methods: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve payment methods',
+          'routes.payment-method.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -102,7 +102,7 @@ export class PaymentMethodService {
 
       return successResponse(
         this.mapToPaymentMethodResponse(paymentMethod),
-        'Payment method retrieved successfully',
+        'routes.payment-method.retrieved',
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -112,7 +112,7 @@ export class PaymentMethodService {
       this.logger.error(`Failed to retrieve payment method: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve payment method',
+          'routes.payment-method.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -162,7 +162,7 @@ export class PaymentMethodService {
 
       return successResponse(
         this.mapToPaymentMethodResponse(updated),
-        'Payment method updated successfully',
+        'routes.payment-method.updated',
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -172,7 +172,7 @@ export class PaymentMethodService {
       this.logger.error(`Failed to update payment method: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update payment method',
+          'routes.payment-method.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -194,8 +194,8 @@ export class PaymentMethodService {
       this.logger.log(`Payment method deleted: ${id}`);
 
       return successResponse(
-        { message: 'Payment method deleted successfully' },
-        'Payment method deleted successfully',
+        { message: 'routes.payment-method.deleted' },
+        'routes.payment-method.deleted',
       );
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -205,7 +205,7 @@ export class PaymentMethodService {
       this.logger.error(`Failed to delete payment method: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete payment method',
+          'routes.payment-method.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -223,9 +223,10 @@ export class PaymentMethodService {
     if (!paymentMethod) {
       throw new NotFoundException(
         errorResponse(
-          `Payment method with ID ${id} not found`,
+          `routes.payment-method.not_found_with_id`,
           HttpStatus.NOT_FOUND,
           'NotFoundException',
+          { paymentMethodId: id },
         ),
       );
     }

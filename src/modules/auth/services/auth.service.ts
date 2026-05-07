@@ -88,7 +88,7 @@ export class AuthService {
       this.logger.warn(`Signup failed: Email already exists - ${email}`);
       throw new ConflictException(
         errorResponse(
-          'User with this email already exists',
+          'routes.auth.email_exists',
           HttpStatus.CONFLICT,
           'ConflictException',
         ),
@@ -123,17 +123,17 @@ export class AuthService {
 
       return successResponse(
         {
-          message: 'User registered successfully. OTP sent to your email',
+          message: 'routes.auth.registered_otp_sent',
           email,
         },
-        'User registered successfully. OTP sent to your email',
+        'routes.auth.registered_otp_sent',
         HttpStatus.CREATED,
       );
     } catch (error) {
       this.logger.error(`Signup error for ${email}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create user',
+          'routes.auth.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -152,14 +152,14 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`OTP verification failed: User not found - ${email}`);
       throw new NotFoundException(
-        errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
     if (user.isEmailVerified) {
       this.logger.warn(`OTP verification failed: Email already verified - ${email}`);
       throw new ConflictException(
-        errorResponse('Email already verified', HttpStatus.CONFLICT, 'ConflictException'),
+        errorResponse('routes.auth.email_already_verified', HttpStatus.CONFLICT, 'ConflictException'),
       );
     }
 
@@ -171,7 +171,7 @@ export class AuthService {
     if (!isOtpValid) {
       this.logger.warn(`OTP verification failed: Invalid or expired OTP - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('Invalid or expired OTP', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse('routes.otp.invalid_or_expired', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
       );
     }
 
@@ -192,7 +192,7 @@ export class AuthService {
 
       return successResponse(
         {
-          message: 'Email verified successfully',
+          message: 'routes.otp.verified',
           tempToken,
           user: {
             id: user.id,
@@ -202,14 +202,14 @@ export class AuthService {
             isEmailVerified: true,
           },
         },
-        'Email verified successfully',
+        'routes.otp.verified',
         HttpStatus.OK,
       );
     } catch (error) {
       this.logger.error(`OTP verification error for ${email}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to verify email',
+          'routes.auth.failed_verify_email',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -231,7 +231,7 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`Profile setup failed: User not found - ${userId}`);
       throw new NotFoundException(
-        errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
@@ -239,7 +239,7 @@ export class AuthService {
       this.logger.warn(`Profile setup failed: Email not verified - ${userId}`);
       throw new ForbiddenException(
         errorResponse(
-          'Email not verified. Please verify your email first',
+          'routes.auth.email_not_verified',
           HttpStatus.FORBIDDEN,
           'ForbiddenException',
         ),
@@ -270,22 +270,22 @@ export class AuthService {
             email: updatedUser.email,
             firstName: updatedUser.firstName,
             lastName: updatedUser.lastName,
-            phoneNumber: updatedUser.phoneNumber,
-            profileImage: updatedUser.profileImage,
+            phoneNumber: updatedUser.phoneNumber || '',
+            profileImage: updatedUser.profileImage || '',
             isEmailVerified: updatedUser.isEmailVerified,
 
             createdAt: updatedUser.createdAt,
             updatedAt: updatedUser.updatedAt,
           },
         },
-        'Profile setup completed successfully',
+        'routes.profile.setup_complete',
         HttpStatus.OK,
       );
     } catch (error) {
       this.logger.error(`Profile setup error for user ${userId}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to complete profile setup',
+          'routes.profile.failed_setup',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -304,14 +304,14 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`OTP resend failed: User not found - ${email}`);
       throw new NotFoundException(
-        errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
 
     if (user.isEmailVerified) {
       this.logger.warn(`OTP resend failed: Email already verified - ${email}`);
       throw new ConflictException(
-        errorResponse('Email already verified', HttpStatus.CONFLICT, 'ConflictException'),
+        errorResponse('routes.auth.email_already_verified', HttpStatus.CONFLICT, 'ConflictException'),
       );
     }
 
@@ -325,7 +325,7 @@ export class AuthService {
         this.logger.warn(`OTP resend failed: Too many attempts - ${email}`);
         throw new BadRequestException(
           errorResponse(
-            'Too many OTP resend attempts. Please try again later',
+            'routes.auth.too_many_requests',
             HttpStatus.TOO_MANY_REQUESTS,
             'TooManyRequestsException',
           ),
@@ -361,17 +361,17 @@ export class AuthService {
 
       return successResponse(
         {
-          message: 'OTP resent successfully to your email',
+          message: 'routes.otp.resent',
           email,
         },
-        'OTP resent successfully to your email',
+        'routes.otp.resent',
         HttpStatus.OK,
       );
     } catch (error) {
       this.logger.error(`OTP resend error for ${email}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to resend OTP',
+          'routes.otp.failed_resend_otp',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -390,7 +390,7 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`Login failed: User not found - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('Invalid credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse('routes.auth.invalid_credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
       );
     }
 
@@ -399,7 +399,7 @@ export class AuthService {
     if (!isPasswordValid) {
       this.logger.warn(`Login failed: Invalid password - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('Invalid credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse('routes.auth.invalid_credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
       );
     }
 
@@ -407,7 +407,7 @@ export class AuthService {
       this.logger.warn(`Login failed: Email not verified - ${email}`);
       throw new ForbiddenException(
         errorResponse(
-          'Email not verified. Please verify your email before logging in',
+          'routes.auth.email_not_verified',
           HttpStatus.FORBIDDEN,
           'ForbiddenException',
         ),
@@ -418,7 +418,7 @@ export class AuthService {
       this.logger.warn(`Login failed: Profile not set up - ${email}`);
       throw new ForbiddenException(
         errorResponse(
-          'Profile setup incomplete. Please complete your profile setup',
+          'routes.profile.setup_incomplete',
           HttpStatus.FORBIDDEN,
           'ForbiddenException',
         ),
@@ -444,7 +444,7 @@ export class AuthService {
           updatedAt: user.updatedAt,
         },
       },
-      'User logged in successfully',
+      'routes.auth.logged_in',
       HttpStatus.OK,
     );
   }
@@ -459,7 +459,7 @@ export class AuthService {
       this.logger.warn(`Token refresh failed: User not found - ${userId}`);
       throw new UnauthorizedException(
         errorResponse(
-          'Invalid or expired refresh token',
+          'routes.auth.invalid_or_expired_refresh_token',
           HttpStatus.UNAUTHORIZED,
           'UnauthorizedException',
         ),
@@ -470,7 +470,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user.id, user.email);
 
-    return successResponse(tokens, 'Tokens refreshed successfully', HttpStatus.OK);
+    return successResponse(tokens, 'routes.auth.tokens_refreshed', HttpStatus.OK);
   }
 
   /**
@@ -479,7 +479,7 @@ export class AuthService {
   logout(): SuccessResponse<{ message: string }> {
     this.logger.debug('User logout');
     // TODO: blacklist refresh token and clear cookies
-    return successResponse({ message: 'Logout successful' }, 'Logout successful', HttpStatus.OK);
+    return successResponse({ message: 'routes.auth.logout' }, 'routes.auth.logout', HttpStatus.OK);
   }
 
   /**
@@ -556,7 +556,7 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Password change failed: User not found - ${userId}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -572,8 +572,8 @@ export class AuthService {
 
       this.logger.log(`Password changed for user: ${userId}`);
       return successResponse(
-        { message: 'Password changed successfully' },
-        'Password changed successfully',
+        { message: 'routes.auth.password_changed' },
+        'routes.auth.password_changed',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -583,7 +583,7 @@ export class AuthService {
       this.logger.error(`Failed to change password for user: ${userId}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to change password',
+          'routes.auth.failed_change_password',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -605,8 +605,8 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Forgot password request for non-existent email: ${email}`);
         return successResponse(
-          { message: 'If the email exists, an OTP has been sent', email },
-          'If the email exists, an OTP has been sent',
+          { message: 'routes.otp.sent_if_exists', email },
+          'routes.otp.sent_if_exists',
           HttpStatus.OK,
         );
       }
@@ -631,15 +631,15 @@ export class AuthService {
 
       this.logger.log(`Password reset OTP sent to: ${email}`);
       return successResponse(
-        { message: 'If the email exists, an OTP has been sent', email },
-        'If the email exists, an OTP has been sent',
+        { message: 'routes.otp.sent_if_exists', email },
+        'routes.otp.sent_if_exists',
         HttpStatus.OK,
       );
     } catch (error) {
       this.logger.error(`Failed to send password reset OTP to: ${email}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to send reset OTP',
+          'routes.otp.failed_send_reset_otp',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -662,14 +662,14 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Reset OTP verification failed: User not found - ${email}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       if (!user.isEmailVerified) {
         this.logger.warn(`Reset OTP verification failed: Email not verified - ${email}`);
         throw new UnauthorizedException(
-          errorResponse('Email is not verified', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse('routes.auth.email_not_verified', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
         );
       }
 
@@ -681,7 +681,7 @@ export class AuthService {
       if (!isOtpValid) {
         this.logger.warn(`Reset OTP verification failed: Invalid or expired OTP - ${email}`);
         throw new UnauthorizedException(
-          errorResponse('Invalid or expired OTP', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse('routes.otp.invalid_or_expired', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
         );
       }
 
@@ -698,8 +698,8 @@ export class AuthService {
 
       this.logger.log(`Reset OTP verified for user: ${user.id}`);
       return successResponse(
-        { message: 'OTP verified successfully', resetToken },
-        'OTP verified successfully',
+        { message: 'routes.otp.verified', resetToken },
+        'routes.otp.verified',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -709,7 +709,7 @@ export class AuthService {
       this.logger.error(`Failed to verify reset OTP for: ${email}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to verify reset OTP',
+          'routes.otp.failed_verify_reset_otp',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -734,7 +734,7 @@ export class AuthService {
         this.logger.warn('Reset password failed: Invalid or expired reset token');
         throw new UnauthorizedException(
           errorResponse(
-            'Invalid or expired reset token',
+            'routes.auth.reset_token_invalid',
             HttpStatus.UNAUTHORIZED,
             'UnauthorizedException',
           ),
@@ -744,7 +744,7 @@ export class AuthService {
       if (payload.type !== 'reset-password') {
         this.logger.warn('Reset password failed: Invalid token type');
         throw new UnauthorizedException(
-          errorResponse('Invalid token type', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse('routes.auth.invalid_token_type', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
         );
       }
 
@@ -757,7 +757,7 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Reset password failed: User not found - ${userId}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -773,8 +773,8 @@ export class AuthService {
 
       this.logger.log(`Password reset for user: ${userId}`);
       return successResponse(
-        { message: 'Password reset successfully' },
-        'Password reset successfully',
+        { message: 'routes.auth.password_reset' },
+        'routes.auth.password_reset',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -784,7 +784,7 @@ export class AuthService {
       this.logger.error(`Failed to reset password`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to reset password',
+          'routes.auth.failed_reset_password',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -802,7 +802,7 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Get profile failed: User not found - ${userId}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -818,7 +818,7 @@ export class AuthService {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
-      return successResponse(profileData, 'Profile retrieved successfully', HttpStatus.OK);
+      return successResponse(profileData, 'routes.profile.retrieved', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -826,7 +826,7 @@ export class AuthService {
       this.logger.error(`Get profile error for ${userId}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve profile',
+          'routes.profile.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -847,7 +847,7 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Update profile failed: User not found - ${userId}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -868,11 +868,11 @@ export class AuthService {
 
       this.logger.log(`Profile updated for user: ${userId}`);
       const responseData: UpdateProfileResponseDto = {
-        message: 'Profile updated successfully',
+        message: 'routes.profile.updated',
         userId,
-        updatedAt: updateData.updatedAt,
+        updatedAt: updateData.updatedAt || new Date(),
       };
-      return successResponse(responseData, 'Profile updated successfully', HttpStatus.OK);
+      return successResponse(responseData, 'routes.profile.updated', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -880,7 +880,7 @@ export class AuthService {
       this.logger.error(`Update profile error for ${userId}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update profile',
+          'routes.profile.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -901,7 +901,7 @@ export class AuthService {
       if (!user) {
         this.logger.warn(`Delete profile failed: User not found - ${userId}`);
         throw new NotFoundException(
-          errorResponse('User not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.auth.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -910,7 +910,7 @@ export class AuthService {
       if (!isPasswordValid) {
         this.logger.warn(`Delete profile failed: Invalid password - ${userId}`);
         throw new UnauthorizedException(
-          errorResponse('Invalid password', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse('routes.auth.invalid_password', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
         );
       }
 
@@ -918,11 +918,11 @@ export class AuthService {
 
       this.logger.log(`Account deleted for user: ${userId} (${user.email})`);
       const responseData: DeleteProfileResponseDto = {
-        message: 'Account deleted successfully',
+        message: 'routes.auth.account_deleted',
         email: user.email,
         deletedAt: new Date(),
       };
-      return successResponse(responseData, 'Account deleted successfully', HttpStatus.OK);
+      return successResponse(responseData, 'routes.auth.account_deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
         throw error;
@@ -930,7 +930,7 @@ export class AuthService {
       this.logger.error(`Delete profile error for ${userId}`, error);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete account',
+          'routes.auth.failed_delete_account',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

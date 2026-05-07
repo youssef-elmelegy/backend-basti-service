@@ -29,13 +29,13 @@ export class GetProfileResponseDto {
     description: 'User phone number',
     example: '+1234567890',
   })
-  phoneNumber: string;
+  phoneNumber: string | null;
 
   @ApiProperty({
     description: 'User profile image URL',
     example: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
   })
-  profileImage: string;
+  profileImage: string | null;
 
   @ApiProperty({
     description: 'Whether email is verified',

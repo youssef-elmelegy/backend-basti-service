@@ -18,7 +18,7 @@ import {
   shapes,
   shapeVariantImages,
 } from '@/db/schema';
-import { eq, and, or, desc, asc, sql, SQL } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, SQL, getTableColumns, ilike } from 'drizzle-orm';
 import {
   CreatePredesignedCakeDto,
   UpdatePredesignedCakeDto,
@@ -27,10 +27,18 @@ import {
   CreatePredesignedCakeRegionItemPriceDto,
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { TranslationService } from '@/common';
+
+type FlattenedPredesignedCake = Omit<typeof predesignedCakes.$inferSelect, 'name' | 'description'> & { 
+  name: string; 
+  description: string; 
+};
 
 @Injectable()
 export class PredesignedCakesService {
   private readonly logger = new Logger(PredesignedCakesService.name);
+
+  constructor(private readonly translationService: TranslationService) {}
 
   async create(
     createDto: CreatePredesignedCakeDto,
@@ -45,7 +53,7 @@ export class PredesignedCakesService {
 
         if (!tagExists.length) {
           throw new BadRequestException(
-            errorResponse('Tag not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+            errorResponse('routes.tags.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
           );
         }
       }
@@ -61,9 +69,10 @@ export class PredesignedCakesService {
         if (!flavorExists) {
           throw new BadRequestException(
             errorResponse(
-              `Flavor not found: ${config.flavorId}`,
+              `routes.flavors.not_found_with_id`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { flavorId: config.flavorId },
             ),
           );
         }
@@ -77,9 +86,10 @@ export class PredesignedCakesService {
         if (!decorationExists) {
           throw new BadRequestException(
             errorResponse(
-              `Decoration not found: ${config.decorationId}`,
+              `routes.decorations.not_found_with_id`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { decorationId: config.decorationId },
             ),
           );
         }
@@ -93,23 +103,31 @@ export class PredesignedCakesService {
         if (!shapeExists) {
           throw new BadRequestException(
             errorResponse(
-              `Shape not found: ${config.shapeId}`,
+              `routes.shapes.not_found_with_id`,
               HttpStatus.BAD_REQUEST,
               'BadRequestException',
+              { shapeId: config.shapeId },
             ),
           );
         }
       }
 
+      const nameObject = await this.translationService.getTranslationObject(createDto.name);
+      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+
       const [newCake] = await db
         .insert(predesignedCakes)
         .values({
-          name: createDto.name,
-          description: createDto.description,
+          name: nameObject,
+          description: descriptionObject,
           thumbnailUrl: createDto.thumbnailUrl || null,
           tagId: createDto.tagId || null,
         })
-        .returning();
+        .returning({
+          ...getTableColumns(predesignedCakes),
+          name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
+          description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+        });
 
       // Create all configs
       for (const config of createDto.configs) {
@@ -128,7 +146,7 @@ export class PredesignedCakesService {
       this.logger.log(`Predesigned cake created: ${newCake.id}`);
       return successResponse(
         { ...newCake, tagName, configs },
-        'Predesigned cake created successfully',
+        'routes.predesigned_cakes.created',
         HttpStatus.CREATED,
       );
     } catch (error) {
@@ -139,7 +157,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to create predesigned cake: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create predesigned cake',
+          'routes.predesigned_cakes.failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -150,20 +168,23 @@ export class PredesignedCakesService {
   async findAll(
     query: GetPredesignedCakesQueryDto,
   ): Promise<SuccessResponse<Record<string, unknown>>> {
+
+    const { page = 1, limit = 10 } = query;
+
     try {
-      const offset = (query.page - 1) * query.limit;
+      const offset = (page - 1) * limit;
       const sortOrder = query.order === 'desc' ? desc : asc;
       const sortColumn =
         query.sortBy === 'name' ? predesignedCakes.name : predesignedCakes.createdAt;
 
       let allCakesResult: Array<{
-        cake: typeof predesignedCakes.$inferSelect;
+        cake: FlattenedPredesignedCake;
         price?: string;
       }> = [];
       let total = 0;
 
       // Build WHERE conditions
-      const whereConditions: SQL[] = [];
+      const whereConditions: (SQL | undefined)[] = [];
 
       // Add tag filter
       if (query.tagId) {
@@ -179,11 +200,17 @@ export class PredesignedCakesService {
       if (query.search) {
         const searchPattern = `%${query.search}%`;
         whereConditions.push(
-          or(
-            sql`LOWER(${predesignedCakes.name}) LIKE LOWER(${searchPattern})`,
-            sql`LOWER(${predesignedCakes.description}) LIKE LOWER(${searchPattern})`,
-          ),
-        );
+            or(
+              ilike(
+                this.translationService.getLocalized(predesignedCakes.name, null, 'en'), 
+                searchPattern
+              ),
+              ilike(
+                this.translationService.getLocalized(predesignedCakes.description, null, 'en'), 
+                searchPattern
+              ),
+            ),
+          );
       }
 
       if (query.regionId) {
@@ -204,14 +231,18 @@ export class PredesignedCakesService {
         // Fetch with pricing
         allCakesResult = await db
           .select({
-            cake: predesignedCakes,
+            cake: {
+              ...getTableColumns(predesignedCakes),
+              name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
+              description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            },
             price: regionItemPrices.price,
           })
           .from(predesignedCakes)
           .innerJoin(regionItemPrices, and(...joinConditions))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
+          .limit(limit)
           .offset(offset);
       } else {
         // No regionId filter
@@ -229,21 +260,25 @@ export class PredesignedCakesService {
         // Fetch without pricing
         allCakesResult = await db
           .select({
-            cake: predesignedCakes,
+            cake: {
+              ...getTableColumns(predesignedCakes),
+              name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
+              description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            },
           })
           .from(predesignedCakes)
           .where(finalWhereCondition)
           .orderBy(sortOrder(sortColumn))
-          .limit(query.limit)
+          .limit(limit)
           .offset(offset);
       }
 
-      const totalPages = Math.ceil(total / query.limit);
+      const totalPages = Math.ceil(total / limit);
 
       // Get tag names, configs, and format pricing for all items
       const itemsWithTagsAndConfigs = await Promise.all(
         allCakesResult.map(
-          async (result: { cake: typeof predesignedCakes.$inferSelect; price?: string }) => {
+          async (result: { cake: FlattenedPredesignedCake; price?: string }) => {
             const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
             const configs = await this.getConfigIds(result.cake.id);
             const item = {
@@ -258,18 +293,18 @@ export class PredesignedCakesService {
         ),
       );
 
-      this.logger.log(`Retrieved predesigned cakes: page ${query.page}, limit ${query.limit}`);
+      this.logger.log(`Retrieved predesigned cakes: page ${page}, limit ${limit}`);
       return successResponse(
         {
           items: itemsWithTagsAndConfigs,
           pagination: {
             total,
             totalPages,
-            page: query.page,
-            limit: query.limit,
+            page: page,
+            limit: limit,
           },
         },
-        'Predesigned cakes retrieved successfully',
+        'routes.predesigned_cakes.list_retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -277,7 +312,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to retrieve predesigned cakes: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve predesigned cakes',
+          'routes.predesigned_cakes.failed_list',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -295,7 +330,7 @@ export class PredesignedCakesService {
 
       if (!cake.length) {
         throw new NotFoundException(
-          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -305,7 +340,7 @@ export class PredesignedCakesService {
       this.logger.log(`Retrieved predesigned cake: ${id}`);
       return successResponse(
         { ...cake[0], tagName, configs },
-        'Predesigned cake retrieved successfully',
+        'routes.predesigned_cakes.retrieved',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -316,7 +351,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to retrieve predesigned cake: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve predesigned cake',
+          'routes.predesigned_cakes.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -337,7 +372,7 @@ export class PredesignedCakesService {
 
       if (!cakeExists.length) {
         throw new NotFoundException(
-          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
@@ -350,7 +385,7 @@ export class PredesignedCakesService {
 
         if (!tagExists.length) {
           throw new BadRequestException(
-            errorResponse('Tag not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+            errorResponse('routes.tags.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
           );
         }
       }
@@ -367,9 +402,10 @@ export class PredesignedCakesService {
           if (!flavorExists) {
             throw new BadRequestException(
               errorResponse(
-                `Flavor not found: ${config.flavorId}`,
+                `routes.flavors.not_found_with_id`,
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
+                { flavorId: config.flavorId },
               ),
             );
           }
@@ -383,9 +419,10 @@ export class PredesignedCakesService {
           if (!decorationExists) {
             throw new BadRequestException(
               errorResponse(
-                `Decoration not found: ${config.decorationId}`,
+                `routes.decorations.not_found_with_id`,
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
+                { decorationId: config.decorationId },
               ),
             );
           }
@@ -399,9 +436,10 @@ export class PredesignedCakesService {
           if (!shapeExists) {
             throw new BadRequestException(
               errorResponse(
-                `Shape not found: ${config.shapeId}`,
+                `routes.shapes.not_found_with_id`,
                 HttpStatus.BAD_REQUEST,
                 'BadRequestException',
+                { shapeId: config.shapeId },
               ),
             );
           }
@@ -421,9 +459,13 @@ export class PredesignedCakesService {
         }
       }
 
-      const updateValues: Partial<typeof predesignedCakes.$inferInsert> = {};
-      if (updateDto.name) updateValues.name = updateDto.name;
-      if (updateDto.description) updateValues.description = updateDto.description;
+      const updateValues: Record<string, any> = {};
+      if (updateDto.name) {
+        updateValues.name = await this.translationService.getTranslationObject(updateDto.name);
+      }
+      if (updateDto.description) {
+        updateValues.description = await this.translationService.getTranslationObject(updateDto.description);
+      }
       if (updateDto.thumbnailUrl !== undefined) updateValues.thumbnailUrl = updateDto.thumbnailUrl;
       if (updateDto.tagId !== undefined) updateValues.tagId = updateDto.tagId;
 
@@ -439,7 +481,7 @@ export class PredesignedCakesService {
       this.logger.log(`Predesigned cake updated: ${id}`);
       return successResponse(
         { ...updatedCake, tagName, configs },
-        'Predesigned cake updated successfully',
+        'routes.predesigned_cakes.updated',
         HttpStatus.OK,
       );
     } catch (error) {
@@ -450,7 +492,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to update predesigned cake ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update predesigned cake',
+          'routes.predesigned_cakes.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -468,14 +510,14 @@ export class PredesignedCakesService {
 
       if (!cakeExists.length) {
         throw new NotFoundException(
-          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       await db.delete(predesignedCakes).where(eq(predesignedCakes.id, id));
 
       this.logger.log(`Predesigned cake deleted: ${id}`);
-      return successResponse(null, 'Predesigned cake deleted successfully', HttpStatus.OK);
+      return successResponse(null, 'routes.predesigned_cakes.deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -484,7 +526,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to delete predesigned cake ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to delete predesigned cake',
+          'routes.predesigned_cakes.failed_delete',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -503,7 +545,7 @@ export class PredesignedCakesService {
       if (!existingCake) {
         this.logger.warn(`Predesigned cake not found for status toggle: ${id}`);
         throw new NotFoundException(
-          errorResponse('Predesigned cake not found', HttpStatus.NOT_FOUND, 'NotFound'),
+          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFound'),
         );
       }
 
@@ -519,16 +561,7 @@ export class PredesignedCakesService {
       const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Predesigned cake status toggled (${statusText}): ${id}`);
 
-      let tagName: string;
-      if (updatedCake.tagId) {
-        const tagResult = await db
-          .select({ name: tags.name })
-          .from(tags)
-          .where(eq(tags.id, updatedCake.tagId))
-          .limit(1);
-
-        tagName = tagResult[0]?.name || '';
-      }
+      let tagName = updatedCake.tagId ? await this.getTagName(updatedCake.tagId) : null;
 
       return successResponse(
         {
@@ -541,7 +574,7 @@ export class PredesignedCakesService {
           createdAt: updatedCake.createdAt,
           updatedAt: updatedCake.updatedAt,
         },
-        `Predesigned cake status ${statusText} successfully`,
+        `routes.predesigned_cakes.status_toggled`,
         HttpStatus.OK,
       );
     } catch (error) {
@@ -552,7 +585,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to toggle predesigned cake status ${id}: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to toggle predesigned cake status',
+          'routes.predesigned_cakes.failed_toggle_status',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -573,7 +606,7 @@ export class PredesignedCakesService {
 
       if (!regionExists.length) {
         throw new BadRequestException(
-          errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -637,7 +670,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to check entity availability: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to check entity availability',
+          'routes.predesigned_cakes.entity_region_check_failed',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -657,16 +690,16 @@ export class PredesignedCakesService {
         updatedAt: designedCakeConfigs.updatedAt,
         flavor: {
           id: flavors.id,
-          title: flavors.title,
-          description: flavors.description,
+          title: this.translationService.getLocalized(flavors.title, 'title'),
+          description: this.translationService.getLocalized(flavors.description, 'description'),
           flavorUrl: flavors.flavorUrl,
           createdAt: flavors.createdAt,
           updatedAt: flavors.updatedAt,
         },
         decoration: {
           id: decorations.id,
-          title: decorations.title,
-          description: decorations.description,
+          title: this.translationService.getLocalized(decorations.title, 'title'),
+          description: this.translationService.getLocalized(decorations.description, 'description'),
           decorationUrl: decorations.decorationUrl,
           tagId: decorations.tagId,
           createdAt: decorations.createdAt,
@@ -674,8 +707,8 @@ export class PredesignedCakesService {
         },
         shape: {
           id: shapes.id,
-          title: shapes.title,
-          description: shapes.description,
+          title: this.translationService.getLocalized(shapes.title, 'title'),
+          description: this.translationService.getLocalized(shapes.description, 'description'),
           shapeUrl: shapes.shapeUrl,
           createdAt: shapes.createdAt,
           updatedAt: shapes.updatedAt,
@@ -785,11 +818,11 @@ export class PredesignedCakesService {
       if (row.variantImage && row.variantImage.id) {
         // Add to flavor variant images if it matches the flavor
         if (row.variantImage.flavorId === row.flavorId) {
-          config.flavor.shapeVariantImages.push(row.variantImage);
+          config?.flavor.shapeVariantImages.push(row.variantImage);
         }
         // Add to decoration variant images if it matches the decoration
         if (row.variantImage.decorationId === row.decorationId) {
-          config.decoration.shapeVariantImages.push(row.variantImage);
+          config?.decoration.shapeVariantImages.push(row.variantImage);
         }
       }
     });
@@ -813,8 +846,13 @@ export class PredesignedCakesService {
   }
 
   private async getTagName(tagId: string): Promise<string> {
-    const tag = await db.select({ name: tags.name }).from(tags).where(eq(tags.id, tagId)).limit(1);
-    return tag.length > 0 ? tag[0].name : null;
+    const tag = await db
+    .select({ 
+      name: this.translationService.getLocalized(tags.name, 'name')
+    })
+    .from(tags)
+    .where(eq(tags.id, tagId)).limit(1);
+    return tag.length > 0 ? tag[0].name : '';
   }
 
   async createRegionItemPrice(
@@ -830,7 +868,7 @@ export class PredesignedCakesService {
 
       if (!regionExists.length) {
         throw new BadRequestException(
-          errorResponse('Region not found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
       }
 
@@ -843,7 +881,7 @@ export class PredesignedCakesService {
       if (!cakeExists.length) {
         throw new BadRequestException(
           errorResponse(
-            'Predesigned cake not found',
+            'routes.predesigned_cakes.not_found',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -864,7 +902,7 @@ export class PredesignedCakesService {
       if (!cakeConfigs.length) {
         throw new BadRequestException(
           errorResponse(
-            'Predesigned cake has no configurations',
+            'routes.predesigned_cakes.no_configs',
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -888,7 +926,7 @@ export class PredesignedCakesService {
       if (!flavorPrice.length) {
         throw new BadRequestException(
           errorResponse(
-            `Flavor price not found in this region`,
+            `routes.cakes.no_flavor_price`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -909,7 +947,7 @@ export class PredesignedCakesService {
       if (!decorationPrice.length) {
         throw new BadRequestException(
           errorResponse(
-            `Decoration price not found in this region`,
+            `routes.cakes.no_decoration_price`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -930,7 +968,7 @@ export class PredesignedCakesService {
       if (!shapePrice.length) {
         throw new BadRequestException(
           errorResponse(
-            `Shape price not found in this region`,
+            `routes.cakes.no_shape_price`,
             HttpStatus.BAD_REQUEST,
             'BadRequestException',
           ),
@@ -972,7 +1010,7 @@ export class PredesignedCakesService {
         this.logger.log(`Predesigned cake region price updated: ${result.id}`);
         return successResponse(
           result,
-          'Predesigned cake region price updated successfully',
+          'routes.predesigned_cakes.region_pricing_updated',
           HttpStatus.OK,
         );
       } else {
@@ -997,7 +1035,7 @@ export class PredesignedCakesService {
         this.logger.log(`Predesigned cake region price created: ${result.id}`);
         return successResponse(
           result,
-          'Predesigned cake region price created successfully',
+          'routes.predesigned_cakes.region_pricing_created',
           HttpStatus.CREATED,
         );
       }
@@ -1009,7 +1047,7 @@ export class PredesignedCakesService {
       this.logger.error(`Failed to create predesigned cake region price: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to create predesigned cake region price',
+          'routes.predesigned_cakes.region_pricing_failed_create',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

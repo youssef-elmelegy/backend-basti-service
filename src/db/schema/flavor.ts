@@ -7,9 +7,11 @@ import {
   index,
   boolean,
   integer,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { designedCakeConfigs, shapeVariantImages } from '.';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const flavors = pgTable(
   'flavors',
@@ -17,8 +19,8 @@ export const flavors = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    title: varchar('title', { length: 255 }).notNull(),
-    description: text('description').notNull(),
+    title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     flavorUrl: text('flavor_url').notNull(),
     order: integer('order').notNull(),
     isActive: boolean('is_active').default(true).notNull(),

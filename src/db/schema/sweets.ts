@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { cartItems, tags } from '.';
+import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
 export const sweets = pgTable(
   'sweets',
@@ -17,8 +18,8 @@ export const sweets = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: varchar('name', { length: 255 }).notNull(),
-    description: text('description').notNull(),
+    name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     tagId: uuid('tag_id'),
     images: jsonb('images').notNull().$type<string[]>(),
     sizes: jsonb('sizes').notNull().$type<string[]>(),

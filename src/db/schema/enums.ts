@@ -66,3 +66,9 @@ export const visualKeyTypeEnum = pgEnum('visual_key_type_enum', [
   'big_heart',
   'small_heart',
 ]);
+
+export const discountType = pgEnum('discount_type', [
+  'percentage',
+  'fixed_amount',
+  'free_shipping',
+]);

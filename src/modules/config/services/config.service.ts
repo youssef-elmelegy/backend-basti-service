@@ -24,7 +24,7 @@ export class ConfigService {
       this.logger.error(`Failed to retrieve config: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to retrieve config',
+          'routes.config.failed_retrieve',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -71,7 +71,7 @@ export class ConfigService {
       this.logger.error(`Failed to update config: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
-          'Failed to update config',
+          'routes.config.failed_update',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
