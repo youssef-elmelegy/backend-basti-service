@@ -16,6 +16,13 @@ export class I18nResponseInterceptor implements NestInterceptor {
                 args: data.args || {}, 
                 defaultValue: data.message 
             });
+
+            if (data.data && data.data.message) {
+              data.data.message = i18n.t("messages." + data.data.message, { 
+                args: data.args || {}, 
+                defaultValue: data.data.message 
+              });
+            }
             
             // Clean up the response so the user doesn't see the raw args object
             delete data.args; 
