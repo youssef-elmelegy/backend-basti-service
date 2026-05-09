@@ -26,10 +26,10 @@ export class CouponController {
 		@Body() verifyDto: VerifyCouponDto,
 		@CurrentUser('sub') userId: string,
 	) {
-		return this.couponService.verify({
-			...verifyDto,
-			userId: userId
-		});
+		return this.couponService.verify(
+			verifyDto,
+			userId,
+		);
 	}
 
 	@Post('generate')
