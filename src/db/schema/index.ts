@@ -39,3 +39,4 @@ export * from './shape-variant-images';
 export * from './app-config';
 export * from './notification';
 export * from './coupon';
+export * from './offers';

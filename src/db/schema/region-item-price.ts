@@ -10,6 +10,7 @@ import {
   shapes,
   predesignedCakes,
   bakeryItemStores,
+  offers,
 } from '.';
 
 export const regionItemPrices = pgTable(
@@ -21,6 +22,9 @@ export const regionItemPrices = pgTable(
     regionId: uuid('region_id')
       .notNull()
       .references(() => regions.id, { onDelete: 'cascade' }),
+    offerId: uuid('offer_id')
+      .references(() => offers.id),
+
     addonId: uuid('addon_id').references(() => addons.id, { onDelete: 'cascade' }),
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id, {
       onDelete: 'cascade',
@@ -39,6 +43,7 @@ export const regionItemPrices = pgTable(
   },
   (table) => ({
     regionIdIdx: index('region_item_prices_region_id_idx').on(table.regionId),
+    offerIdIdx: index('region_item_prices_offer_id_idx').on(table.offerId),
     addonIdIdx: index('region_item_prices_addon_id_idx').on(table.addonId),
     featuredCakeIdIdx: index('region_item_prices_featured_cake_id_idx').on(table.featuredCakeId),
     sweetIdIdx: index('region_item_prices_sweet_id_idx').on(table.sweetId),
@@ -65,6 +70,10 @@ export const regionItemPricesRelations = relations(regionItemPrices, ({ one, man
   region: one(regions, {
     fields: [regionItemPrices.regionId],
     references: [regions.id],
+  }),
+  offer: one(offers, {
+    fields: [regionItemPrices.offerId],
+    references: [offers.id],
   }),
   addon: one(addons, {
     fields: [regionItemPrices.addonId],
