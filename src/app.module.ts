@@ -25,6 +25,7 @@ import { I18nModule, AcceptLanguageResolver, QueryResolver, HeaderResolver } fro
 import * as path from 'path';
 import { TranslationModule } from '@/common/translation/translation.module';
 import { CouponModule } from './modules/coupon/coupon.module';
+import { OfferModule } from './modules/offer/offer.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { CouponModule } from './modules/coupon/coupon.module';
     TagsModule,
     NotificationModule,
     CouponModule,
+    OfferModule,
   ],
   controllers: [AppController],
   providers: [AppService],

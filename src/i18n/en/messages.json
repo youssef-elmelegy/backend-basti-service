@@ -194,6 +194,41 @@
       "not_found": "Coupon not found"
     },
 
+    "offers": {
+      "created": "Offer created successfully",
+      "failed_create": "Failed to create offer",
+
+      "updated": "Offer updated successfully",
+      "failed_update": "Failed to update offer",
+
+      "retrieved": "Offer retrieved successfully",
+      "failed_retrieve": "Failed to retrieve offer",
+
+      "list_retrieved": "Offers retrieved successfully",
+      "failed_list": "Failed to retrieve offers",
+
+      "deleted": "Offer deleted successfully",
+      "failed_delete": "Failed to delete offer",
+
+      "toggled": "Offer status toggled successfully",
+      "failed_toggle": "Failed to toggle offer status",
+      
+      "not_found": "Offer not found",
+
+      "added_item": "Item added to offer successfully",
+      "failed_add_item": "Failed to add item to offer",
+
+      "removed_item": "Item removed from offer successfully",
+      "failed_remove_item": "Failed to remove item from offer",
+
+      "no_item": "No item provided",
+
+      "item_region_error": "Item is not available in this region or there is no pricing available"
+
+
+
+    },
+
     "decorations": {
       "created": "Decoration created successfully",
       "failed_create": "Failed to create decoration",
