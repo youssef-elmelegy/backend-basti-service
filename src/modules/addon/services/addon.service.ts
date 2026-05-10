@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { addons, tags, regionItemPrices, regions, addonOptions } from '@/db/schema';
-import { eq, desc, sql, asc, and, SQL, inArray, getTableColumns, ilike } from 'drizzle-orm';
+import { addons, tags, regionItemPrices, regions, addonOptions, offers } from '@/db/schema';
+import { eq, desc, sql, asc, and, SQL, inArray, getTableColumns, ilike, or, isNull, lte } from 'drizzle-orm';
 import {
   CreateAddonDto,
   UpdateAddonDto,
@@ -19,10 +19,15 @@ import { errorResponse, successResponse } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '../../../common/translation/translation.service';
 import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & { 
   name: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -91,7 +96,13 @@ export class AddonService {
       }
 
       return successResponse(
-        this.mapToAddonResponse(newAddon, tagName, undefined, undefined, createdOptions),
+        this.mapToAddonResponse(
+          newAddon,
+          tagName, 
+          undefined, 
+          undefined,
+          createdOptions,
+        ),
         'routes.addons.created',
         HttpStatus.CREATED,
       );
@@ -340,6 +351,7 @@ export class AddonService {
           addon: FlattenedAddon;
           tagName: string | null;
           price?: string;
+          offer?: FlattenedOffer | null;
           sizesPrices?: Record<string, string> | null;
         }> = [];
       let total = 0;
@@ -368,10 +380,21 @@ export class AddonService {
             },
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(addons)
           .innerJoin(regionItemPrices, joinConditions)
+          .leftJoin(
+            offers,
+            and(
+              eq(regionItemPrices.offerId, offers.id),
+              isOfferActive(offers),
+            ),
+          )
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause)
           .orderBy(orderByClause)
@@ -417,7 +440,7 @@ export class AddonService {
               item.addon,
               item.tagName,
               item.price,
-              item.sizesPrices,
+              item.offer,
               optionsByAddonId.get(item.addon.id) || [],
             ),
           ),
@@ -613,7 +636,13 @@ export class AddonService {
       }
 
       return successResponse(
-        this.mapToAddonResponse(updatedAddon, tagName, undefined, undefined, updatedOptions),
+        this.mapToAddonResponse(
+          updatedAddon, 
+          tagName, 
+          undefined, 
+          undefined,
+          updatedOptions,
+        ),
         'routes.addons.updated',
       );
     } catch (error) {
@@ -797,7 +826,7 @@ export class AddonService {
     addon: FlattenedAddon,
     tagName?: string | null,
     price?: string,
-    sizesPrices?: Record<string, string> | null,
+    offer?: FlattenedOffer | null,
     addonOption?: Array<typeof addonOptions.$inferSelect>,
   ) {
     return {
@@ -809,7 +838,12 @@ export class AddonService {
       tagId: addon.tagId,
       tagName: tagName || null,
       price: price || undefined,
-      sizesPrices: sizesPrices || undefined,
+      offer: offer ? {
+        id: offer.id,
+        name: offer.name,
+        percentage: offer.percentage,
+        expiryDate: offer.expiryDate,
+      } : null,
       isActive: addon.isActive,
       createdAt: addon.createdAt,
       updatedAt: addon.updatedAt,

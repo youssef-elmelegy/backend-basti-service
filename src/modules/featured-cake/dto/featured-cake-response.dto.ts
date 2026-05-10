@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MOCK_DATA } from '@/constants/global.constants';
+import { ItemOfferDto } from '@/common/dto';
 
 export class FeaturedCakeDataDto {
   @ApiProperty({
@@ -55,6 +56,14 @@ export class FeaturedCakeDataDto {
     required: false,
   })
   price?: string;
+
+  @ApiProperty({
+    description: 'offer data',
+    type: ItemOfferDto,
+    nullable: true,
+    required: false,
+  })
+  offer: ItemOfferDto | null;
 
   @ApiProperty({
     description: 'Tag name associated with this featured cake',

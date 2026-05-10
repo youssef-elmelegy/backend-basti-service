@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { featuredCakes, tags, regionItemPrices, regions } from '@/db/schema';
+import { featuredCakes, tags, regionItemPrices, regions, offers } from '@/db/schema';
 import { eq, desc, sql, asc, and, getTableColumns } from 'drizzle-orm';
 import {
   CreateFeaturedCakeDto,
@@ -20,10 +20,15 @@ import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.
 import { TranslationService } from '@/common';
 import { getErrorMessage } from '@/utils';
 import { validateTagExists, validateRegionExists } from '@/utils';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedFeaturedCake = Omit<typeof featuredCakes.$inferSelect, 'name' | 'description'> & { 
   name: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -132,6 +137,7 @@ export class FeaturedCakeService {
         cake: FlattenedFeaturedCake;
         tagName: string | null;
         price?: string;
+        offer?: FlattenedOffer | null;
       }> = [];
       let total = 0;
 
@@ -171,10 +177,18 @@ export class FeaturedCakeService {
             },
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
           })
           .from(featuredCakes)
           .innerJoin(regionItemPrices, and(...joinConditions))
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
@@ -266,7 +280,7 @@ export class FeaturedCakeService {
       return successResponse(
         {
           items: allCakesResult.map((item) =>
-            this.mapToCakeResponse(item.cake, item.tagName, item.price),
+            this.mapToCakeResponse(item.cake, item.tagName, item.price, item.offer),
           ),
           total,
           page,
@@ -571,6 +585,7 @@ export class FeaturedCakeService {
     cake: FlattenedFeaturedCake,
     tagName?: string | null,
     price?: string,
+    offer?: FlattenedOffer | null,
   ) {
     const response: Record<string, unknown> = {
       id: cake.id,
@@ -584,6 +599,12 @@ export class FeaturedCakeService {
       capacity: cake.capacity,
       isActive: cake.isActive,
       minPrepHours: cake.minPrepHours,
+      offer: offer ? {
+        id: offer.id,
+        name: offer.name,
+        percentage: offer.percentage,
+        expiryDate: offer.expiryDate,
+      } : null,
       createdAt: cake.createdAt,
       updatedAt: cake.updatedAt,
     };

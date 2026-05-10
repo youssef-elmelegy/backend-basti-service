@@ -17,15 +17,20 @@ import {
   SortBy,
 } from '../dto';
 import { db } from '@/db';
-import { sweets, tags, regionItemPrices, regions } from '@/db/schema';
+import { sweets, tags, regionItemPrices, regions, offers } from '@/db/schema';
 import { eq, desc, asc, and, sql, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common/translation/translation.service';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedSweet = Omit<typeof sweets.$inferSelect, 'name' | 'description'> & { 
   name: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -130,6 +135,7 @@ export class SweetService {
         sweet: FlattenedSweet;
         tagName: string;
         price?: string;
+        offer?: FlattenedOffer | null;
         sizesPrices?: Record<string, string> | null;
       }> = [];
       let total = 0;
@@ -170,11 +176,19 @@ export class SweetService {
             },
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(sweets)
           .innerJoin(regionItemPrices, and(...joinConditions))
           .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
           .limit(query.limit)
@@ -264,7 +278,13 @@ export class SweetService {
       return successResponse(
         {
           items: allSweetsResult.map((row) =>
-            this.mapToSweetResponse(row.sweet, row.tagName, row.price, row.sizesPrices || undefined),
+            this.mapToSweetResponse(
+              row.sweet, 
+              row.tagName, 
+              row.price, 
+              row.offer,
+              row.sizesPrices || undefined,
+            ),
           ),
           pagination: {
             total,
@@ -613,6 +633,7 @@ export class SweetService {
     sweet: FlattenedSweet,
     tagName?: string,
     price?: string,
+    offer?: FlattenedOffer | null,
     sizesPrices?: Record<string, string>,
   ) {
     return {
@@ -624,6 +645,12 @@ export class SweetService {
       images: sweet.images,
       sizes: sweet.sizes,
       price: price || undefined,
+      offer: offer ? {
+        id: offer.id,
+        name: offer.name,
+        percentage: offer.percentage,
+        expiryDate: offer.expiryDate,
+      } : null,
       sizesPrices: sizesPrices || undefined,
       isActive: sweet.isActive,
       createdAt: sweet.createdAt,

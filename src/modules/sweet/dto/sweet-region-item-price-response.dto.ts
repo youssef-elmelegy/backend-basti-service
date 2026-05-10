@@ -1,3 +1,4 @@
+import { ItemOfferDto } from '@/common/dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SweetRegionItemPriceDataDto {
@@ -18,6 +19,14 @@ export class SweetRegionItemPriceDataDto {
     example: '150.00',
   })
   price: string;
+
+  @ApiProperty({
+    description: 'offer data',
+    type: ItemOfferDto,
+    nullable: true,
+    required: false,
+  })
+  offer: ItemOfferDto | null;
 
   @ApiProperty({
     description: 'Prices for each size',
