@@ -24,6 +24,7 @@ export const sweets = pgTable(
     images: jsonb('images').notNull().$type<string[]>(),
     sizes: jsonb('sizes').notNull().$type<string[]>(),
     isActive: boolean('is_active').default(true).notNull(),
+    isFeatured: boolean('is_featured').default(false).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

@@ -24,6 +24,7 @@ export const flavors = pgTable(
     flavorUrl: text('flavor_url').notNull(),
     order: integer('order').notNull(),
     isActive: boolean('is_active').default(true).notNull(),
+    isFeatured: boolean('is_featured').default(false).notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

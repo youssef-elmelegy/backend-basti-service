@@ -39,25 +39,6 @@ export const orderItems = pgTable(
     featuredCake: jsonb('featured_cake').$type<FeaturedCakeData>(),
     customCake: jsonb('custom_cake').$type<CustomCakeData>(),
 
-    // customCake: jsonb('custom_cake').$type<{
-    //   shapeId: string;
-    //   flavorId: string;
-    //   decorationId: string;
-    //   color: {
-    //     name: string;
-    //     hex: string;
-    //   };
-    //   extraLayers?: {
-    //     layer: number;
-    //     flavorId: string;
-    //   }[];
-    //   message?: string;
-    //   imageToPrint?: string;
-    //   snapshotFront?: string;
-    //   snapshotTop?: string;
-    //   snapshotSliced?: string;
-    // }>(),
-
     quantity: integer('quantity').notNull().default(1),
     size: varchar('size', { length: 50 }),
     flavor: varchar('flavor', { length: 100 }),

@@ -1369,6 +1369,8 @@ export class OrderService {
                 title: layer.flavor.title,
                 description: layer.flavor.description,
                 order: layer.flavor.order,
+                price: layer.flavor.price,
+                offer: layer.flavor.offer,
                 flavorUrl: layer.flavor.flavorUrl,
                 createdAt: layer.flavor.createdAt,
                 updatedAt: layer.flavor.updatedAt,
@@ -1451,9 +1453,10 @@ export class OrderService {
               createdAt: config.createdAt,
               updatedAt: config.updatedAt,
             })),
-            price: item.price ?? '0',
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
+            price: pdc.price ?? '0',
+            offer: pdc.offer,
+            createdAt: pdc.createdAt,
+            updatedAt: pdc.updatedAt,
           },
           price: parseFloat(item.price ?? '0'),
           id: item.id,
@@ -1478,7 +1481,8 @@ export class OrderService {
             pipingPaletteList: fc.pipingPaletteList,
             tagName: fc.tagName || '',
             isActive: fc.isActive,
-            price: item.price ?? '0',
+            price: fc.price ?? '0',
+            offer: fc.offer,
             createdAt: item.createdAt.toISOString(),
             updatedAt: item.updatedAt.toISOString(),
           },
@@ -1505,7 +1509,8 @@ export class OrderService {
             options: [],
             tagName: addon.tagName || '',
             isActive: addon.isActive,
-            price: item.price ?? '0',
+            price: addon.price ?? '0',
+            offer: addon.offer,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
           },
@@ -1531,7 +1536,8 @@ export class OrderService {
             tagName: sweet.tagName || '',
             isActive: sweet.isActive,
             sizes: sweet.sizes,
-            price: item.price ?? '0',
+            price: sweet.price ?? '0',
+            offer: sweet.offer,
             createdAt: sweet.createdAt,
             updatedAt: sweet.updatedAt,
           },
@@ -1557,3 +1563,16 @@ export class OrderService {
     };
   }
 }
+
+
+// {
+//   "offerId": "b6937c54-0122-47f8-ad7c-3ced3c31485d",
+//   "regionId": "23e2da5b-50a1-4f0e-b051-ce99a8fe620a",
+//   "addonId": "526bd77a-f133-4eca-af59-ee60e5025c43",
+//   "featuredCakeId": "471d2ceb-f00f-449e-8b24-85b7e91bb2ff",
+//   "sweetId": "cddac154-91ee-4501-87e8-dc4bd6e8859f",
+//   "predesignedCakeId": "fd35b53c-37d7-45df-ba37-07b993c856f7",
+//   "decorationId": "cf343a13-c9ac-4ce2-8081-2e2cc5f5f45d",
+//   "flavorId": "c61046b8-e329-4ad5-87da-eb035eacbd1f",
+//   "shapeId": "a64454e3-9943-4465-aa37-6ed3d95af3c2"
+// }

@@ -14,6 +14,7 @@ export const predesignedCakes = pgTable(
     description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
     isActive: boolean('is_active').default(true).notNull(),
+    isFeatured: boolean('is_featured').default(false).notNull(),
     tagId: uuid('tag_id'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

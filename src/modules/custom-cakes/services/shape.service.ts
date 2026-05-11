@@ -203,9 +203,17 @@ export class ShapeService {
                 description: this.translationService.getLocalized(shapes.description, 'description'),
               },
               price: regionItemPrices.price,
+              offer: {
+                ...getTableColumns(offers),
+                name: this.translationService.getLocalized(offers.name, 'name'),
+              },
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
+            .leftJoin(offers, and(
+              eq(regionItemPrices.offerId, offers.id),
+              isOfferActive(offers),
+            ))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(asc(shapes.order));
         }

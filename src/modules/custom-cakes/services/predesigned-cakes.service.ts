@@ -293,7 +293,11 @@ export class PredesignedCakesService {
       // Get tag names, configs, and format pricing for all items
       const itemsWithTagsAndConfigs = await Promise.all(
         allCakesResult.map(
-          async (result: { cake: FlattenedPredesignedCake; price?: string, offer?: FlattenedOffer | null }) => {
+          async (result: { 
+            cake: FlattenedPredesignedCake; 
+            price?: string, offer?: 
+            FlattenedOffer | null 
+          }) => {
             const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
             const configs = await this.getConfigIds(result.cake.id);
             const item = {
@@ -301,7 +305,12 @@ export class PredesignedCakesService {
               tagName,
               configs,
               ...(result.price && { price: result.price }),
-              ...(result.offer && { offer: result.offer }),
+              offer: result.offer ? {
+                id: result.offer.id,
+                name: result.offer.name,
+                percentage: result.offer.percentage,
+                expiryDate: result.offer.expiryDate,
+              } : null,
             };
 
             return item;
