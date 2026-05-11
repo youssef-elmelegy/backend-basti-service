@@ -36,6 +36,7 @@ import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
+import { ToggleFeaturedStatusDecorator } from '@/modules/addon/decorators';
 
 @ApiTags('custom-cakes/decorations')
 @Controller('custom-cakes/decorations')
@@ -140,4 +141,14 @@ export class DecorationController {
     );
     return this.decorationService.createWithVariantImages(createDecorationWithVariantImagesDto);
   }
+
+
+  @Patch(':id/toggle-featured')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleFeaturedStatusDecorator()
+  async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
+    return await this.decorationService.toggleFeatured(id);
+  }
+
 }

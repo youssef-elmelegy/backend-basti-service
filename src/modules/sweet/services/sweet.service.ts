@@ -551,6 +551,49 @@ export class SweetService {
     }
   }
 
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({ 
+          id: sweets.id,
+          isFeatured: sweets.isFeatured,
+        })
+        .from(sweets)
+        .where(eq(sweets.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.sweets.not_found', 
+            HttpStatus.NOT_FOUND, 
+            'NotFoundException'
+          )
+        );
+      }
+
+      await db
+        .update(sweets)
+        .set({ 
+          isFeatured: !existing.isFeatured, 
+          updatedAt: new Date() 
+        })
+        .where(eq(sweets.id, id))
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.item_flags.failed_toggle_featured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ));
+    }
+  }
+
   async createRegionItemPrice(createSweetRegionItemPriceDto: CreateSweetRegionItemPriceDto) {
     const { sweetId, regionId, price, sizesPrices } = createSweetRegionItemPriceDto;
 

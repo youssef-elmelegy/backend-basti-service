@@ -640,6 +640,11 @@
       "method_updated": "Payment method updated successfully"
     },
 
+    "item_flags": {
+      "featured_toggled": "Item featured status toggled successfully",
+      "failed_toggle_featured": "Failed to toggle item featured status"
+    },
+
     "common": {
       "internal_error": "Internal server error",
       "invalid_input": "Invalid input data",

@@ -30,6 +30,7 @@ import {
   CheckEntityRegionAvailabilityDecorator,
   CreatePredesignedCakeRegionItemPriceDecorator,
   TogglePredesignedCakeStatusDecorator,
+  ToggleFeaturedStatusDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -118,4 +119,14 @@ export class PredesignedCakesController {
   ) {
     return this.regionPricingService.createRegionItemPrice(createRegionPricingDto);
   }
+
+
+  @Patch(':id/toggle-featured')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleFeaturedStatusDecorator()
+  async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
+    return await this.predesignedCakesService.toggleFeatured(id);
+  }
+
 }

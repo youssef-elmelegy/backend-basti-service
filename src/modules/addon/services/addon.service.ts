@@ -15,7 +15,7 @@ import {
   GetAddonsQueryDto,
   CreateAddonRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse } from '@/utils';
+import { errorResponse, SuccessResponse, successResponse } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '../../../common/translation/translation.service';
 import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
@@ -566,6 +566,49 @@ export class AddonService {
       throw new InternalServerErrorException(
         errorResponse('routes.addons.failed_toggle_status', HttpStatus.INTERNAL_SERVER_ERROR),
       );
+    }
+  }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({ 
+          id: addons.id,
+          isFeatured: addons.isFeatured,
+        })
+        .from(addons)
+        .where(eq(addons.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.addons.not_found', 
+            HttpStatus.NOT_FOUND, 
+            'NotFoundException'
+          )
+        );
+      }
+
+      await db
+        .update(addons)
+        .set({ 
+          isFeatured: !existing.isFeatured, 
+          updatedAt: new Date() 
+        })
+        .where(eq(addons.id, id))
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.item_flags.failed_toggle_featured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ));
     }
   }
 

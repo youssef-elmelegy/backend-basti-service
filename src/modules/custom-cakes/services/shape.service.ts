@@ -768,4 +768,47 @@ export class ShapeService {
       );
     }
   }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({ 
+          id: shapes.id,
+          isFeatured: shapes.isFeatured,
+        })
+        .from(shapes)
+        .where(eq(shapes.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.shapes.not_found', 
+            HttpStatus.NOT_FOUND, 
+            'NotFoundException'
+          )
+        );
+      }
+
+      await db
+        .update(shapes)
+        .set({ 
+          isFeatured: !existing.isFeatured, 
+          updatedAt: new Date() 
+        })
+        .where(eq(shapes.id, id))
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.item_flags.failed_toggle_featured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ));
+    }
+  }
 }

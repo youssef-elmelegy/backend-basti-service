@@ -132,4 +132,12 @@ export class ShapeController {
   ) {
     return this.shapeService.createRegionItemPrice(createShapeRegionItemPriceDto);
   }
+
+  @Patch(':id/toggle-featured')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleShapeStatusDecorator()
+  async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
+    return await this.shapeService.toggleFeatured(id);
+  }
 }

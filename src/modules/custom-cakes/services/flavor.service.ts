@@ -1395,5 +1395,48 @@ export class FlavorService {
       );
     }
   }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({ 
+          id: flavors.id,
+          isFeatured: flavors.isFeatured,
+        })
+        .from(flavors)
+        .where(eq(flavors.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.flavors.not_found', 
+            HttpStatus.NOT_FOUND, 
+            'NotFoundException'
+          )
+        );
+      }
+
+      await db
+        .update(flavors)
+        .set({ 
+          isFeatured: !existing.isFeatured, 
+          updatedAt: new Date() 
+        })
+        .where(eq(flavors.id, id))
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.item_flags.failed_toggle_featured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ));
+    }
+  }
 }
 

@@ -15,7 +15,7 @@ import {
   GetFeaturedCakesQueryDto,
   CreateRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse, validateCakeExists } from '@/utils';
+import { errorResponse, SuccessResponse, successResponse, validateCakeExists } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common';
 import { getErrorMessage } from '@/utils';
@@ -499,6 +499,49 @@ export class FeaturedCakeService {
       throw new InternalServerErrorException(
         errorResponse('routes.featured_cakes.failed_toggle_status', HttpStatus.INTERNAL_SERVER_ERROR),
       );
+    }
+  }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({ 
+          id: featuredCakes.id,
+          isFeatured: featuredCakes.isFeatured,
+        })
+        .from(featuredCakes)
+        .where(eq(featuredCakes.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.featured_cakes.not_found', 
+            HttpStatus.NOT_FOUND, 
+            'NotFoundException'
+          )
+        );
+      }
+
+      await db
+        .update(featuredCakes)
+        .set({ 
+          isFeatured: !existing.isFeatured, 
+          updatedAt: new Date() 
+        })
+        .where(eq(featuredCakes.id, id))
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.item_flags.failed_toggle_featured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        ));
     }
   }
 
