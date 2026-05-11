@@ -10,3 +10,4 @@ export * from './admin-create-endpoint.decorator';
 export * from './admin-block-endpoint.decorator';
 export * from './admin-update-endpoint.decorator';
 export * from './admin-get-all-endpoint.decorator';
+export * from './admin-delete-endpoint.decorator';

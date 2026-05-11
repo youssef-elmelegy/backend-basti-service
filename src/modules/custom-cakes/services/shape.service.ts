@@ -29,13 +29,13 @@ import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedShape = Omit<typeof shapes.$inferSelect, 'title' | 'description'> & { 
-  title: string; 
-  description: string; 
+type FlattenedShape = Omit<typeof shapes.$inferSelect, 'title' | 'description'> & {
+  title: string;
+  description: string;
 };
 
-type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
-  name: string; 
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -48,7 +48,7 @@ export class ShapeService {
    * Map shape data to response DTO
    */
   private mapToShapeResponse(
-    shape: FlattenedShape, 
+    shape: FlattenedShape,
     price?: string,
     offer?: FlattenedOffer | null,
   ): ShapeDataDto {
@@ -62,13 +62,16 @@ export class ShapeService {
       minPrepHours: shape.minPrepHours,
       visualKey: shape.visualKey,
       order: shape.order,
+      isFeatured: shape.isFeatured,
       createdAt: shape.createdAt,
-      offer: offer ? {
-        id: offer.id,
-        name: offer.name,
-        percentage: offer.percentage,
-        expiryDate: offer.expiryDate,
-      } : null,
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.name,
+            percentage: offer.percentage,
+            expiryDate: offer.expiryDate,
+          }
+        : null,
       updatedAt: shape.updatedAt,
     };
 
@@ -89,7 +92,9 @@ export class ShapeService {
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
       const titleObject = await this.translationService.getTranslationObject(createDto.title);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newShape] = await db
         .insert(shapes)
@@ -157,7 +162,11 @@ export class ShapeService {
 
         if (!regionExists.length) {
           throw new BadRequestException(
-            errorResponse('routes.regions.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+            errorResponse(
+              'routes.regions.not_found',
+              HttpStatus.BAD_REQUEST,
+              'BadRequestException',
+            ),
           );
         }
 
@@ -177,7 +186,10 @@ export class ShapeService {
               shape: {
                 ...getTableColumns(shapes),
                 title: this.translationService.getLocalized(shapes.title, 'title'),
-                description: this.translationService.getLocalized(shapes.description, 'description'),
+                description: this.translationService.getLocalized(
+                  shapes.description,
+                  'description',
+                ),
               },
               price: regionItemPrices.price,
               offer: {
@@ -187,10 +199,7 @@ export class ShapeService {
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
-            .leftJoin(offers, and(
-              eq(regionItemPrices.offerId, offers.id),
-              isOfferActive(offers),
-            ))
+            .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(asc(shapes.order));
         } else {
@@ -200,7 +209,10 @@ export class ShapeService {
               shape: {
                 ...getTableColumns(shapes),
                 title: this.translationService.getLocalized(shapes.title, 'title'),
-                description: this.translationService.getLocalized(shapes.description, 'description'),
+                description: this.translationService.getLocalized(
+                  shapes.description,
+                  'description',
+                ),
               },
               price: regionItemPrices.price,
               offer: {
@@ -210,10 +222,7 @@ export class ShapeService {
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
-            .leftJoin(offers, and(
-              eq(regionItemPrices.offerId, offers.id),
-              isOfferActive(offers),
-            ))
+            .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(asc(shapes.order));
         }
@@ -221,7 +230,9 @@ export class ShapeService {
       // Search by title if provided
       else if (query.search) {
         const searchPattern = `%${query.search}%`;
-        whereConditions.push(sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+        whereConditions.push(
+          sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+        );
 
         allShapesResult = await db
           .select({
@@ -251,12 +262,9 @@ export class ShapeService {
       }
 
       return successResponse(
-        allShapesResult.map((row) => this.mapToShapeResponse(
-          row.shape, 
-          row.price || undefined,
-          row.offer,
-        )
-      ),
+        allShapesResult.map((row) =>
+          this.mapToShapeResponse(row.shape, row.price || undefined, row.offer),
+        ),
         'routes.shapes.list_retrieved',
         HttpStatus.OK,
       );
@@ -337,7 +345,9 @@ export class ShapeService {
         updateData.title = await this.translationService.getTranslationObject(updateData.title);
       }
       if (updateData.description !== undefined) {
-        updateData.description = await this.translationService.getTranslationObject(updateData.description);
+        updateData.description = await this.translationService.getTranslationObject(
+          updateData.description,
+        );
       }
 
       const [updatedShape] = await db
@@ -619,11 +629,7 @@ export class ShapeService {
         result = insertResult[0];
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         this.logger.log(`Shape region price created: ${result.id}`);
-        return successResponse(
-          result,
-          'routes.shapes.region_pricing_created',
-          HttpStatus.CREATED,
-        );
+        return successResponse(result, 'routes.shapes.region_pricing_created', HttpStatus.CREATED);
       }
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -659,7 +665,11 @@ export class ShapeService {
 
       if (newOrder < 1) {
         throw new BadRequestException(
-          errorResponse('routes.shapes.order_must_be_at_least', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse(
+            'routes.shapes.order_must_be_at_least',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
         );
       }
 
@@ -772,7 +782,7 @@ export class ShapeService {
   async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
     try {
       const [existing] = await db
-        .select({ 
+        .select({
           id: shapes.id,
           isFeatured: shapes.isFeatured,
         })
@@ -782,21 +792,17 @@ export class ShapeService {
 
       if (!existing) {
         throw new NotFoundException(
-          errorResponse(
-            'routes.shapes.not_found', 
-            HttpStatus.NOT_FOUND, 
-            'NotFoundException'
-          )
+          errorResponse('routes.shapes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       await db
         .update(shapes)
-        .set({ 
-          isFeatured: !existing.isFeatured, 
-          updatedAt: new Date() 
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
         })
-        .where(eq(shapes.id, id))
+        .where(eq(shapes.id, id));
 
       return successResponse(
         { message: 'routes.item_flags.featured_toggled' },
@@ -805,10 +811,8 @@ export class ShapeService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
-        errorResponse(
-          'routes.item_flags.failed_toggle_featured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ));
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
+      );
     }
   }
 }

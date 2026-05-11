@@ -2,7 +2,6 @@ import { ItemOfferDto } from '@/common/dto';
 import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
 
 export class FlavorDataDto {
-
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 
@@ -20,6 +19,9 @@ export class FlavorDataDto {
 
   @ApiProperty({ example: 1 })
   order: number;
+
+  @ApiProperty({ example: false, required: false })
+  isFeatured?: boolean;
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;

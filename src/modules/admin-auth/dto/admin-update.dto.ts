@@ -1,4 +1,4 @@
-import { IsString, MaxLength, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsString, MaxLength, IsEnum, IsOptional, IsUUID, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateAdminDto {
@@ -29,7 +29,8 @@ export class UpdateAdminDto {
     required: false,
   })
   @IsOptional()
+  @ValidateIf((o: UpdateAdminDto) => o.profileImage !== null)
   @IsString({ message: 'Profile image must be a string' })
   @MaxLength(500, { message: 'Profile image URL must not exceed 500 characters' })
-  profileImage?: string;
+  profileImage?: string | null;
 }

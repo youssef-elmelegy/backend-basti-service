@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, BadRequestException } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
@@ -33,19 +33,19 @@ async function bootstrap() {
   app.useGlobalFilters(new I18nExceptionFilter());
   app.useGlobalInterceptors(new I18nResponseInterceptor());
 
-//   /*
-//     instead of using the default validation pipe, a custom pipe is used to 
-//     translate the error messages using the i18n context
-//   */
-//   app.useGlobalPipes(
-//   new ValidationPipe({
-//     whitelist: true,
-//     // Tell NestJS to throw the raw validation error objects
-//     exceptionFactory: (validationErrors) => {
-//       return new BadRequestException(validationErrors);
-//     },
-//   }),
-// );
+  //   /*
+  //     instead of using the default validation pipe, a custom pipe is used to
+  //     translate the error messages using the i18n context
+  //   */
+  //   app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     whitelist: true,
+  //     // Tell NestJS to throw the raw validation error objects
+  //     exceptionFactory: (validationErrors) => {
+  //       return new BadRequestException(validationErrors);
+  //     },
+  //   }),
+  // );
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   app.use(cookieParser());

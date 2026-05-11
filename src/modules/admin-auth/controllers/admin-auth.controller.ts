@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   Get,
   UseGuards,
   Req,
@@ -44,6 +45,7 @@ import {
   AdminBlockEndpoint,
   AdminUpdateEndpoint,
   AdminGetAllEndpoint,
+  AdminDeleteEndpoint,
 } from '../decorators';
 import { JwtAuthGuard, Public, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common';
 
@@ -228,7 +230,7 @@ export class AdminAuthController {
       let refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
 
       if (isMobileClient && !refreshToken) {
-        refreshToken = req.headers.authorization?.replace('Bearer ', '') as string;
+        refreshToken = req.headers.authorization?.replace('Bearer ', '');
       }
 
       if (!refreshToken) {
@@ -244,7 +246,7 @@ export class AdminAuthController {
       }
 
       try {
-        const decoded = this.adminAuthService.verifyRefreshToken(refreshToken) as { id: string };
+        const decoded = this.adminAuthService.verifyRefreshToken(refreshToken);
         this.logger.debug(`Token refresh for admin: ${decoded.id} (mobile: ${isMobileClient})`);
         const result = await this.adminAuthService.refreshTokens(decoded.id);
 
@@ -392,7 +394,7 @@ export class AdminAuthController {
     @Res() res: Response,
   ) {
     this.logger.debug(`Updating block status for admin: ${id}`);
-    const { isBlocked } = blockAdminDto as { isBlocked: boolean };
+    const { isBlocked } = blockAdminDto;
     const result = await this.adminAuthService.blockAdmin(id, blockAdminDto);
     this.logger.log(`Admin block status updated: ${id} - blocked: ${isBlocked}`);
     return res.json({
@@ -414,6 +416,21 @@ export class AdminAuthController {
     this.logger.debug(`Updating admin: ${id}`);
     const result = await this.adminAuthService.updateAdmin(id, updateAdminDto);
     this.logger.log(`Admin updated: ${id}`);
+    return res.json({
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin')
+  @ApiBearerAuth('access-token')
+  @AdminDeleteEndpoint()
+  async deleteAdmin(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    this.logger.debug(`Deleting admin: ${id}`);
+    const result = await this.adminAuthService.deleteAdmin(id);
+    this.logger.log(`Admin deleted: ${id}`);
     return res.json({
       ...result,
       timestamp: new Date().toISOString(),

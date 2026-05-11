@@ -21,13 +21,13 @@ import { TranslationService } from '../../../common/translation/translation.serv
 import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
 import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & { 
-  name: string; 
-  description: string; 
+type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & {
+  name: string;
+  description: string;
 };
 
-type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
-  name: string; 
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -40,16 +40,7 @@ export class AddonService {
   ) {}
 
   async create(createAddonDto: CreateAddonDto) {
-
-    const { 
-      name, 
-      description, 
-      images, 
-      category, 
-      tagId, 
-      isActive = true, 
-      options 
-    } = createAddonDto;
+    const { name, description, images, category, tagId, isActive = true, options } = createAddonDto;
 
     try {
       if (tagId) {
@@ -58,7 +49,7 @@ export class AddonService {
 
       const nameObject = await this.translationService.getTranslationObject(name);
       const descriptionObject = await this.translationService.getTranslationObject(description);
-      
+
       const [newAddon] = await db
         .insert(addons)
         .values({
@@ -80,7 +71,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (newAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -105,13 +96,7 @@ export class AddonService {
       }
 
       return successResponse(
-        this.mapToAddonResponse(
-          newAddon,
-          tagName, 
-          undefined, 
-          undefined,
-          createdOptions,
-        ),
+        this.mapToAddonResponse(newAddon, tagName, undefined, undefined, createdOptions),
         'routes.addons.created',
         HttpStatus.CREATED,
       );
@@ -128,25 +113,14 @@ export class AddonService {
   }
 
   async findAll(query: GetAddonsQueryDto) {
-
-    const { 
-      page = 1, 
-      limit = 10, 
-      tag, 
-      order, 
-      sort, 
-      isActive, 
-      category, 
-      regionId, 
-      search 
-    } = query;
+    const { page = 1, limit = 10, tag, order, sort, isActive, category, regionId, search } = query;
 
     try {
       const offset = (page - 1) * limit;
       const sortOrder = order === 'desc' ? desc : asc;
 
       const conditions: SQL[] = [];
-      
+
       if (isActive !== undefined && isActive !== null) {
         conditions.push(eq(addons.isActive, isActive));
       }
@@ -154,16 +128,12 @@ export class AddonService {
         conditions.push(eq(addons.category, category));
       }
       if (tag) {
-        conditions.push(eq(
-          this.translationService.getLocalized(tags.name, null, 'en'),
-          tag
-        ));
+        conditions.push(eq(this.translationService.getLocalized(tags.name, null, 'en'), tag));
       }
       if (search) {
-        conditions.push(ilike(
-          this.translationService.getLocalized(addons.name, null, 'en'),
-          `%${search}%`
-        ));
+        conditions.push(
+          ilike(this.translationService.getLocalized(addons.name, null, 'en'), `%${search}%`),
+        );
       }
       if (regionId) {
         conditions.push(eq(regionItemPrices.regionId, regionId));
@@ -173,18 +143,18 @@ export class AddonService {
       const orderByClause = sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt);
 
       let allAddons: Array<{
-          addon: FlattenedAddon;
-          tagName: string | null;
-          price?: string;
-          offer?: FlattenedOffer | null;
-          sizesPrices?: Record<string, string> | null;
-        }> = [];
+        addon: FlattenedAddon;
+        tagName: string | null;
+        price?: string;
+        offer?: FlattenedOffer | null;
+        sizesPrices?: Record<string, string> | null;
+      }> = [];
       let total = 0;
 
       if (regionId) {
         const joinConditions = and(
           eq(regionItemPrices.addonId, addons.id),
-          eq(regionItemPrices.regionId, regionId)
+          eq(regionItemPrices.regionId, regionId),
         );
 
         const [{ count }] = await db
@@ -193,7 +163,7 @@ export class AddonService {
           .innerJoin(regionItemPrices, joinConditions)
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause);
-        
+
         total = Number(count);
 
         allAddons = await db
@@ -213,26 +183,19 @@ export class AddonService {
           })
           .from(addons)
           .innerJoin(regionItemPrices, joinConditions)
-          .leftJoin(
-            offers,
-            and(
-              eq(regionItemPrices.offerId, offers.id),
-              isOfferActive(offers),
-            ),
-          )
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause)
           .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
-
       } else {
         const [{ count }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause);
-        
+
         total = Number(count);
 
         allAddons = await db
@@ -359,7 +322,9 @@ export class AddonService {
         updateData.name = nameObject;
       }
       if (updateAddonDto.description !== undefined) {
-        const descriptionObject = await this.translationService.getTranslationObject(updateAddonDto.description);
+        const descriptionObject = await this.translationService.getTranslationObject(
+          updateAddonDto.description,
+        );
         updateData.description = descriptionObject;
       }
       if (updateAddonDto.images !== undefined) updateData.images = updateAddonDto.images;
@@ -384,7 +349,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -461,13 +426,7 @@ export class AddonService {
       }
 
       return successResponse(
-        this.mapToAddonResponse(
-          updatedAddon, 
-          tagName, 
-          undefined, 
-          undefined,
-          updatedOptions,
-        ),
+        this.mapToAddonResponse(updatedAddon, tagName, undefined, undefined, updatedOptions),
         'routes.addons.updated',
       );
     } catch (error) {
@@ -498,10 +457,7 @@ export class AddonService {
 
       this.logger.log(`Add-on deleted: ${id}`);
 
-      return successResponse(
-        { message: 'routes.addons.deleted' },
-        'routes.addons.deleted',
-      );
+      return successResponse({ message: 'routes.addons.deleted' }, 'routes.addons.deleted');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -544,7 +500,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -572,7 +528,7 @@ export class AddonService {
   async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
     try {
       const [existing] = await db
-        .select({ 
+        .select({
           id: addons.id,
           isFeatured: addons.isFeatured,
         })
@@ -582,21 +538,17 @@ export class AddonService {
 
       if (!existing) {
         throw new NotFoundException(
-          errorResponse(
-            'routes.addons.not_found', 
-            HttpStatus.NOT_FOUND, 
-            'NotFoundException'
-          )
+          errorResponse('routes.addons.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       await db
         .update(addons)
-        .set({ 
-          isFeatured: !existing.isFeatured, 
-          updatedAt: new Date() 
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
         })
-        .where(eq(addons.id, id))
+        .where(eq(addons.id, id));
 
       return successResponse(
         { message: 'routes.item_flags.featured_toggled' },
@@ -605,10 +557,8 @@ export class AddonService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
-        errorResponse(
-          'routes.item_flags.failed_toggle_featured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ));
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
+      );
     }
   }
 
@@ -706,13 +656,16 @@ export class AddonService {
       tagId: addon.tagId,
       tagName: tagName || null,
       price: price || undefined,
-      offer: offer ? {
-        id: offer.id,
-        name: offer.name,
-        percentage: offer.percentage,
-        expiryDate: offer.expiryDate,
-      } : null,
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.name,
+            percentage: offer.percentage,
+            expiryDate: offer.expiryDate,
+          }
+        : null,
       isActive: addon.isActive,
+      isFeatured: addon.isFeatured,
       createdAt: addon.createdAt,
       updatedAt: addon.updatedAt,
       options: addonOption ?? [],

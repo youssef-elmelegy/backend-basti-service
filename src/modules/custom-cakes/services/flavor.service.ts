@@ -30,16 +30,15 @@ import {
 import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/index';
-import { PgTableWithColumns, PgColumn } from 'drizzle-orm/pg-core';
 import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedFlavor = Omit<typeof flavors.$inferSelect, 'title' | 'description'> & { 
-  title: string; 
-  description: string; 
+type FlattenedFlavor = Omit<typeof flavors.$inferSelect, 'title' | 'description'> & {
+  title: string;
+  description: string;
 };
 
-type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
-  name: string; 
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -58,6 +57,7 @@ export class FlavorService {
       description: flavor.description,
       flavorUrl: flavor.flavorUrl,
       order: flavor.order,
+      isFeatured: flavor.isFeatured,
       createdAt: flavor.createdAt,
       updatedAt: flavor.updatedAt,
     };
@@ -73,7 +73,9 @@ export class FlavorService {
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
       const titleObject = await this.translationService.getTranslationObject(createDto.title);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newFlavor] = await db
         .insert(flavors)
@@ -198,10 +200,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
-        .leftJoin(offers, and(
-          eq(regionItemPrices.offerId, offers.id),
-          isOfferActive(offers),
-        ))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -224,10 +223,7 @@ export class FlavorService {
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
-        .leftJoin(offers, and(
-          eq(regionItemPrices.offerId, offers.id),
-          isOfferActive(offers),
-        ))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -239,7 +235,9 @@ export class FlavorService {
     if (query.search) {
       const searchPattern = `%${query.search}%`;
       const whereConditionsCount: SQL<unknown>[] = [];
-      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(
+        sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+      );
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
       }
@@ -269,12 +267,14 @@ export class FlavorService {
           ...this.mapToFlavorResponse(row.flavor),
           variantImages: [],
           price: row.pricing.price,
-          offer: row.offer ? {
-            id: row.offer.id,
-            name: row.offer.name,
-            percentage: row.offer.percentage,
-            expiryDate: row.offer.expiryDate,
-          } : null,
+          offer: row.offer
+            ? {
+                id: row.offer.id,
+                name: row.offer.name,
+                percentage: row.offer.percentage,
+                expiryDate: row.offer.expiryDate,
+              }
+            : null,
         });
       }
       const flavorEntry = groupedFlavors.get(flavorId);
@@ -365,7 +365,9 @@ export class FlavorService {
         .offset(offset);
 
       const whereConditionsCount: SQL<unknown>[] = [];
-      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(
+        sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+      );
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(flavors.isActive, query.isActive));
       }
@@ -492,10 +494,7 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .leftJoin(offers, and(
-          eq(regionItemPrices.offerId, offers.id),
-          isOfferActive(offers),
-        ))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -525,10 +524,7 @@ export class FlavorService {
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
-        .leftJoin(offers, and(
-          eq(regionItemPrices.offerId, offers.id),
-          isOfferActive(offers),
-        ))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -541,12 +537,14 @@ export class FlavorService {
       items: allFlavorsResult.map((row) => ({
         ...this.mapToFlavorResponse(row.flavor),
         price: row.pricing.price,
-        offer: row.offer ? {
-          id: row.offer.id,
-          name: row.offer.name,
-          percentage: row.offer.percentage,
-          expiryDate: row.offer.expiryDate,
-        } : null,
+        offer: row.offer
+          ? {
+              id: row.offer.id,
+              name: row.offer.name,
+              percentage: row.offer.percentage,
+              expiryDate: row.offer.expiryDate,
+            }
+          : null,
       })),
       total,
       totalPages,
@@ -568,7 +566,9 @@ export class FlavorService {
   }> {
     const searchPattern = `%${query.search}%`;
     const whereConditions: SQL<unknown>[] = [];
-    whereConditions.push(sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+    whereConditions.push(
+      sql`LOWER(${this.translationService.getLocalized(flavors.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+    );
     if (query.isActive !== undefined) {
       whereConditions.push(eq(flavors.isActive, query.isActive));
     }
@@ -785,7 +785,9 @@ export class FlavorService {
         updateFields.title = await this.translationService.getTranslationObject(updateDto.title);
       }
       if (updateDto.description !== undefined) {
-        updateFields.description = await this.translationService.getTranslationObject(updateDto.description);
+        updateFields.description = await this.translationService.getTranslationObject(
+          updateDto.description,
+        );
       }
       if (updateDto.flavorUrl !== undefined) updateFields.flavorUrl = updateDto.flavorUrl;
 
@@ -968,11 +970,7 @@ export class FlavorService {
       this.logger.log(
         `Force-deleted flavor ${id}. Affected predesigned cakes: ${affectedPredesignedCakeIds.length}`,
       );
-      return successResponse(
-        null,
-        'routes.flavors.force_deleted',
-        HttpStatus.OK,
-      );
+      return successResponse(null, 'routes.flavors.force_deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -1114,11 +1112,7 @@ export class FlavorService {
 
         result = insertResult[0];
         this.logger.log(`Flavor region price created: ${result.id}`);
-        return successResponse(
-          result,
-          'routes.flavors.region_pricing_created',
-          HttpStatus.CREATED,
-        );
+        return successResponse(result, 'routes.flavors.region_pricing_created', HttpStatus.CREATED);
       }
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -1169,7 +1163,9 @@ export class FlavorService {
       const nextOrder = (maxOrderRecord?.maxOrder ?? 0) + 1;
 
       const titleObject = await this.translationService.getTranslationObject(createDto.title);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newFlavor] = await db
         .insert(flavors)
@@ -1284,7 +1280,11 @@ export class FlavorService {
 
       if (newOrder < 1) {
         throw new BadRequestException(
-          errorResponse('routes.flavors.order_must_be_at_least', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse(
+            'routes.flavors.order_must_be_at_least',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
         );
       }
 
@@ -1399,7 +1399,7 @@ export class FlavorService {
   async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
     try {
       const [existing] = await db
-        .select({ 
+        .select({
           id: flavors.id,
           isFeatured: flavors.isFeatured,
         })
@@ -1409,21 +1409,17 @@ export class FlavorService {
 
       if (!existing) {
         throw new NotFoundException(
-          errorResponse(
-            'routes.flavors.not_found', 
-            HttpStatus.NOT_FOUND, 
-            'NotFoundException'
-          )
+          errorResponse('routes.flavors.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
       }
 
       await db
         .update(flavors)
-        .set({ 
-          isFeatured: !existing.isFeatured, 
-          updatedAt: new Date() 
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
         })
-        .where(eq(flavors.id, id))
+        .where(eq(flavors.id, id));
 
       return successResponse(
         { message: 'routes.item_flags.featured_toggled' },
@@ -1432,11 +1428,8 @@ export class FlavorService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
-        errorResponse(
-          'routes.item_flags.failed_toggle_featured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ));
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
+      );
     }
   }
 }
-
