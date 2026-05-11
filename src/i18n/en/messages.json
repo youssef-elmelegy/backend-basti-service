@@ -475,7 +475,10 @@
       "not_assigned_to_bakery": "Order with id: {orderId} is not assigned to a bakery",
       "assinged_for_too_long": "Order with id: {orderId} has been assigned to a bakery for more than 1 hour, so it cannot be unassigned",
       "final_images_required": "At least one final image is required to finalize the order",
-      "not_assined_to_this_bakery": "Order with id: {orderId} is not assigned to bakery {bakeryId}. Current bakery: {currentBakeryId}"
+      "not_assined_to_this_bakery": "Order with id: {orderId} is not assigned to bakery {bakeryId}. Current bakery: {currentBakeryId}",
+      "financials_retrieved": "Orders financials retrieved successfully",
+      "failed_financials": "Failed to retrieve orders financials",
+      "no_financials": "No financials found"
     },
 
     "Stock": {

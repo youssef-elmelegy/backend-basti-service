@@ -18,6 +18,8 @@ import {
   AssignBakeryResponseDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
+  GetOrdersFinancialsDto,
+  GetOrdersFinancialsResponseDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -31,8 +33,9 @@ import {
   regions,
   regionItemPrices,
 } from '@/db/schema';
-import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
-import { errorResponse } from '@/utils';
+import { and, eq, getTableColumns, gte, inArray, lte, SQL, desc, isNotNull } from 'drizzle-orm';
+import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -491,7 +494,7 @@ export class OrderService {
     }
   }
 
-  async getOrdersForUser(userId: string, regionId: string): Promise<OrderResponseDto[]> {
+  async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
     try {
       const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
 
@@ -500,7 +503,7 @@ export class OrderService {
         .filter((orderId): orderId is string => Boolean(orderId));
 
       const response = await Promise.all(
-        validOrderIds.map((orderId) => this.getOrderByIdForUser(orderId, userId, regionId)),
+        validOrderIds.map((orderId) => this.getOneForUser(orderId, userId, regionId)),
       );
 
       this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
@@ -521,10 +524,10 @@ export class OrderService {
     }
   }
 
-  async getOrderByIdForUser(
+  async getOneForUser(
     orderId: string,
     userId: string,
-    regionId: string,
+    regionId?: string,
   ): Promise<OrderResponseDto> {
     try {
       const [order] = await db
@@ -576,7 +579,7 @@ export class OrderService {
     }
   }
 
-  async getAllOrders(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
+  async getAll(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
     try {
       let allOrders = await db.select().from(orders);
 
@@ -640,7 +643,7 @@ export class OrderService {
     }
   }
 
-  async getBakeryOrders(
+  async getAllForBakery(
     bakeryId: string,
     regionId?: string,
     status?: string[],
@@ -723,7 +726,7 @@ export class OrderService {
     }
   }
 
-  async getOrderById(orderId: string, regionId?: string): Promise<OrderResponseDto> {
+  async getOne(orderId: string, regionId?: string): Promise<OrderResponseDto> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
@@ -773,7 +776,7 @@ export class OrderService {
     }
   }
 
-  async cancelOrder(orderId: string, userId: string): Promise<ChangeOrderStatusResponseDto> {
+  async cancel(orderId: string, userId: string): Promise<ChangeOrderStatusResponseDto> {
     try {
       const [order] = await db
         .select()
@@ -833,7 +836,7 @@ export class OrderService {
     }
   }
 
-  async refuseOrder(orderId: string): Promise<ChangeOrderStatusResponseDto> {
+  async refuse(orderId: string): Promise<ChangeOrderStatusResponseDto> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
@@ -868,7 +871,7 @@ export class OrderService {
     }
   }
 
-  async changeOrderStatus(
+  async changeStatus(
     orderId: string,
     { status }: ChangeOrderStatusDto,
   ): Promise<ChangeOrderStatusResponseDto> {
@@ -1152,7 +1155,7 @@ export class OrderService {
     }
   }
 
-  async finalizeOrderData(
+  async finalizeData(
     orderId: string,
     data: FinalizeOrderDto,
   ): Promise<FinalizeOrderResponseDto> {
@@ -1240,6 +1243,176 @@ export class OrderService {
       throw new InternalServerErrorException(
         errorResponse(
           'routes.orders.failed_finalize',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async getOrdersFinancials(dto: GetOrdersFinancialsDto): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
+    const { bakeryId, from, to, page, limit } = dto;
+    
+    try {
+      const conditions: SQL[] = [];
+
+      if (bakeryId) {
+        const [bakery] = await db
+          .select({
+            name: this.translationService.getLocalized(bakeries.name, 'name'),
+          })
+          .from(bakeries)
+          .where(eq(bakeries.id, bakeryId))
+          .limit(1);
+
+        if (!bakery) {
+          this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+          throw new NotFoundException(
+            errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          );
+        }
+
+        conditions.push(eq(orders.bakeryId, bakeryId));
+      }
+
+      if (from) {
+        const fromCondition = and(
+          isNotNull(orders.deliveredAt),
+          gte(orders.deliveredAt, new Date(from)),
+        );
+        if (fromCondition) conditions.push(fromCondition);
+      }
+
+      if (to) {
+        const toCondition = and(
+          isNotNull(orders.deliveredAt),
+          lte(orders.deliveredAt, new Date(to)),
+        );
+        if (toCondition) conditions.push(toCondition);
+      }
+
+      conditions.push(eq(orders.orderStatus, 'delivered'));
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
+      const resolvedLimit = Math.min(limit ?? PAGINATION_DEFAULTS.LIMIT, PAGINATION_DEFAULTS.MAX_LIMIT);
+      const offset = (resolvedPage - 1) * resolvedLimit;
+
+      const ordersTotalList = await db
+        .select({
+          orderId: orders.id,
+          referenceNumber: orders.referenceNumber,
+          bakeryId: orders.bakeryId,
+          addonsTotal: orders.addonsTotal,
+          bastiPercentage: orders.bastiPercentage,
+          deliveryAmount: orders.deliveryAmount,
+          totalPrice: orders.totalPrice,
+          discountAmount: orders.discountAmount,
+          finalPrice: orders.finalPrice,
+          deliveredAt: orders.deliveredAt,
+          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
+        })
+        .from(orders)
+        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
+        .where(whereClause)
+        .orderBy(desc(orders.deliveredAt));
+
+      if (!ordersTotalList || ordersTotalList.length === 0) {
+        this.logger.warn(`No orders found`);
+        throw new NotFoundException(
+          errorResponse('routes.orders.no_financials', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      const ordersList = await db
+        .select({
+          orderId: orders.id,
+          referenceNumber: orders.referenceNumber,
+          bakeryId: orders.bakeryId,
+          addonsTotal: orders.addonsTotal,
+          bastiPercentage: orders.bastiPercentage,
+          deliveryAmount: orders.deliveryAmount,
+          totalPrice: orders.totalPrice,
+          discountAmount: orders.discountAmount,
+          finalPrice: orders.finalPrice,
+          deliveredAt: orders.deliveredAt,
+          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
+        })
+        .from(orders)
+        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
+        .where(whereClause)
+        .orderBy(desc(orders.deliveredAt))
+        .limit(resolvedLimit)
+        .offset(offset);
+
+      
+        const rows = ordersList.map((order) => {
+        const totalPrice = Number(order.totalPrice) || 0;
+        const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
+        const bastiAmount = bastiPercentage * totalPrice;
+
+        return {
+          addonsTotal: Number(order.addonsTotal) || 0,
+          bastiPercentage,
+          bastiAmount,
+          deliveryAmount: Number(order.deliveryAmount) || 0,
+          totalPrice,
+          discountAmount: Number(order.discountAmount) || 0,
+          finalPrice: Number(order.finalPrice) || 0,
+          bakeryId: order.bakeryId || '',
+          bakeryName: order.bakeryName || '',
+          orderId: order.orderId,
+          referenceNumber: order.referenceNumber || '',
+          deliveredAt: order.deliveredAt,
+        };
+      });
+
+      const total = ordersTotalList.reduce(
+        (acc, order) => ({
+          addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
+          bastiTotal:
+            acc.bastiTotal + (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0),
+          bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
+          deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
+          totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
+          discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
+          finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
+        }),
+        {
+          addonsTotal: 0,
+          bastiTotal: 0,
+          bakeryTotal: 0,
+          deliveryAmount: 0,
+          totalPrice: 0,
+          discountAmount: 0,
+          finalPrice: 0,
+        },
+      );
+
+      const totalCount = ordersTotalList.length;
+      const totalPages = Math.ceil(totalCount / resolvedLimit);
+
+      return successResponse(
+        {
+          rows,
+          total,
+          pagination: {
+            total: totalCount,
+            limit: resolvedLimit,
+            page: resolvedPage,
+            totalPages,
+          },
+        },
+        'routes.orders.financials_retrieved',
+      );
+
+
+    } catch (error) {
+      this.logger.error(`Failed to retrieve financials:`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_financials',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

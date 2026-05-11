@@ -125,12 +125,13 @@ export class UpdateConfigDto {
 
   @ApiProperty({
     description: 'Basti percentage applied to orders',
-    example: 20,
+    example: 0.2,
     required: false,
   })
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(1)
   bastiPercentage?: number;
 
   @ApiProperty({

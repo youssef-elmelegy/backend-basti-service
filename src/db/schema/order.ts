@@ -63,7 +63,7 @@ export const orders = pgTable(
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
     finalPrice: decimal('final_price', { precision: 10, scale: 2 }).notNull(),
 
-    bastiPercentage: integer('basti_percentage').notNull().default(20),
+    bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 }).notNull().default('0.20'),
     deliveryAmount: integer('delivery_amount').notNull().default(10),
     addonsTotal: integer('addons_total').notNull().default(0),
 

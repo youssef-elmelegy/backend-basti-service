@@ -22,6 +22,7 @@ import {
   RegionFilterDto,
   GetDeliveryDateDto,
   FinalizeOrderDto,
+  GetOrdersFinancialsDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -37,6 +38,7 @@ import {
   GetOrderByIdForUserDecorator,
   GetBakeryOrdersDecorator,
   FinalizeOrderDecorator,
+  GetOrdersFinancialsDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { SchedulerService } from '../services/scheduler.service';
@@ -75,7 +77,7 @@ export class OrderController {
   @GetMyOrdersDecorator()
   async getMyOrders(@CurrentUser('sub') userId: string, @Query() { regionId }: RegionFilterDto) {
     this.logger.debug(`getting orders for user: ${userId}`);
-    const result = await this.orderService.getOrdersForUser(userId, regionId);
+    const result = await this.orderService.getAllForUser(userId, regionId);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -90,7 +92,7 @@ export class OrderController {
     this.logger.debug('getting all orders');
     // Normalize status to array format
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
-    const result = await this.orderService.getAllOrders(regionId, statusArray);
+    const result = await this.orderService.getAll(regionId, statusArray);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -106,7 +108,7 @@ export class OrderController {
     this.logger.debug(`getting orders for bakery: ${bakeryId}`);
     // Normalize status to array format
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
-    const result = await this.orderService.getBakeryOrders(bakeryId, regionId, statusArray);
+    const result = await this.orderService.getAllForBakery(bakeryId, regionId, statusArray);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -119,8 +121,17 @@ export class OrderController {
     @Query() { regionId }: RegionFilterDto,
   ) {
     this.logger.debug(`getting order by id: ${id}`);
-    const result = await this.orderService.getOrderByIdForUser(id, userId, regionId);
+    const result = await this.orderService.getOneForUser(id, userId, regionId);
     return successResponse(result, 'routes.orders.retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('financials')
+  @GetOrdersFinancialsDecorator()
+  async getOrdersFinancials(@Query() dto: GetOrdersFinancialsDto) {
+    this.logger.debug('getting orders financials');
+    return this.orderService.getOrdersFinancials(dto);
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -132,7 +143,7 @@ export class OrderController {
     @Query() { regionId }: RegionFilterDto,
   ) {
     this.logger.debug(`getting order by id: ${id}`);
-    const result = await this.orderService.getOrderById(id, regionId);
+    const result = await this.orderService.getOne(id, regionId);
     return successResponse(result, 'routes.orders.retrieved');
   }
 
@@ -141,7 +152,7 @@ export class OrderController {
   @CancelOrderDecorator()
   async cancelOrder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('sub') userId: string) {
     this.logger.debug(`canceling order: ${id}`);
-    const result = await this.orderService.cancelOrder(id, userId);
+    const result = await this.orderService.cancel(id, userId);
     this.logger.debug(`order cancelled: ${id}`);
     return successResponse(result, 'routes.orders.cancelled');
   }
@@ -152,7 +163,7 @@ export class OrderController {
   @RefuseOrderDecorator()
   async refuseOrder(@Param('id', ParseUUIDPipe) id: string) {
     this.logger.debug(`refusing order: ${id}`);
-    const result = await this.orderService.refuseOrder(id);
+    const result = await this.orderService.refuse(id);
     this.logger.debug(`order refused: ${id}`);
     return successResponse(result, 'routes.orders.refused');
   }
@@ -194,7 +205,7 @@ export class OrderController {
     @Body() changeOrderStatusDto: ChangeOrderStatusDto,
   ) {
     this.logger.debug(`changing order status: ${id}`);
-    const result = await this.orderService.changeOrderStatus(id, changeOrderStatusDto);
+    const result = await this.orderService.changeStatus(id, changeOrderStatusDto);
     this.logger.debug(`order status changed: ${id} to ${changeOrderStatusDto.status}`);
     return successResponse(result, 'routes.orders.status_updated');
   }
@@ -208,7 +219,7 @@ export class OrderController {
     @Body() finalizeOrderDto: FinalizeOrderDto,
   ) {
     this.logger.debug(`finalizing order: ${orderId}`);
-    const result = await this.orderService.finalizeOrderData(orderId, finalizeOrderDto);
+    const result = await this.orderService.finalizeData(orderId, finalizeOrderDto);
     this.logger.debug(`order finalized: ${orderId}`);
     return successResponse(result, 'routes.orders.finalized');
   }

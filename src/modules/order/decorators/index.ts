@@ -7,6 +7,7 @@ export * from './get-bakery-orders.decorator';
 export * from './get-delivery-time.decorator';
 export * from './get-my-orders.decorator';
 export * from './get-order-by-id.decorator';
+export * from './get-orders-financials.decorator';
 export * from './refuse-order.decorator';
 export * from './place-order.decorator';
 export * from './finalize-order.decorator';

@@ -59,7 +59,7 @@ export class ConfigService {
             closureMessage: updateDto.closureMessage,
           }),
           ...(updateDto.bastiPercentage !== undefined && {
-            bastiPercentage: updateDto.bastiPercentage,
+            bastiPercentage: updateDto.bastiPercentage.toFixed(2),
           }),
           ...(updateDto.deliveryAmount !== undefined && {
             deliveryAmount: updateDto.deliveryAmount,
@@ -97,7 +97,7 @@ export class ConfigService {
       emergencyClosures: config.emergencyClosures,
       isOpen: config.isOpen,
       closureMessage: config.closureMessage || '',
-      bastiPercentage: config.bastiPercentage,
+      bastiPercentage: parseFloat(config.bastiPercentage),
       deliveryAmount: config.deliveryAmount,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,

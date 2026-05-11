@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, jsonb, timestamp, varchar, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, jsonb, timestamp, varchar, boolean, decimal } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 export const appConfig = pgTable('app_config', {
@@ -22,7 +22,7 @@ export const appConfig = pgTable('app_config', {
     .default(sql`'[]'::jsonb`),
   isOpen: boolean('is_open').notNull().default(true),
   closureMessage: varchar('closure_message', { length: 500 }),
-  bastiPercentage: integer('basti_percentage').notNull().default(20),
+  bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 }).notNull().default('0.20'),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

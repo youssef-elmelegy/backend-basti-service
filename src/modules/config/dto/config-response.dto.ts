@@ -62,7 +62,7 @@ export class ConfigResponseDto {
 
   @ApiProperty({
     description: 'Basti percentage applied to orders',
-    example: 20,
+    example: 0.2,
   })
   bastiPercentage: number;
 
