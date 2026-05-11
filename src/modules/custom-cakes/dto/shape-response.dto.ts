@@ -49,6 +49,9 @@ export class ShapeDataDto {
     example: 'classic_round',
   })
   visualKey!: string;
+
+  @ApiProperty({ example: false, required: false })
+  isFeatured?: boolean;
 }
 
 export class SuccessShapeResponseDto {

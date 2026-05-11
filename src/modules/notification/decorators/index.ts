@@ -6,4 +6,5 @@ export * from './mark-notification-read-endpoint.decorator';
 export * from './mark-all-read-endpoint.decorator';
 export * from './delete-notification-endpoint.decorator';
 export * from './send-notification-endpoint.decorator';
+export * from './send-broadcast-endpoint.decorator';
 export { PaginationDecorator } from '@/common/decorators';

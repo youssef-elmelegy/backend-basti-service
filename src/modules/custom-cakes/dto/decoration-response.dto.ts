@@ -3,7 +3,6 @@ import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
 import { PaginationDto, VariantImageDto, VariantImageWithShapeDto } from './flavor-response.dto';
 
 export class DecorationDataDto {
-
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 
@@ -50,6 +49,9 @@ export class DecorationDataDto {
 
   @ApiProperty({ example: 20 })
   capacity: number;
+
+  @ApiProperty({ example: false, required: false })
+  isFeatured?: boolean;
 }
 
 export class SuccessDecorationResponseDto {
