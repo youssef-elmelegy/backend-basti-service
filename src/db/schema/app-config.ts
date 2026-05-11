@@ -22,6 +22,8 @@ export const appConfig = pgTable('app_config', {
     .default(sql`'[]'::jsonb`),
   isOpen: boolean('is_open').notNull().default(true),
   closureMessage: varchar('closure_message', { length: 500 }),
+  bastiPercentage: integer('basti_percentage').notNull().default(20),
+  deliveryAmount: integer('delivery_amount').notNull().default(10),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

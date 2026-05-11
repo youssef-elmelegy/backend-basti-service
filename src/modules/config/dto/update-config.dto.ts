@@ -122,4 +122,24 @@ export class UpdateConfigDto {
   @IsString()
   @MaxLength(500, { message: 'Closure message must be at most 500 characters' })
   closureMessage?: string;
+
+  @ApiProperty({
+    description: 'Basti percentage applied to orders',
+    example: 20,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  bastiPercentage?: number;
+
+  @ApiProperty({
+    description: 'Delivery amount applied to orders',
+    example: 20,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  deliveryAmount?: number;
 }
