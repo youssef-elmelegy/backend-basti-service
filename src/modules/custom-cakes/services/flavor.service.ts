@@ -25,15 +25,21 @@ import {
   shapeVariantImages,
   shapes,
   designedCakeConfigs,
+  offers,
 } from '@/db/schema';
 import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/index';
 import { PgTableWithColumns, PgColumn } from 'drizzle-orm/pg-core';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedFlavor = Omit<typeof flavors.$inferSelect, 'title' | 'description'> & { 
   title: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -167,6 +173,7 @@ export class FlavorService {
       flavor: FlattenedFlavor;
       image: typeof shapeVariantImages.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
     }> = [];
 
     if (query.search) {
@@ -183,10 +190,18 @@ export class FlavorService {
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
         })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -201,10 +216,18 @@ export class FlavorService {
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
         })
         .from(flavors)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -246,6 +269,12 @@ export class FlavorService {
           ...this.mapToFlavorResponse(row.flavor),
           variantImages: [],
           price: row.pricing.price,
+          offer: row.offer ? {
+            id: row.offer.id,
+            name: row.offer.name,
+            percentage: row.offer.percentage,
+            expiryDate: row.offer.expiryDate,
+          } : null,
         });
       }
       const flavorEntry = groupedFlavors.get(flavorId);
@@ -430,6 +459,7 @@ export class FlavorService {
     let allFlavorsResult: Array<{
       flavor: FlattenedFlavor;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
     }> = [];
     let total = 0;
 
@@ -455,9 +485,17 @@ export class FlavorService {
             description: this.translationService.getLocalized(flavors.description, 'description'),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -480,9 +518,17 @@ export class FlavorService {
             description: this.translationService.getLocalized(flavors.description, 'description'),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
         })
         .from(flavors)
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortFunction(sortColumn))
         .limit(query.limit)
@@ -495,6 +541,12 @@ export class FlavorService {
       items: allFlavorsResult.map((row) => ({
         ...this.mapToFlavorResponse(row.flavor),
         price: row.pricing.price,
+        offer: row.offer ? {
+          id: row.offer.id,
+          name: row.offer.name,
+          percentage: row.offer.percentage,
+          expiryDate: row.offer.expiryDate,
+        } : null,
       })),
       total,
       totalPages,

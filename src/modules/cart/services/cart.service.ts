@@ -100,7 +100,7 @@ export class CartService {
             ...featuredCake,
             price: featuredCake.price ?? '0',
             updatedAt: featuredCake.updatedAt.toISOString(),
-            createdAt: featuredCake.createdAt.toISOString(),
+            createdAt: featuredCake.createdAt.toISOString(), offer: (featuredCake as any).offer || null
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
@@ -231,7 +231,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [] },
+          item: { ...addon, options: [], offer: (addon as any).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -246,7 +246,7 @@ export class CartService {
           item: {
             ...featuredCake,
             updatedAt: featuredCake.updatedAt.toISOString(),
-            createdAt: featuredCake.createdAt.toISOString(),
+            createdAt: featuredCake.createdAt.toISOString(), offer: (featuredCake as any).offer || null
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
@@ -338,7 +338,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [] },
+          item: { ...addon, options: [], offer: (addon as any).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -350,7 +350,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: sweet,
+          item: { ...sweet, offer: (sweet as any).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });

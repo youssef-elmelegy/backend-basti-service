@@ -1,7 +1,9 @@
+import { ItemOfferDto } from '@/common/dto';
 import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
 import { PaginationDto, VariantImageDto, VariantImageWithShapeDto } from './flavor-response.dto';
 
 export class DecorationDataDto {
+
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 
@@ -34,6 +36,14 @@ export class DecorationDataDto {
 
   @ApiProperty({ example: '500', required: false })
   price?: string;
+
+  @ApiProperty({
+    description: 'offer data',
+    type: ItemOfferDto,
+    nullable: true,
+    required: false,
+  })
+  offer: ItemOfferDto | null;
 
   @ApiProperty({ example: 24, required: false })
   minPrepHours?: number;

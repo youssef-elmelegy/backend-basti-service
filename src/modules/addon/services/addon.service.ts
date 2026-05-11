@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { addons, tags, regionItemPrices, regions, addonOptions, offers } from '@/db/schema';
-import { eq, desc, sql, asc, and, SQL, inArray, getTableColumns, ilike, or, isNull, lte } from 'drizzle-orm';
+import { addons, tags, regionItemPrices, addonOptions, offers } from '@/db/schema';
+import { eq, desc, sql, asc, and, SQL, inArray, getTableColumns, ilike } from 'drizzle-orm';
 import {
   CreateAddonDto,
   UpdateAddonDto,
@@ -40,7 +40,16 @@ export class AddonService {
   ) {}
 
   async create(createAddonDto: CreateAddonDto) {
-    const { name, description, images, category, tagId, isActive = true, options } = createAddonDto;
+
+    const { 
+      name, 
+      description, 
+      images, 
+      category, 
+      tagId, 
+      isActive = true, 
+      options 
+    } = createAddonDto;
 
     try {
       if (tagId) {
@@ -118,203 +127,19 @@ export class AddonService {
     }
   }
 
-  // async findAll(query: GetAddonsQueryDto) {
-  //   const { page, limit, tag, order, sort, isActive, category, regionId, search } = query;
-
-  //   try {
-  //     const pageValue = page ?? 1;
-  //     const limitValue = limit ?? 10;
-  //     const offset = (pageValue - 1) * limitValue;
-  //     const sortOrder = order === 'desc' ? desc : asc;
-
-  //     let allAddons: Array<{
-  //       addon: FlattenedAddon;
-  //       tagName: string | null;
-  //       price?: string;
-  //       sizesPrices?: Record<string, string> | null;
-  //     }> = [];
-  //     let total = 0;
-
-  //     // Build where conditions
-  //     const whereConditions: SQL[] = [];
-  //     if (isActive !== undefined && isActive !== null) {
-  //       whereConditions.push(eq(addons.isActive, isActive));
-  //     }
-  //     if (category) {
-  //       whereConditions.push(eq(addons.category, category));
-  //     }
-
-  //     if (regionId) {
-  //       const joinConditions = [
-  //         eq(regionItemPrices.addonId, addons.id),
-  //         eq(regionItemPrices.regionId, regionId),
-  //       ] as const;
-
-  //       const regionWhereConditions: SQL[] = [...whereConditions];
-  //       if (tag) {
-  //         regionWhereConditions.push(eq(tags.name, tag));
-  //       }
-  //       if (search) {
-  //         const searchPattern = `%${search}%`;
-  //         regionWhereConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
-  //       }
-
-  //       const [{ count: regionCount }] = await db
-  //         .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
-  //         .from(addons)
-  //         .innerJoin(regionItemPrices, and(...joinConditions))
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(regionWhereConditions.length > 0 ? and(...regionWhereConditions) : undefined);
-
-  //       total = Number(regionCount);
-
-  //       allAddons = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //           price: regionItemPrices.price,
-  //           sizesPrices: regionItemPrices.sizesPrices,
-  //         })
-  //         .from(addons)
-  //         .innerJoin(regionItemPrices, and(...joinConditions))
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(regionWhereConditions.length > 0 ? and(...regionWhereConditions) : undefined)
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-  //     } else if (tag) {
-  //       const tagConditions: SQL[] = [
-  //         eq(this.translationService.getLocalized(tags.name, null, 'en'), tag), 
-  //         ...whereConditions
-  //       ];
-  //       if (search) {
-  //         const searchPattern = `%${search}%`;
-  //         tagConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
-  //       }
-
-  //       const tagResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .innerJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...tagConditions))
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = tagResults;
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
-  //         .from(addons)
-  //         .innerJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...tagConditions));
-
-  //       total = Number(countResult.count);
-  //     } else if (search) {
-  //       const searchPattern = `%${search}%`;
-  //       const searchConditions: SQL[] = [
-  //         sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`,
-  //         ...whereConditions,
-  //       ];
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(*)` })
-  //         .from(addons)
-  //         .where(and(...searchConditions));
-
-  //       total = Number(countResult.count);
-
-  //       const untaggedResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...searchConditions))
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = untaggedResults;
-  //     } else {
-  //       const untaggedResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = untaggedResults;
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(*)` })
-  //         .from(addons)
-  //         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
-  //       total = Number(countResult.count);
-  //     }
-
-  //     const totalPages = Math.ceil(total / limitValue);
-  //     const addonIds = [...new Set(allAddons.map((item) => item.addon.id))];
-  //     const optionsByAddonId = await this.getAddonOptionsByAddonIds(addonIds);
-
-  //     this.logger.debug(`Retrieved add-ons: page ${page}, total ${total}`);
-
-  //     return successResponse(
-  //       {
-  //         items: allAddons.map((item) =>
-  //           this.mapToAddonResponse(
-  //             item.addon,
-  //             item.tagName,
-  //             item.price,
-  //             item.sizesPrices,
-  //             optionsByAddonId.get(item.addon.id) || [],
-  //           ),
-  //         ),
-  //         pagination: {
-  //           total,
-  //           limit: limitValue,
-  //           page: pageValue,
-  //           totalPages,
-  //         },
-  //       },
-  //       'Add-ons retrieved successfully',
-  //     );
-  //   } catch (error) {
-  //     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-  //     this.logger.error(`Failed to retrieve add-ons: ${errorMsg}`);
-  //     throw new InternalServerErrorException(
-  //       errorResponse('Failed to retrieve add-ons', HttpStatus.INTERNAL_SERVER_ERROR),
-  //     );
-  //   }
-  // }
-
   async findAll(query: GetAddonsQueryDto) {
-    const { page = 1, limit = 10, tag, order, sort, isActive, category, regionId, search } = query;
+
+    const { 
+      page = 1, 
+      limit = 10, 
+      tag, 
+      order, 
+      sort, 
+      isActive, 
+      category, 
+      regionId, 
+      search 
+    } = query;
 
     try {
       const offset = (page - 1) * limit;

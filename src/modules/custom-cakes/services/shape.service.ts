@@ -22,14 +22,20 @@ import {
   regions,
   shapeVariantImages,
   designedCakeConfigs,
+  offers,
 } from '@/db/schema';
 import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedShape = Omit<typeof shapes.$inferSelect, 'title' | 'description'> & { 
   title: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -41,7 +47,11 @@ export class ShapeService {
   /**
    * Map shape data to response DTO
    */
-  private mapToShapeResponse(shape: FlattenedShape, price?: string): ShapeDataDto {
+  private mapToShapeResponse(
+    shape: FlattenedShape, 
+    price?: string,
+    offer?: FlattenedOffer | null,
+  ): ShapeDataDto {
     const response: ShapeDataDto = {
       id: shape.id,
       title: shape.title,
@@ -53,6 +63,12 @@ export class ShapeService {
       visualKey: shape.visualKey,
       order: shape.order,
       createdAt: shape.createdAt,
+      offer: offer ? {
+        id: offer.id,
+        name: offer.name,
+        percentage: offer.percentage,
+        expiryDate: offer.expiryDate,
+      } : null,
       updatedAt: shape.updatedAt,
     };
 
@@ -127,6 +143,7 @@ export class ShapeService {
       let allShapesResult: Array<{
         shape: FlattenedShape;
         price?: string;
+        offer?: FlattenedOffer | null;
       }> = [];
 
       // Filter by regionId
@@ -163,9 +180,17 @@ export class ShapeService {
                 description: this.translationService.getLocalized(shapes.description, 'description'),
               },
               price: regionItemPrices.price,
+              offer: {
+                ...getTableColumns(offers),
+                name: this.translationService.getLocalized(offers.name, 'name'),
+              },
             })
             .from(shapes)
             .innerJoin(regionItemPrices, and(...joinConditions))
+            .leftJoin(offers, and(
+              eq(regionItemPrices.offerId, offers.id),
+              isOfferActive(offers),
+            ))
             .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
             .orderBy(asc(shapes.order));
         } else {
@@ -218,7 +243,12 @@ export class ShapeService {
       }
 
       return successResponse(
-        allShapesResult.map((row) => this.mapToShapeResponse(row.shape, row.price || undefined)),
+        allShapesResult.map((row) => this.mapToShapeResponse(
+          row.shape, 
+          row.price || undefined,
+          row.offer,
+        )
+      ),
         'routes.shapes.list_retrieved',
         HttpStatus.OK,
       );

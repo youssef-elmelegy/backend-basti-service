@@ -25,15 +25,21 @@ import {
   shapeVariantImages,
   shapes,
   designedCakeConfigs,
+  offers,
 } from '@/db/schema';
 import { eq, desc, asc, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
 import { validateTagExists } from '@/utils';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'description'> & { 
   title: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -46,6 +52,7 @@ export class DecorationService {
     decoration: FlattenedDecoration,
     tagName?: string,
     price?: string,
+    offer?: FlattenedOffer | null,
   ): DecorationDataDto {
     const dto: DecorationDataDto = {
       id: decoration.id,
@@ -57,6 +64,12 @@ export class DecorationService {
       capacity: decoration.capacity || 1,
       tagName,
       createdAt: decoration.createdAt,
+      offer: offer ? {
+        id: offer.id,
+        name: offer.name,
+        percentage: offer.percentage,
+        expiryDate: offer.expiryDate,
+      } : null,
       updatedAt: decoration.updatedAt,
     };
     if (price != null) {
@@ -183,6 +196,7 @@ export class DecorationService {
       decoration: FlattenedDecoration;
       image: typeof shapeVariantImages.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
       tagName: string;
     }> = [];
     let total = 0;
@@ -201,12 +215,20 @@ export class DecorationService {
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -234,12 +256,20 @@ export class DecorationService {
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -263,6 +293,7 @@ export class DecorationService {
           ...this.mapToDecorationResponse(row.decoration, row.tagName),
           variantImages: [],
           price: row.pricing.price,
+          offer: row.offer,
         });
       }
       const decorationEntry = groupedDecorations.get(decorationId);
@@ -449,6 +480,7 @@ export class DecorationService {
     let allDecorationsResult: Array<{
       decoration: FlattenedDecoration;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
       tagName: string;
     }> = [];
     let total = 0;
@@ -475,11 +507,19 @@ export class DecorationService {
             description: this.translationService.getLocalized(decorations.description, 'description'),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -502,11 +542,19 @@ export class DecorationService {
             description: this.translationService.getLocalized(decorations.description, 'description'),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(
+          eq(regionItemPrices.offerId, offers.id),
+          isOfferActive(offers),
+        ))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -517,7 +565,12 @@ export class DecorationService {
 
     return {
       items: allDecorationsResult.map((row) =>
-        this.mapToDecorationResponse(row.decoration, row.tagName, row.pricing?.price),
+        this.mapToDecorationResponse(
+          row.decoration, 
+          row.tagName, 
+          row.pricing?.price,
+          row.offer,
+        ),
       ),
       total,
       totalPages,

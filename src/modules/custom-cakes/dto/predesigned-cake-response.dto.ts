@@ -1,3 +1,4 @@
+import { ItemOfferDto } from '@/common/dto';
 import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { ShapeVariantImageDto } from './create-flavor-with-variant-images.dto';
 
@@ -137,6 +138,14 @@ export class PredesignedCakeDataDto {
 
   @ApiProperty({ example: '95.50', nullable: true, required: false })
   price?: string;
+
+  @ApiProperty({
+    description: 'offer data',
+    type: ItemOfferDto,
+    nullable: true,
+    required: false,
+  })
+  offer: ItemOfferDto | null;
 
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;

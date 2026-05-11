@@ -17,6 +17,7 @@ import {
   decorations,
   shapes,
   shapeVariantImages,
+  offers,
 } from '@/db/schema';
 import { eq, and, or, desc, asc, sql, SQL, getTableColumns, ilike } from 'drizzle-orm';
 import {
@@ -28,10 +29,15 @@ import {
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common';
+import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedPredesignedCake = Omit<typeof predesignedCakes.$inferSelect, 'name' | 'description'> & { 
   name: string; 
   description: string; 
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
+  name: string; 
 };
 
 @Injectable()
@@ -180,6 +186,7 @@ export class PredesignedCakesService {
       let allCakesResult: Array<{
         cake: FlattenedPredesignedCake;
         price?: string;
+        offer?: FlattenedOffer | null;
       }> = [];
       let total = 0;
 
@@ -237,9 +244,17 @@ export class PredesignedCakesService {
               description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
             },
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
           })
           .from(predesignedCakes)
           .innerJoin(regionItemPrices, and(...joinConditions))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
@@ -278,7 +293,7 @@ export class PredesignedCakesService {
       // Get tag names, configs, and format pricing for all items
       const itemsWithTagsAndConfigs = await Promise.all(
         allCakesResult.map(
-          async (result: { cake: FlattenedPredesignedCake; price?: string }) => {
+          async (result: { cake: FlattenedPredesignedCake; price?: string, offer?: FlattenedOffer | null }) => {
             const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
             const configs = await this.getConfigIds(result.cake.id);
             const item = {
@@ -286,6 +301,7 @@ export class PredesignedCakesService {
               tagName,
               configs,
               ...(result.price && { price: result.price }),
+              ...(result.offer && { offer: result.offer }),
             };
 
             return item;
