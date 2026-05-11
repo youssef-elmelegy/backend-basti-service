@@ -44,6 +44,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.9",
     "@nestjs/swagger": "^11.2.3",
+    "@nestjs/throttler": "^6.5.0",
     "@scalar/nestjs-api-reference": "^1.0.8",
     "@translated/lara": "^1.9.1",
     "bcrypt": "^6.0.0",
@@ -128,9 +129,5 @@
     "*.{json,md}": [
       "prettier --write"
     ]
-  },
-  "overrides": {
-    "@nestjs/common": "11.1.9",
-    "@nestjs/core": "11.1.9"
   }
 }
