@@ -9,6 +9,7 @@
     "node": "22.x",
     "npm": "11.x"
   },
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "nest build",
     "vercel-build": "nest build",
@@ -34,7 +35,7 @@
     "db:studio": "drizzle-kit studio",
     "seed": "ts-node -r tsconfig-paths/register --project tsconfig.json seed.ts",
     "seed:prod": "node dist/seed.js",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "dependencies": {
     "@google-cloud/translate": "^9.3.0",
