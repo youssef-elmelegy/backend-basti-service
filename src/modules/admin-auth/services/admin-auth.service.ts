@@ -350,7 +350,13 @@ export class AdminAuthService {
     }
 
     // Validate password
-    this.passwordSchema.parse(password);
+    try {
+      this.passwordSchema.parse(password);
+    } catch (error) {
+      const message =
+        error instanceof z.ZodError ? error.issues[0].message : 'routes.auth.invalid_password';
+      throw new BadRequestException(message);
+    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -453,6 +459,20 @@ export class AdminAuthService {
       'routes.admin.updated',
       HttpStatus.OK,
     );
+  }
+
+  async deleteAdmin(adminId: string) {
+    const admin = await db.query.admins.findFirst({
+      where: eq(admins.id, adminId),
+    });
+
+    if (!admin) {
+      throw new NotFoundException('routes.admin.not_found');
+    }
+
+    await db.delete(admins).where(eq(admins.id, adminId));
+
+    return successResponse(null, 'routes.admin.deleted', HttpStatus.OK);
   }
 
   async getAllAdmins() {

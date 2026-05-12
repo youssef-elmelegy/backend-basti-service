@@ -17,15 +17,20 @@ import {
   SortBy,
 } from '../dto';
 import { db } from '@/db';
-import { sweets, tags, regionItemPrices, regions } from '@/db/schema';
+import { sweets, tags, regionItemPrices, regions, offers } from '@/db/schema';
 import { eq, desc, asc, and, sql, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common/translation/translation.service';
+import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedSweet = Omit<typeof sweets.$inferSelect, 'name' | 'description'> & { 
-  name: string; 
-  description: string; 
+type FlattenedSweet = Omit<typeof sweets.$inferSelect, 'name' | 'description'> & {
+  name: string;
+  description: string;
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -67,7 +72,9 @@ export class SweetService {
       }
 
       const nameObject = await this.translationService.getTranslationObject(createDto.name);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newSweet] = await db
         .insert(sweets)
@@ -86,10 +93,10 @@ export class SweetService {
         });
 
       let tagName: string | undefined = undefined;
-      
+
       if (newSweet.tagId) {
         const [tag] = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -130,6 +137,7 @@ export class SweetService {
         sweet: FlattenedSweet;
         tagName: string;
         price?: string;
+        offer?: FlattenedOffer | null;
         sizesPrices?: Record<string, string> | null;
       }> = [];
       let total = 0;
@@ -142,14 +150,15 @@ export class SweetService {
 
         const whereConditions: ReturnType<typeof eq | typeof sql>[] = [];
         if (query.tag) {
-          whereConditions.push(eq(
-            this.translationService.getLocalized(tags.name, null, 'en'),
-            query.tag
-          ));
+          whereConditions.push(
+            eq(this.translationService.getLocalized(tags.name, null, 'en'), query.tag),
+          );
         }
         if (query.search) {
           const searchPattern = `%${query.search}%`;
-          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(
+            sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
+          );
         }
 
         const [{ count: regionCount }] = await db
@@ -170,23 +179,29 @@ export class SweetService {
             },
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(sweets)
           .innerJoin(regionItemPrices, and(...joinConditions))
           .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
           .limit(query.limit)
           .offset(offset);
       } else if (query.tag) {
-        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [eq(
-          this.translationService.getLocalized(tags.name, null, 'en'),
-          query.tag
-        )];
+        const whereConditions: ReturnType<typeof eq | typeof sql>[] = [
+          eq(this.translationService.getLocalized(tags.name, null, 'en'), query.tag),
+        ];
         if (query.search) {
           const searchPattern = `%${query.search}%`;
-          whereConditions.push(sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
+          whereConditions.push(
+            sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
+          );
         }
 
         const [{ count: tagCount }] = await db
@@ -217,7 +232,9 @@ export class SweetService {
         const [{ count: searchCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
           .from(sweets)
-          .where(sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`);
+          .where(
+            sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
+          );
 
         total = Number(searchCount);
 
@@ -232,7 +249,9 @@ export class SweetService {
           })
           .from(sweets)
           .leftJoin(tags, eq(sweets.tagId, tags.id))
-          .where(sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`)
+          .where(
+            sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
+          )
           .orderBy(sortOrder(sortColumn))
           .limit(query.limit)
           .offset(offset);
@@ -264,7 +283,13 @@ export class SweetService {
       return successResponse(
         {
           items: allSweetsResult.map((row) =>
-            this.mapToSweetResponse(row.sweet, row.tagName, row.price, row.sizesPrices || undefined),
+            this.mapToSweetResponse(
+              row.sweet,
+              row.tagName,
+              row.price,
+              row.offer,
+              row.sizesPrices || undefined,
+            ),
           ),
           pagination: {
             total,
@@ -337,11 +362,11 @@ export class SweetService {
   }
 
   async update(id: string, updateDto: UpdateSweetDto): Promise<SuccessResponse<SweetDataDto>> {
-    
     try {
-
       const nameObject = await this.translationService.getTranslationObject(updateDto.name);
-      const descriptionObject = await this.translationService.getTranslationObject(updateDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        updateDto.description,
+      );
 
       const [updated] = await db
         .update(sweets)
@@ -371,7 +396,7 @@ export class SweetService {
       let tagName: string | undefined = undefined;
       if (updated.tagId) {
         const [tag] = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -458,7 +483,7 @@ export class SweetService {
       let tagName: string | undefined = undefined;
       if (updated.tagId) {
         const [tag] = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -527,6 +552,43 @@ export class SweetService {
           'BadRequestException',
           { regionId },
         ),
+      );
+    }
+  }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({
+          id: sweets.id,
+          isFeatured: sweets.isFeatured,
+        })
+        .from(sweets)
+        .where(eq(sweets.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse('routes.sweets.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      await db
+        .update(sweets)
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
+        })
+        .where(eq(sweets.id, id));
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -613,6 +675,7 @@ export class SweetService {
     sweet: FlattenedSweet,
     tagName?: string,
     price?: string,
+    offer?: FlattenedOffer | null,
     sizesPrices?: Record<string, string>,
   ) {
     return {
@@ -624,8 +687,17 @@ export class SweetService {
       images: sweet.images,
       sizes: sweet.sizes,
       price: price || undefined,
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.name,
+            percentage: offer.percentage,
+            expiryDate: offer.expiryDate,
+          }
+        : null,
       sizesPrices: sizesPrices || undefined,
       isActive: sweet.isActive,
+      isFeatured: sweet.isFeatured,
       createdAt: sweet.createdAt,
       updatedAt: sweet.updatedAt,
     };

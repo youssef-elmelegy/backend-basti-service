@@ -29,9 +29,11 @@ import {
   decorations,
   shapes,
   shapeVariantImages,
+  offers,
 } from '@/db/schema/';
 import { errorResponse } from '@/utils';
 import { TranslationService } from '@/common';
+import { isOfferActive } from '@/db/utils/helpers';
 
 @Injectable()
 export class ItemService {
@@ -90,6 +92,10 @@ export class ItemService {
             description: this.translationService.getLocalized(addons.description, 'description'),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(addons)
@@ -98,6 +104,10 @@ export class ItemService {
             and(eq(regionItemPrices.addonId, addons.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(addons.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
           .limit(uniqueAddonIds.length);
 
@@ -122,6 +132,7 @@ export class ItemService {
             tagName: addon.tagName ?? '',
             options,
             price: addon.price,
+            offer: addon.offer,
             sizesPrices: addon.sizesPrices ?? undefined,
             selectedOptionId,
           });
@@ -159,6 +170,7 @@ export class ItemService {
             tagId: addon.tagId ?? '',
             tagName: addon.tagName ?? '',
             options,
+            offer: null,
             selectedOptionId,
           });
         }
@@ -195,6 +207,10 @@ export class ItemService {
             description: this.translationService.getLocalized(sweets.description, 'description'),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(sweets)
@@ -203,6 +219,10 @@ export class ItemService {
             and(eq(regionItemPrices.sweetId, sweets.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(sweets.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(sweets.isActive, true), inArray(sweets.id, sweetIds)))
           .limit(sweetIds.length);
 
@@ -234,6 +254,7 @@ export class ItemService {
             description: sweet.description ?? '',
             tagId: sweet.tagId ?? '',
             tagName: sweet.tagName ?? '',
+            offer: null,
           });
         }
       }
@@ -272,6 +293,10 @@ export class ItemService {
             description: this.translationService.getLocalized(featuredCakes.description, 'description'),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(featuredCakes)
@@ -283,6 +308,10 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, featuredCakeIds)))
           .limit(featuredCakeIds.length);
 
@@ -314,6 +343,7 @@ export class ItemService {
             description: featuredCake.description ?? '',
             tagId: featuredCake.tagId ?? '',
             tagName: featuredCake.tagName ?? '',
+            offer: null,
           });
         }
       }
@@ -348,12 +378,20 @@ export class ItemService {
             title: this.translationService.getLocalized(flavors.title, 'title'),
             description: this.translationService.getLocalized(flavors.description, 'description'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
           })
           .from(flavors)
           .leftJoin(
             regionItemPrices,
             and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
           )
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(flavors.isActive, true), inArray(flavors.id, flavorIds)))
           .limit(flavorIds.length);
 
@@ -381,6 +419,7 @@ export class ItemService {
             ...flavor,
             description: flavor.description ?? '',
             shapeVariantImages: [],
+            offer: null,
           });
         }
       }
@@ -415,12 +454,20 @@ export class ItemService {
             title: this.translationService.getLocalized(shapes.title, 'title'),
             description: this.translationService.getLocalized(shapes.description, 'description'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
           })
           .from(shapes)
           .leftJoin(
             regionItemPrices,
             and(eq(regionItemPrices.shapeId, shapes.id), eq(regionItemPrices.regionId, regionId)),
           )
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(shapes.isActive, true), inArray(shapes.id, shapeIds)))
           .limit(shapeIds.length);
 
@@ -448,6 +495,7 @@ export class ItemService {
             ...shape,
             description: shape.description ?? '',
             capacity: shape.capacity ?? 0,
+            offer: null,
           });
         }
       }
@@ -483,6 +531,10 @@ export class ItemService {
             description: this.translationService.getLocalized(decorations.description, 'description'),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
           })
           .from(decorations)
           .leftJoin(
@@ -493,6 +545,10 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(decorations.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(and(eq(decorations.isActive, true), inArray(decorations.id, decorationIds)))
           .limit(decorationIds.length);
 
@@ -526,6 +582,7 @@ export class ItemService {
             tagId: decoration.tagId ?? '',
             tagName: decoration.tagName ?? '',
             shapeVariantImages: [],
+            offer: null,
           });
         }
       }
@@ -564,6 +621,10 @@ export class ItemService {
             description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(predesignedCakes)
@@ -575,6 +636,10 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
+          .leftJoin(offers, and(
+            eq(regionItemPrices.offerId, offers.id),
+            isOfferActive(offers),
+          ))
           .where(
             and(
               eq(predesignedCakes.isActive, true),
@@ -648,6 +713,7 @@ export class ItemService {
             tagName: predesignedCake.tagName ?? '',
             totalCapacity: totalCapacity ?? 0,
             totalMinPrepHours: totalMinPrepHours ?? 0,
+            offer: null,
           });
         }
       }
@@ -895,6 +961,7 @@ export class ItemService {
               ...row.flavor,
               description: row.flavor.description ?? '',
               shapeVariantImages: [],
+              offer: null,
             },
             decoration: {
               ...row.decoration,
@@ -904,12 +971,14 @@ export class ItemService {
               tagName: '',
               capacity: row.decoration.capacity ?? 1,
               shapeVariantImages: [],
+              offer: null,
             },
             shape: {
               ...row.shape,
               description: row.shape.description ?? '',
               minPrepHours: row.shape.minPrepHours ?? 0,
               capacity: row.shape.capacity ?? 0,
+              offer: null,
             },
             frostColorValue: row.frostColorValue,
             createdAt: row.createdAt,

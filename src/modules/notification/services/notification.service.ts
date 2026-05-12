@@ -9,7 +9,13 @@ import {
 import { db } from '@/db';
 import { notifications, users, admins } from '@/db/schema';
 import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
-import { SendNotificationDto, PaginationDto, NotificationResponse, NotificationType } from '../dto';
+import {
+  SendNotificationDto,
+  BroadcastNotificationDto,
+  PaginationDto,
+  NotificationResponse,
+  NotificationType,
+} from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { FirebaseService } from '@/common/services';
 import { TranslationService } from '@/common';
@@ -40,7 +46,11 @@ export class NotificationService {
 
         if (!updated) {
           throw new NotFoundException(
-            errorResponse('routes.notifications.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+            errorResponse(
+              'routes.notifications.user_not_found',
+              HttpStatus.NOT_FOUND,
+              'NotFoundException',
+            ),
           );
         }
       } else {
@@ -52,7 +62,11 @@ export class NotificationService {
 
         if (!updated) {
           throw new NotFoundException(
-            errorResponse('routes.notifications.admin_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+            errorResponse(
+              'routes.notifications.admin_not_found',
+              HttpStatus.NOT_FOUND,
+              'NotFoundException',
+            ),
           );
         }
       }
@@ -129,7 +143,11 @@ export class NotificationService {
 
       if (!user) {
         throw new NotFoundException(
-          errorResponse('routes.notifications.user_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.notifications.user_not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
       fcmToken = user.fcmToken;
@@ -142,7 +160,11 @@ export class NotificationService {
 
       if (!admin) {
         throw new NotFoundException(
-          errorResponse('routes.notifications.admin_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.notifications.admin_not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
       fcmToken = admin.fcmToken;
@@ -224,6 +246,117 @@ export class NotificationService {
       throw new InternalServerErrorException(
         errorResponse(
           'routes.notifications.failed_send',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async sendBroadcastNotification(
+    dto: BroadcastNotificationDto,
+  ): Promise<SuccessResponse<{ totalUsers: number; pushedCount: number; failedCount: number }>> {
+    const { title, body, type, redirectId, data } = dto;
+
+    try {
+      const allUsers = await db.select({ id: users.id, fcmToken: users.fcmToken }).from(users);
+
+      if (allUsers.length === 0) {
+        this.logger.warn('Broadcast requested but no users exist');
+        return successResponse(
+          { totalUsers: 0, pushedCount: 0, failedCount: 0 },
+          'routes.notifications.broadcast_sent',
+          HttpStatus.OK,
+        );
+      }
+
+      const titleObject = { ar: title, en: title };
+      const bodyObject = { ar: title, en: title };
+
+      const notificationRows = allUsers.map((u) => ({
+        title: titleObject,
+        body: bodyObject,
+        type,
+        userId: u.id,
+        adminId: null,
+        redirectId: redirectId ?? null,
+      }));
+
+      await db.insert(notifications).values(notificationRows);
+
+      this.logger.log(`Broadcast notification stored for ${allUsers.length} users (type=${type})`);
+
+      const usersWithToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
+        Boolean(u.fcmToken),
+      );
+
+      let pushedCount = 0;
+      let failedCount = 0;
+      const invalidTokenUserIds: string[] = [];
+
+      const pushPayloadBase: Record<string, string> = {
+        type,
+        ...(redirectId ? { redirectId } : {}),
+        ...(data ?? {}),
+      };
+
+      await Promise.all(
+        usersWithToken.map(async (u) => {
+          try {
+            const result = await this.firebaseService.sendToToken(
+              u.fcmToken,
+              title,
+              body,
+              pushPayloadBase,
+            );
+
+            if (result.success) {
+              pushedCount += 1;
+            } else {
+              failedCount += 1;
+              if (result.invalidToken) {
+                invalidTokenUserIds.push(u.id);
+              }
+            }
+          } catch (err) {
+            failedCount += 1;
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`FCM push failed for user ${u.id}: ${errMsg}`);
+          }
+        }),
+      );
+
+      if (invalidTokenUserIds.length > 0) {
+        this.logger.warn(
+          `Clearing ${invalidTokenUserIds.length} invalid FCM tokens after broadcast`,
+        );
+        for (const userId of invalidTokenUserIds) {
+          await db
+            .update(users)
+            .set({ fcmToken: null, updatedAt: new Date() })
+            .where(eq(users.id, userId));
+        }
+      }
+
+      this.logger.log(
+        `Broadcast push complete: ${pushedCount} delivered, ${failedCount} failed (${allUsers.length} total users, ${usersWithToken.length} with tokens)`,
+      );
+
+      return successResponse(
+        {
+          totalUsers: allUsers.length,
+          pushedCount,
+          failedCount,
+        },
+        'routes.notifications.broadcast_sent',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to send broadcast notification: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.notifications.failed_send_broadcast',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -319,7 +452,11 @@ export class NotificationService {
 
       const unreadCount = typeof count === 'string' ? parseInt(count, 10) : count;
 
-      return successResponse({ unreadCount }, 'routes.notifications.unread_count_retrieved', HttpStatus.OK);
+      return successResponse(
+        { unreadCount },
+        'routes.notifications.unread_count_retrieved',
+        HttpStatus.OK,
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to get unread count: ${errMsg}`);
@@ -465,11 +602,7 @@ export class NotificationService {
     const ownerId = recipientKind === 'user' ? notification.userId : notification.adminId;
     if (ownerId !== recipientId) {
       throw new ForbiddenException(
-        errorResponse(
-          'routes.notifications.forbidden',
-          HttpStatus.FORBIDDEN,
-          'ForbiddenException',
-        ),
+        errorResponse('routes.notifications.forbidden', HttpStatus.FORBIDDEN, 'ForbiddenException'),
       );
     }
   }

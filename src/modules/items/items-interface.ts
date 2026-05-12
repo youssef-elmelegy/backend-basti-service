@@ -1,3 +1,5 @@
+import { ItemOfferDto } from "@/common/dto";
+
 export interface AddonOptionData {
   id: string;
   type: string;
@@ -23,6 +25,7 @@ export interface AddonData {
   updatedAt: Date;
   options: AddonOptionData[];
   price?: string;
+  offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   quantity?: number;
 }
@@ -37,6 +40,7 @@ export interface SweetData {
   sizes: string[];
   isActive: boolean;
   price?: string;
+  offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   createdAt: Date;
   updatedAt: Date;
@@ -55,6 +59,7 @@ export interface FeaturedCakeData {
   tagName: string;
   isActive: boolean;
   price?: string;
+  offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   minPrepHours: number;
   createdAt: Date;
@@ -80,6 +85,7 @@ export interface FlavorData {
   order: number;
   shapeVariantImages: ShapeVariantImages[];
   price?: string;
+  offer: ItemOfferDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +102,7 @@ export interface DecorationData {
   minPrepHours: number;
   capacity: number;
   price?: string;
+  offer: ItemOfferDto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -110,6 +117,7 @@ export interface ShapeData {
   order: number;
   size: string;
   price?: string;
+  offer: ItemOfferDto | null;
   minPrepHours: number;
   createdAt: Date;
   updatedAt: Date;
@@ -138,6 +146,7 @@ export interface PredesignedCakeData {
   totalCapacity?: number;
   totalMinPrepHours?: number;
   price?: string;
+  offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   createdAt: Date;
   updatedAt: Date;

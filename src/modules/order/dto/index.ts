@@ -6,3 +6,5 @@ export * from './assign.dto';
 export * from './unassign.dto';
 export * from './finalize-order.dto';
 export { PaginationDto, SortDto } from '@/common/dto';
+export * from './get-orders-financials.dto';
+export * from './get-orders-financials-response.dto';

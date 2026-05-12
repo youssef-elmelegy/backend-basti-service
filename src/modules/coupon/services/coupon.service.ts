@@ -109,13 +109,12 @@ export class CouponService {
 		}
 	}
 
-	async verify(verifyDto: VerifyCouponDto): Promise<SuccessResponse<{ message: string }>> {
+	async verify(verifyDto: VerifyCouponDto, userId: string): Promise<SuccessResponse<{ message: string }>> {
 		
 		const {
 			cartTotal,
 			code,
 			regionId,
-			userId,
 		} = verifyDto;
 
 		try {
@@ -154,7 +153,7 @@ export class CouponService {
 				throw new BadRequestException('routes.coupons.usage_limit_reached');
 
 			// check if coupon is valid for the region
-			if (regionId) {
+			if (regionId && !coupon.isGlobal) {
 				const regionValid = await this.checkRegionLimits(coupon.id, regionId);
 				if (!regionValid) 
 					throw new BadRequestException('routes.coupons.invalid_region');
@@ -496,7 +495,7 @@ export class CouponService {
 				{
 					message: 'routes.coupons.deleted',
 				},
-				'Coupon deleted successfully'
+				'routes.coupons.deleted'
 			);
 		} catch (error) {
 			const errMsg = handleErrors(error);

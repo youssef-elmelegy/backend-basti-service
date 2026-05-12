@@ -17,6 +17,7 @@ import { NotificationService, RecipientKind } from '../services/notification.ser
 import {
   RegisterFcmTokenDto,
   SendNotificationDto,
+  BroadcastNotificationDto,
   PaginationDto,
   NOTIFICATION_TYPES,
   NotificationType,
@@ -30,6 +31,7 @@ import {
   MarkAllReadDecorator,
   DeleteNotificationDecorator,
   SendNotificationDecorator,
+  SendBroadcastNotificationDecorator,
   PaginationDecorator,
 } from '../decorators';
 import { FlexibleJwtGuard } from '@/common/guards';
@@ -69,6 +71,14 @@ export class NotificationController {
       `Sending notification (type=${dto.type}) to ${dto.recipientType} ${dto.recipientId}`,
     );
     return this.notificationService.sendNotification(dto);
+  }
+
+  @Post('send-broadcast')
+  @Public()
+  @SendBroadcastNotificationDecorator()
+  async sendBroadcast(@Body() dto: BroadcastNotificationDto) {
+    this.logger.debug(`Broadcasting notification (type=${dto.type}) to all users`);
+    return this.notificationService.sendBroadcastNotification(dto);
   }
 
   @Get()

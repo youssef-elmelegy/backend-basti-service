@@ -39,3 +39,4 @@ export * from './delete-predesigned-cake.decorator';
 export * from './check-entity-region-availability.decorator';
 export * from './create-predesigned-cake-region-item-price.decorator';
 export * from './toggle-predesigned-cake-status.decorator';
+export { ToggleFeaturedStatusDecorator } from './toggle-featured-flag.decorator';

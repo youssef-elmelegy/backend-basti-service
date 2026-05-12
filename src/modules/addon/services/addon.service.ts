@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { addons, tags, regionItemPrices, regions, addonOptions } from '@/db/schema';
+import { addons, tags, regionItemPrices, addonOptions, offers } from '@/db/schema';
 import { eq, desc, sql, asc, and, SQL, inArray, getTableColumns, ilike } from 'drizzle-orm';
 import {
   CreateAddonDto,
@@ -15,14 +15,19 @@ import {
   GetAddonsQueryDto,
   CreateAddonRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse } from '@/utils';
+import { errorResponse, SuccessResponse, successResponse } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '../../../common/translation/translation.service';
 import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
+import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & { 
-  name: string; 
-  description: string; 
+type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & {
+  name: string;
+  description: string;
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -44,7 +49,7 @@ export class AddonService {
 
       const nameObject = await this.translationService.getTranslationObject(name);
       const descriptionObject = await this.translationService.getTranslationObject(description);
-      
+
       const [newAddon] = await db
         .insert(addons)
         .values({
@@ -66,7 +71,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (newAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -107,201 +112,6 @@ export class AddonService {
     }
   }
 
-  // async findAll(query: GetAddonsQueryDto) {
-  //   const { page, limit, tag, order, sort, isActive, category, regionId, search } = query;
-
-  //   try {
-  //     const pageValue = page ?? 1;
-  //     const limitValue = limit ?? 10;
-  //     const offset = (pageValue - 1) * limitValue;
-  //     const sortOrder = order === 'desc' ? desc : asc;
-
-  //     let allAddons: Array<{
-  //       addon: FlattenedAddon;
-  //       tagName: string | null;
-  //       price?: string;
-  //       sizesPrices?: Record<string, string> | null;
-  //     }> = [];
-  //     let total = 0;
-
-  //     // Build where conditions
-  //     const whereConditions: SQL[] = [];
-  //     if (isActive !== undefined && isActive !== null) {
-  //       whereConditions.push(eq(addons.isActive, isActive));
-  //     }
-  //     if (category) {
-  //       whereConditions.push(eq(addons.category, category));
-  //     }
-
-  //     if (regionId) {
-  //       const joinConditions = [
-  //         eq(regionItemPrices.addonId, addons.id),
-  //         eq(regionItemPrices.regionId, regionId),
-  //       ] as const;
-
-  //       const regionWhereConditions: SQL[] = [...whereConditions];
-  //       if (tag) {
-  //         regionWhereConditions.push(eq(tags.name, tag));
-  //       }
-  //       if (search) {
-  //         const searchPattern = `%${search}%`;
-  //         regionWhereConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
-  //       }
-
-  //       const [{ count: regionCount }] = await db
-  //         .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
-  //         .from(addons)
-  //         .innerJoin(regionItemPrices, and(...joinConditions))
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(regionWhereConditions.length > 0 ? and(...regionWhereConditions) : undefined);
-
-  //       total = Number(regionCount);
-
-  //       allAddons = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //           price: regionItemPrices.price,
-  //           sizesPrices: regionItemPrices.sizesPrices,
-  //         })
-  //         .from(addons)
-  //         .innerJoin(regionItemPrices, and(...joinConditions))
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(regionWhereConditions.length > 0 ? and(...regionWhereConditions) : undefined)
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-  //     } else if (tag) {
-  //       const tagConditions: SQL[] = [
-  //         eq(this.translationService.getLocalized(tags.name, null, 'en'), tag), 
-  //         ...whereConditions
-  //       ];
-  //       if (search) {
-  //         const searchPattern = `%${search}%`;
-  //         tagConditions.push(sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`);
-  //       }
-
-  //       const tagResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .innerJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...tagConditions))
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = tagResults;
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
-  //         .from(addons)
-  //         .innerJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...tagConditions));
-
-  //       total = Number(countResult.count);
-  //     } else if (search) {
-  //       const searchPattern = `%${search}%`;
-  //       const searchConditions: SQL[] = [
-  //         sql`LOWER(${addons.name}) LIKE LOWER(${searchPattern})`,
-  //         ...whereConditions,
-  //       ];
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(*)` })
-  //         .from(addons)
-  //         .where(and(...searchConditions));
-
-  //       total = Number(countResult.count);
-
-  //       const untaggedResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(and(...searchConditions))
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = untaggedResults;
-  //     } else {
-  //       const untaggedResults = await db
-  //         .select({
-  //           addon: {
-  //             ...getTableColumns(addons),
-  //             name: this.translationService.getLocalized(addons.name, 'name'),
-  //             description: this.translationService.getLocalized(addons.description, 'description'),
-  //           },
-  //           tagName: this.translationService.getLocalized(tags.name, 'name'),
-  //         })
-  //         .from(addons)
-  //         .leftJoin(tags, eq(addons.tagId, tags.id))
-  //         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-  //         .orderBy(sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt))
-  //         .limit(limitValue)
-  //         .offset(offset);
-
-  //       allAddons = untaggedResults;
-
-  //       const [countResult] = await db
-  //         .select({ count: sql<number>`COUNT(*)` })
-  //         .from(addons)
-  //         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
-  //       total = Number(countResult.count);
-  //     }
-
-  //     const totalPages = Math.ceil(total / limitValue);
-  //     const addonIds = [...new Set(allAddons.map((item) => item.addon.id))];
-  //     const optionsByAddonId = await this.getAddonOptionsByAddonIds(addonIds);
-
-  //     this.logger.debug(`Retrieved add-ons: page ${page}, total ${total}`);
-
-  //     return successResponse(
-  //       {
-  //         items: allAddons.map((item) =>
-  //           this.mapToAddonResponse(
-  //             item.addon,
-  //             item.tagName,
-  //             item.price,
-  //             item.sizesPrices,
-  //             optionsByAddonId.get(item.addon.id) || [],
-  //           ),
-  //         ),
-  //         pagination: {
-  //           total,
-  //           limit: limitValue,
-  //           page: pageValue,
-  //           totalPages,
-  //         },
-  //       },
-  //       'Add-ons retrieved successfully',
-  //     );
-  //   } catch (error) {
-  //     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-  //     this.logger.error(`Failed to retrieve add-ons: ${errorMsg}`);
-  //     throw new InternalServerErrorException(
-  //       errorResponse('Failed to retrieve add-ons', HttpStatus.INTERNAL_SERVER_ERROR),
-  //     );
-  //   }
-  // }
-
   async findAll(query: GetAddonsQueryDto) {
     const { page = 1, limit = 10, tag, order, sort, isActive, category, regionId, search } = query;
 
@@ -310,7 +120,7 @@ export class AddonService {
       const sortOrder = order === 'desc' ? desc : asc;
 
       const conditions: SQL[] = [];
-      
+
       if (isActive !== undefined && isActive !== null) {
         conditions.push(eq(addons.isActive, isActive));
       }
@@ -318,16 +128,12 @@ export class AddonService {
         conditions.push(eq(addons.category, category));
       }
       if (tag) {
-        conditions.push(eq(
-          this.translationService.getLocalized(tags.name, null, 'en'),
-          tag
-        ));
+        conditions.push(eq(this.translationService.getLocalized(tags.name, null, 'en'), tag));
       }
       if (search) {
-        conditions.push(ilike(
-          this.translationService.getLocalized(addons.name, null, 'en'),
-          `%${search}%`
-        ));
+        conditions.push(
+          ilike(this.translationService.getLocalized(addons.name, null, 'en'), `%${search}%`),
+        );
       }
       if (regionId) {
         conditions.push(eq(regionItemPrices.regionId, regionId));
@@ -337,17 +143,18 @@ export class AddonService {
       const orderByClause = sort === 'alpha' ? sortOrder(addons.name) : sortOrder(addons.createdAt);
 
       let allAddons: Array<{
-          addon: FlattenedAddon;
-          tagName: string | null;
-          price?: string;
-          sizesPrices?: Record<string, string> | null;
-        }> = [];
+        addon: FlattenedAddon;
+        tagName: string | null;
+        price?: string;
+        offer?: FlattenedOffer | null;
+        sizesPrices?: Record<string, string> | null;
+      }> = [];
       let total = 0;
 
       if (regionId) {
         const joinConditions = and(
           eq(regionItemPrices.addonId, addons.id),
-          eq(regionItemPrices.regionId, regionId)
+          eq(regionItemPrices.regionId, regionId),
         );
 
         const [{ count }] = await db
@@ -356,7 +163,7 @@ export class AddonService {
           .innerJoin(regionItemPrices, joinConditions)
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause);
-        
+
         total = Number(count);
 
         allAddons = await db
@@ -368,23 +175,27 @@ export class AddonService {
             },
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
+            offer: {
+              ...getTableColumns(offers),
+              name: this.translationService.getLocalized(offers.name, 'name'),
+            },
             sizesPrices: regionItemPrices.sizesPrices,
           })
           .from(addons)
           .innerJoin(regionItemPrices, joinConditions)
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause)
           .orderBy(orderByClause)
           .limit(limit)
           .offset(offset);
-
       } else {
         const [{ count }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${addons.id})` })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .where(whereClause);
-        
+
         total = Number(count);
 
         allAddons = await db
@@ -417,7 +228,7 @@ export class AddonService {
               item.addon,
               item.tagName,
               item.price,
-              item.sizesPrices,
+              item.offer,
               optionsByAddonId.get(item.addon.id) || [],
             ),
           ),
@@ -511,7 +322,9 @@ export class AddonService {
         updateData.name = nameObject;
       }
       if (updateAddonDto.description !== undefined) {
-        const descriptionObject = await this.translationService.getTranslationObject(updateAddonDto.description);
+        const descriptionObject = await this.translationService.getTranslationObject(
+          updateAddonDto.description,
+        );
         updateData.description = descriptionObject;
       }
       if (updateAddonDto.images !== undefined) updateData.images = updateAddonDto.images;
@@ -536,7 +349,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -644,10 +457,7 @@ export class AddonService {
 
       this.logger.log(`Add-on deleted: ${id}`);
 
-      return successResponse(
-        { message: 'routes.addons.deleted' },
-        'routes.addons.deleted',
-      );
+      return successResponse({ message: 'routes.addons.deleted' }, 'routes.addons.deleted');
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -690,7 +500,7 @@ export class AddonService {
       let tagName: string | undefined;
       if (updatedAddon.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -711,6 +521,43 @@ export class AddonService {
       this.logger.error(`Failed to toggle add-on status: ${errorMsg}`);
       throw new InternalServerErrorException(
         errorResponse('routes.addons.failed_toggle_status', HttpStatus.INTERNAL_SERVER_ERROR),
+      );
+    }
+  }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({
+          id: addons.id,
+          isFeatured: addons.isFeatured,
+        })
+        .from(addons)
+        .where(eq(addons.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse('routes.addons.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      await db
+        .update(addons)
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
+        })
+        .where(eq(addons.id, id));
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }
@@ -797,7 +644,7 @@ export class AddonService {
     addon: FlattenedAddon,
     tagName?: string | null,
     price?: string,
-    sizesPrices?: Record<string, string> | null,
+    offer?: FlattenedOffer | null,
     addonOption?: Array<typeof addonOptions.$inferSelect>,
   ) {
     return {
@@ -809,8 +656,16 @@ export class AddonService {
       tagId: addon.tagId,
       tagName: tagName || null,
       price: price || undefined,
-      sizesPrices: sizesPrices || undefined,
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.name,
+            percentage: offer.percentage,
+            expiryDate: offer.expiryDate,
+          }
+        : null,
       isActive: addon.isActive,
+      isFeatured: addon.isFeatured,
       createdAt: addon.createdAt,
       updatedAt: addon.updatedAt,
       options: addonOption ?? [],

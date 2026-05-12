@@ -1,3 +1,4 @@
+import { ItemOfferDto } from '@/common/dto';
 import { ApiProperty, ApiHideProperty } from '@nestjs/swagger';
 
 export class ShapeDataDto {
@@ -33,6 +34,14 @@ export class ShapeDataDto {
   @ApiProperty({ example: '50.00', required: false })
   price?: string;
 
+  @ApiProperty({
+    description: 'offer data',
+    type: ItemOfferDto,
+    nullable: true,
+    required: false,
+  })
+  offer: ItemOfferDto | null;
+
   @ApiProperty({ example: 24, required: false })
   minPrepHours?: number;
 
@@ -40,6 +49,9 @@ export class ShapeDataDto {
     example: 'classic_round',
   })
   visualKey!: string;
+
+  @ApiProperty({ example: false, required: false })
+  isFeatured?: boolean;
 }
 
 export class SuccessShapeResponseDto {

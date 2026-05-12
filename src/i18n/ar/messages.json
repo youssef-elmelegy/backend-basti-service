@@ -603,6 +603,11 @@
       "method_updated": "تم تحديث طريقة الدفع بنجاح"
     },
 
+    "item_flags": {
+      "featured_toggled": "تم تغيير حالة العنصر المميز بنجاح",
+      "failed_toggle_featured": "تعذر تغيير حالة العنصر المميز"
+    },
+
     "common": {
       "internal_error": "خطأ داخلي في الخادم",
       "invalid_input": "بيانات الإدخال غير صالحة",

@@ -25,15 +25,21 @@ import {
   shapeVariantImages,
   shapes,
   designedCakeConfigs,
+  offers,
 } from '@/db/schema';
 import { eq, desc, asc, sql, and, inArray, getTableColumns } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
 import { validateTagExists } from '@/utils';
+import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'description'> & { 
-  title: string; 
-  description: string; 
+type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'description'> & {
+  title: string;
+  description: string;
+};
+
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -46,6 +52,7 @@ export class DecorationService {
     decoration: FlattenedDecoration,
     tagName?: string,
     price?: string,
+    offer?: FlattenedOffer | null,
   ): DecorationDataDto {
     const dto: DecorationDataDto = {
       id: decoration.id,
@@ -55,8 +62,17 @@ export class DecorationService {
       tagId: decoration.tagId ?? undefined,
       minPrepHours: decoration.minPrepHours || 0,
       capacity: decoration.capacity || 1,
+      isFeatured: decoration.isFeatured,
       tagName,
       createdAt: decoration.createdAt,
+      offer: offer
+        ? {
+            id: offer.id,
+            name: offer.name,
+            percentage: offer.percentage,
+            expiryDate: offer.expiryDate,
+          }
+        : null,
       updatedAt: decoration.updatedAt,
     };
     if (price != null) {
@@ -73,7 +89,9 @@ export class DecorationService {
       }
 
       const titleObject = await this.translationService.getTranslationObject(createDto.title);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newDecoration] = await db
         .insert(decorations)
@@ -94,7 +112,7 @@ export class DecorationService {
       let tagName: string | undefined = undefined;
       if (newDecoration.tagId) {
         const [tag] = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -142,7 +160,7 @@ export class DecorationService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId!))
+      .where(eq(shapes.id, query.shapeId))
       .limit(1);
 
     if (!shapeExists.length) {
@@ -155,7 +173,7 @@ export class DecorationService {
     const regionExists = await db
       .select({ id: regions.id })
       .from(regions)
-      .where(eq(regions.id, query.regionId!))
+      .where(eq(regions.id, query.regionId))
       .limit(1);
 
     if (!regionExists.length) {
@@ -166,12 +184,12 @@ export class DecorationService {
 
     const shapeJoinConditions = [
       eq(shapeVariantImages.decorationId, decorations.id),
-      eq(shapeVariantImages.shapeId, query.shapeId!),
+      eq(shapeVariantImages.shapeId, query.shapeId),
     ] as const;
 
     const regionJoinConditions = [
       eq(regionItemPrices.decorationId, decorations.id),
-      eq(regionItemPrices.regionId, query.regionId!),
+      eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -183,6 +201,7 @@ export class DecorationService {
       decoration: FlattenedDecoration;
       image: typeof shapeVariantImages.$inferSelect;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
       tagName: string;
     }> = [];
     let total = 0;
@@ -197,23 +216,33 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
         .offset(offset);
 
       const whereConditionsCount: any[] = [];
-      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(
+        sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+      );
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(decorations.isActive, query.isActive));
       }
@@ -230,16 +259,24 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           image: shapeVariantImages,
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .innerJoin(shapeVariantImages, and(...shapeJoinConditions))
         .innerJoin(regionItemPrices, and(...regionJoinConditions))
         .leftJoin(tags, eq(decorations.tagId, tags.id))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -263,6 +300,7 @@ export class DecorationService {
           ...this.mapToDecorationResponse(row.decoration, row.tagName),
           variantImages: [],
           price: row.pricing.price,
+          offer: row.offer,
         });
       }
       const decorationEntry = groupedDecorations.get(decorationId);
@@ -304,7 +342,7 @@ export class DecorationService {
     const shapeExists = await db
       .select({ id: shapes.id })
       .from(shapes)
-      .where(eq(shapes.id, query.shapeId!))
+      .where(eq(shapes.id, query.shapeId))
       .limit(1);
 
     if (!shapeExists.length) {
@@ -315,7 +353,7 @@ export class DecorationService {
 
     const joinConditions = [
       eq(shapeVariantImages.decorationId, decorations.id),
-      eq(shapeVariantImages.shapeId, query.shapeId!),
+      eq(shapeVariantImages.shapeId, query.shapeId),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -340,7 +378,10 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           image: shapeVariantImages,
           tagName: this.translationService.getLocalized(tags.name, 'name'),
@@ -354,7 +395,9 @@ export class DecorationService {
         .offset(offset);
 
       const whereConditionsCount: any[] = [];
-      whereConditionsCount.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+      whereConditionsCount.push(
+        sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+      );
       if (query.isActive !== undefined) {
         whereConditionsCount.push(eq(decorations.isActive, query.isActive));
       }
@@ -370,7 +413,10 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           image: shapeVariantImages,
           tagName: this.translationService.getLocalized(tags.name, 'name'),
@@ -438,7 +484,7 @@ export class DecorationService {
   }> {
     const joinConditions = [
       eq(regionItemPrices.decorationId, decorations.id),
-      eq(regionItemPrices.regionId, query.regionId!),
+      eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
     const whereConditions: any[] = [];
@@ -449,6 +495,7 @@ export class DecorationService {
     let allDecorationsResult: Array<{
       decoration: FlattenedDecoration;
       pricing: typeof regionItemPrices.$inferSelect;
+      offer: FlattenedOffer | null;
       tagName: string;
     }> = [];
     let total = 0;
@@ -472,14 +519,22 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -499,14 +554,22 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           pricing: regionItemPrices,
+          offer: {
+            ...getTableColumns(offers),
+            name: this.translationService.getLocalized(offers.name, 'name'),
+          },
           tagName: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(decorations)
         .leftJoin(tags, eq(decorations.tagId, tags.id))
         .innerJoin(regionItemPrices, and(...joinConditions))
+        .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
         .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
         .orderBy(sortOrder(sortColumn))
         .limit(query.limit)
@@ -517,7 +580,7 @@ export class DecorationService {
 
     return {
       items: allDecorationsResult.map((row) =>
-        this.mapToDecorationResponse(row.decoration, row.tagName, row.pricing?.price),
+        this.mapToDecorationResponse(row.decoration, row.tagName, row.pricing?.price, row.offer),
       ),
       total,
       totalPages,
@@ -537,7 +600,7 @@ export class DecorationService {
     total: number;
     totalPages: number;
   }> {
-    const whereConditions: any[] = [eq(decorations.tagId, query.tagId!)];
+    const whereConditions: any[] = [eq(decorations.tagId, query.tagId)];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -591,7 +654,9 @@ export class DecorationService {
   }> {
     const searchPattern = `%${query.search}%`;
     const whereConditions: any[] = [];
-    whereConditions.push(sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`);
+    whereConditions.push(
+      sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
+    );
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -752,7 +817,10 @@ export class DecorationService {
           decoration: {
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
           },
           tag: {
             id: tags.id,
@@ -821,7 +889,9 @@ export class DecorationService {
         updateFields.title = await this.translationService.getTranslationObject(updateDto.title);
       }
       if (updateDto.description !== undefined) {
-        updateFields.description = await this.translationService.getTranslationObject(updateDto.description);
+        updateFields.description = await this.translationService.getTranslationObject(
+          updateDto.description,
+        );
       }
       if (updateDto.decorationUrl !== undefined)
         updateFields.decorationUrl = updateDto.decorationUrl;
@@ -882,7 +952,7 @@ export class DecorationService {
       let tagName: string | undefined = undefined;
       if (updatedDecoration.tagId) {
         const [tag] = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -1010,11 +1080,7 @@ export class DecorationService {
       await db.delete(decorations).where(eq(decorations.id, id));
 
       this.logger.log(`Force-deleted decoration ${id}`);
-      return successResponse(
-        null,
-        'routes.decorations.force_deleted',
-        HttpStatus.OK,
-      );
+      return successResponse(null, 'routes.decorations.force_deleted', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -1061,7 +1127,7 @@ export class DecorationService {
       let tagName: string | null = null;
       if (updatedDecoration.tagId) {
         const tagResult = await db
-          .select({ 
+          .select({
             name: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(tags)
@@ -1127,7 +1193,11 @@ export class DecorationService {
 
       if (!decorationExists.length) {
         throw new BadRequestException(
-          errorResponse('routes.decorations.not_found', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse(
+            'routes.decorations.not_found',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
         );
       }
 
@@ -1156,11 +1226,7 @@ export class DecorationService {
 
         result = updateResult[0];
         this.logger.log(`Decoration region price updated: ${result.id}`);
-        return successResponse(
-          result,
-          'routes.decorations.region_pricing_updated',
-          HttpStatus.OK,
-        );
+        return successResponse(result, 'routes.decorations.region_pricing_updated', HttpStatus.OK);
       } else {
         // Create new pricing
         const insertResult = await db
@@ -1232,7 +1298,9 @@ export class DecorationService {
       }
 
       const titleObject = await this.translationService.getTranslationObject(createDto.title);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       // Create decoration
       const [newDecoration] = await db
@@ -1333,6 +1401,43 @@ export class DecorationService {
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
+      );
+    }
+  }
+
+  async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
+    try {
+      const [existing] = await db
+        .select({
+          id: decorations.id,
+          isFeatured: decorations.isFeatured,
+        })
+        .from(decorations)
+        .where(eq(decorations.id, id))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundException(
+          errorResponse('routes.decorations.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      await db
+        .update(decorations)
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
+        })
+        .where(eq(decorations.id, id));
+
+      return successResponse(
+        { message: 'routes.item_flags.featured_toggled' },
+        'routes.item_flags.featured_toggled',
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException(
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
       );
     }
   }

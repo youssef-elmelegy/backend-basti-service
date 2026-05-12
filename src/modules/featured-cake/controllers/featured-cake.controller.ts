@@ -26,6 +26,7 @@ import {
   DeleteFeaturedCakeDecorator,
   ToggleFeaturedCakeStatusDecorator,
   CreateRegionItemPriceDecorator,
+  ToggleFeaturedStatusDecorator,
 } from '../decorators';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -110,4 +111,14 @@ export class FeaturedCakeController {
 
     return result;
   }
+
+
+  @Patch(':id/toggle-featured')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleFeaturedStatusDecorator()
+  async toggleFeatured(@Param('id') id: string) {
+    return await this.featuredCakeService.toggleFeatured(id);
+  }
+
 }

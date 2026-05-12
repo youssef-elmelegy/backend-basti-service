@@ -1,12 +1,10 @@
 import { applyDecorators, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AdminRoles, AdminRolesGuard, JwtAuthGuard, JwtWithAdminGuard } from '@/common';
 import { CouponExamples } from '@/constants/examples';
 import { GenerateCouponDto, UpdateCouponDto, VerifyCouponDto } from '../dto';
 
 export function VerifyCouponDecorator() {
 	return applyDecorators(
-		UseGuards(JwtAuthGuard),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Verify a coupon' }),
 		ApiBody({
@@ -33,8 +31,6 @@ export function VerifyCouponDecorator() {
 
 export function GenerateCouponDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Generate a new coupon' }),
 		ApiBody({
@@ -61,8 +57,6 @@ export function GenerateCouponDecorator() {
 
 export function GetAllCouponsDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Get all coupons' }),
 		ApiResponse({
@@ -79,8 +73,6 @@ export function GetAllCouponsDecorator() {
 
 export function GetOneCouponDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Get a single coupon' }),
 		ApiResponse({
@@ -97,8 +89,6 @@ export function GetOneCouponDecorator() {
 
 export function UpdateCouponDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Update a coupon' }),
 		ApiBody({
@@ -125,8 +115,6 @@ export function UpdateCouponDecorator() {
 
 export function ToggleCouponStatusDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Toggle coupon active status' }),
 		ApiResponse({
@@ -143,8 +131,6 @@ export function ToggleCouponStatusDecorator() {
 
 export function DeleteCouponDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Delete a coupon' }),
 		ApiResponse({
@@ -161,8 +147,6 @@ export function DeleteCouponDecorator() {
 
 export function CheckCodeExistsDecorator() {
 	return applyDecorators(
-		UseGuards(JwtWithAdminGuard, AdminRolesGuard),
-		AdminRoles('super_admin', 'admin'),
 		ApiBearerAuth(),
 		ApiOperation({ summary: 'Check if a coupon code exists' }),
 		ApiResponse({

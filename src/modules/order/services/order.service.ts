@@ -18,6 +18,8 @@ import {
   AssignBakeryResponseDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
+  GetOrdersFinancialsDto,
+  GetOrdersFinancialsResponseDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -31,8 +33,9 @@ import {
   regions,
   regionItemPrices,
 } from '@/db/schema';
-import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
-import { errorResponse } from '@/utils';
+import { and, eq, getTableColumns, gte, inArray, lte, SQL, desc, isNotNull } from 'drizzle-orm';
+import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { randomBytes } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -414,10 +417,10 @@ export class OrderService {
           this.logger.warn(`No items found in the cart for user ${userId} and type ${type}`);
           throw new BadRequestException(
             errorResponse(
-              'routes.cart.orders.cart_empty_for_user', 
-              HttpStatus.BAD_REQUEST, 
+              'routes.cart.orders.cart_empty_for_user',
+              HttpStatus.BAD_REQUEST,
               'BadRequest',
-              { userId, type }
+              { userId, type },
             ),
           );
         }
@@ -491,7 +494,7 @@ export class OrderService {
     }
   }
 
-  async getOrdersForUser(userId: string, regionId: string): Promise<OrderResponseDto[]> {
+  async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
     try {
       const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
 
@@ -500,7 +503,7 @@ export class OrderService {
         .filter((orderId): orderId is string => Boolean(orderId));
 
       const response = await Promise.all(
-        validOrderIds.map((orderId) => this.getOrderByIdForUser(orderId, userId, regionId)),
+        validOrderIds.map((orderId) => this.getOneForUser(orderId, userId, regionId)),
       );
 
       this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
@@ -521,10 +524,10 @@ export class OrderService {
     }
   }
 
-  async getOrderByIdForUser(
+  async getOneForUser(
     orderId: string,
     userId: string,
-    regionId: string,
+    regionId?: string,
   ): Promise<OrderResponseDto> {
     try {
       const [order] = await db
@@ -576,7 +579,7 @@ export class OrderService {
     }
   }
 
-  async getAllOrders(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
+  async getAll(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
     try {
       let allOrders = await db.select().from(orders);
 
@@ -640,7 +643,7 @@ export class OrderService {
     }
   }
 
-  async getBakeryOrders(
+  async getAllForBakery(
     bakeryId: string,
     regionId?: string,
     status?: string[],
@@ -723,7 +726,7 @@ export class OrderService {
     }
   }
 
-  async getOrderById(orderId: string, regionId?: string): Promise<OrderResponseDto> {
+  async getOne(orderId: string, regionId?: string): Promise<OrderResponseDto> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
       const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
@@ -773,7 +776,7 @@ export class OrderService {
     }
   }
 
-  async cancelOrder(orderId: string, userId: string): Promise<ChangeOrderStatusResponseDto> {
+  async cancel(orderId: string, userId: string): Promise<ChangeOrderStatusResponseDto> {
     try {
       const [order] = await db
         .select()
@@ -833,7 +836,7 @@ export class OrderService {
     }
   }
 
-  async refuseOrder(orderId: string): Promise<ChangeOrderStatusResponseDto> {
+  async refuse(orderId: string): Promise<ChangeOrderStatusResponseDto> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
@@ -868,7 +871,7 @@ export class OrderService {
     }
   }
 
-  async changeOrderStatus(
+  async changeStatus(
     orderId: string,
     { status }: ChangeOrderStatusDto,
   ): Promise<ChangeOrderStatusResponseDto> {
@@ -927,12 +930,10 @@ export class OrderService {
         `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(
-          `routes.orders.not_pending`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { orderId, status: order.orderStatus },
-        ),
+        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+          orderId,
+          status: order.orderStatus,
+        }),
       );
     }
 
@@ -1047,12 +1048,10 @@ export class OrderService {
         `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(
-          `routes.orders.not_pending`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { orderId, status: order.orderStatus },
-        ),
+        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+          orderId,
+          status: order.orderStatus,
+        }),
       );
     }
 
@@ -1152,10 +1151,7 @@ export class OrderService {
     }
   }
 
-  async finalizeOrderData(
-    orderId: string,
-    data: FinalizeOrderDto,
-  ): Promise<FinalizeOrderResponseDto> {
+  async finalizeData(orderId: string, data: FinalizeOrderDto): Promise<FinalizeOrderResponseDto> {
     const bakeryId = data.bakeryId;
 
     // Verify data contains at least one final image
@@ -1240,6 +1236,200 @@ export class OrderService {
       throw new InternalServerErrorException(
         errorResponse(
           'routes.orders.failed_finalize',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  async getOrdersFinancials(
+    dto: GetOrdersFinancialsDto,
+  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
+    const { bakeryId, from, to, page, limit } = dto;
+
+    try {
+      const conditions: SQL[] = [];
+
+      if (bakeryId) {
+        const [bakery] = await db
+          .select({
+            name: this.translationService.getLocalized(bakeries.name, 'name'),
+          })
+          .from(bakeries)
+          .where(eq(bakeries.id, bakeryId))
+          .limit(1);
+
+        if (!bakery) {
+          this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+          throw new NotFoundException(
+            errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          );
+        }
+
+        conditions.push(eq(orders.bakeryId, bakeryId));
+      }
+
+      if (from) {
+        const fromCondition = and(
+          isNotNull(orders.deliveredAt),
+          gte(orders.deliveredAt, new Date(from)),
+        );
+        if (fromCondition) conditions.push(fromCondition);
+      }
+
+      if (to) {
+        const toCondition = and(
+          isNotNull(orders.deliveredAt),
+          lte(orders.deliveredAt, new Date(to)),
+        );
+        if (toCondition) conditions.push(toCondition);
+      }
+
+      conditions.push(eq(orders.orderStatus, 'delivered'));
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
+      const resolvedLimit = Math.min(
+        limit ?? PAGINATION_DEFAULTS.LIMIT,
+        PAGINATION_DEFAULTS.MAX_LIMIT,
+      );
+      const offset = (resolvedPage - 1) * resolvedLimit;
+
+      const ordersTotalList = await db
+        .select({
+          orderId: orders.id,
+          referenceNumber: orders.referenceNumber,
+          bakeryId: orders.bakeryId,
+          addonsTotal: orders.addonsTotal,
+          bastiPercentage: orders.bastiPercentage,
+          deliveryAmount: orders.deliveryAmount,
+          totalPrice: orders.totalPrice,
+          discountAmount: orders.discountAmount,
+          finalPrice: orders.finalPrice,
+          deliveredAt: orders.deliveredAt,
+          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
+        })
+        .from(orders)
+        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
+        .where(whereClause)
+        .orderBy(desc(orders.deliveredAt));
+
+      if (!ordersTotalList || ordersTotalList.length === 0) {
+        this.logger.log('No orders matched the financials filters; returning empty result');
+        return successResponse(
+          {
+            rows: [],
+            total: {
+              addonsTotal: 0,
+              bastiTotal: 0,
+              bakeryTotal: 0,
+              deliveryAmount: 0,
+              totalPrice: 0,
+              discountAmount: 0,
+              finalPrice: 0,
+            },
+            pagination: {
+              total: 0,
+              limit: resolvedLimit,
+              page: resolvedPage,
+              totalPages: 0,
+            },
+          },
+          'routes.orders.financials_retrieved',
+        );
+      }
+
+      const ordersList = await db
+        .select({
+          orderId: orders.id,
+          referenceNumber: orders.referenceNumber,
+          bakeryId: orders.bakeryId,
+          addonsTotal: orders.addonsTotal,
+          bastiPercentage: orders.bastiPercentage,
+          deliveryAmount: orders.deliveryAmount,
+          totalPrice: orders.totalPrice,
+          discountAmount: orders.discountAmount,
+          finalPrice: orders.finalPrice,
+          deliveredAt: orders.deliveredAt,
+          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
+        })
+        .from(orders)
+        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
+        .where(whereClause)
+        .orderBy(desc(orders.deliveredAt))
+        .limit(resolvedLimit)
+        .offset(offset);
+
+      const rows = ordersList.map((order) => {
+        const totalPrice = Number(order.totalPrice) || 0;
+        const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
+        const bastiAmount = bastiPercentage * totalPrice;
+
+        return {
+          addonsTotal: Number(order.addonsTotal) || 0,
+          bastiPercentage,
+          bastiAmount,
+          deliveryAmount: Number(order.deliveryAmount) || 0,
+          totalPrice,
+          discountAmount: Number(order.discountAmount) || 0,
+          finalPrice: Number(order.finalPrice) || 0,
+          bakeryId: order.bakeryId || '',
+          bakeryName: order.bakeryName || '',
+          orderId: order.orderId,
+          referenceNumber: order.referenceNumber || '',
+          deliveredAt: order.deliveredAt,
+        };
+      });
+
+      const total = ordersTotalList.reduce(
+        (acc, order) => ({
+          addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
+          bastiTotal:
+            acc.bastiTotal +
+            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0),
+          bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
+          deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
+          totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
+          discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
+          finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
+        }),
+        {
+          addonsTotal: 0,
+          bastiTotal: 0,
+          bakeryTotal: 0,
+          deliveryAmount: 0,
+          totalPrice: 0,
+          discountAmount: 0,
+          finalPrice: 0,
+        },
+      );
+
+      const totalCount = ordersTotalList.length;
+      const totalPages = Math.ceil(totalCount / resolvedLimit);
+
+      return successResponse(
+        {
+          rows,
+          total,
+          pagination: {
+            total: totalCount,
+            limit: resolvedLimit,
+            page: resolvedPage,
+            totalPages,
+          },
+        },
+        'routes.orders.financials_retrieved',
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error(`Failed to retrieve financials:`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_financials',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -1369,6 +1559,8 @@ export class OrderService {
                 title: layer.flavor.title,
                 description: layer.flavor.description,
                 order: layer.flavor.order,
+                price: layer.flavor.price,
+                offer: layer.flavor.offer,
                 flavorUrl: layer.flavor.flavorUrl,
                 createdAt: layer.flavor.createdAt,
                 updatedAt: layer.flavor.updatedAt,
@@ -1409,7 +1601,10 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.predesignedCakeId) {
-        const [pdc] = await this.itemService.getPredesignedCakes([item.predesignedCakeId], regionId);
+        const [pdc] = await this.itemService.getPredesignedCakes(
+          [item.predesignedCakeId],
+          regionId,
+        );
         predesignedCakeItems.push({
           data: {
             id: pdc.id,
@@ -1451,9 +1646,10 @@ export class OrderService {
               createdAt: config.createdAt,
               updatedAt: config.updatedAt,
             })),
-            price: item.price ?? '0',
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
+            price: pdc.price ?? '0',
+            offer: pdc.offer,
+            createdAt: pdc.createdAt,
+            updatedAt: pdc.updatedAt,
           },
           price: parseFloat(item.price ?? '0'),
           id: item.id,
@@ -1478,7 +1674,8 @@ export class OrderService {
             pipingPaletteList: fc.pipingPaletteList,
             tagName: fc.tagName || '',
             isActive: fc.isActive,
-            price: item.price ?? '0',
+            price: fc.price ?? '0',
+            offer: fc.offer,
             createdAt: item.createdAt.toISOString(),
             updatedAt: item.updatedAt.toISOString(),
           },
@@ -1505,7 +1702,8 @@ export class OrderService {
             options: [],
             tagName: addon.tagName || '',
             isActive: addon.isActive,
-            price: item.price ?? '0',
+            price: addon.price ?? '0',
+            offer: addon.offer,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
           },
@@ -1531,7 +1729,8 @@ export class OrderService {
             tagName: sweet.tagName || '',
             isActive: sweet.isActive,
             sizes: sweet.sizes,
-            price: item.price ?? '0',
+            price: sweet.price ?? '0',
+            offer: sweet.offer,
             createdAt: sweet.createdAt,
             updatedAt: sweet.updatedAt,
           },
@@ -1557,3 +1756,15 @@ export class OrderService {
     };
   }
 }
+
+// {
+//   "offerId": "b6937c54-0122-47f8-ad7c-3ced3c31485d",
+//   "regionId": "23e2da5b-50a1-4f0e-b051-ce99a8fe620a",
+//   "addonId": "526bd77a-f133-4eca-af59-ee60e5025c43",
+//   "featuredCakeId": "471d2ceb-f00f-449e-8b24-85b7e91bb2ff",
+//   "sweetId": "cddac154-91ee-4501-87e8-dc4bd6e8859f",
+//   "predesignedCakeId": "fd35b53c-37d7-45df-ba37-07b993c856f7",
+//   "decorationId": "cf343a13-c9ac-4ce2-8081-2e2cc5f5f45d",
+//   "flavorId": "c61046b8-e329-4ad5-87da-eb035eacbd1f",
+//   "shapeId": "a64454e3-9943-4465-aa37-6ed3d95af3c2"
+// }

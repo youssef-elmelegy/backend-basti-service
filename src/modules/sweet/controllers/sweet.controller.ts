@@ -31,6 +31,7 @@ import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { Public } from '@/common';
+import { ToggleFeaturedStatusDecorator } from '@/modules/featured-cake/decorators';
 
 @ApiTags('sweets')
 @Controller('sweets')
@@ -108,4 +109,13 @@ export class SweetController {
     const result = await this.sweetService.createRegionItemPrice(createSweetRegionItemPriceDto);
     return result;
   }
+
+  @Patch(':id/toggle-featured')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @ToggleFeaturedStatusDecorator()
+  async toggleFeatured(@Param('id') id: string) {
+    return await this.sweetService.toggleFeatured(id);
+  }
+
 }

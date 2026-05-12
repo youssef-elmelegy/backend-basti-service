@@ -61,6 +61,18 @@ export class ConfigResponseDto {
   closureMessage: string;
 
   @ApiProperty({
+    description: 'Basti percentage applied to orders',
+    example: 0.2,
+  })
+  bastiPercentage: number;
+
+  @ApiProperty({
+    description: 'Delivery amount applied to orders',
+    example: 10,
+  })
+  deliveryAmount: number;
+
+  @ApiProperty({
     description: 'Config creation timestamp',
     example: MOCK_DATA.dates.default,
   })

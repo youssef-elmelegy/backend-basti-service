@@ -25,6 +25,9 @@ import { I18nModule, AcceptLanguageResolver, QueryResolver, HeaderResolver } fro
 import * as path from 'path';
 import { TranslationModule } from '@/common/translation/translation.module';
 import { CouponModule } from './modules/coupon/coupon.module';
+import { OfferModule } from './modules/offer/offer.module';
+import { ThrottlerModule, ThrottlerGuard, seconds, minutes } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -40,6 +43,12 @@ import { CouponModule } from './modules/coupon/coupon.module';
         new HeaderResolver(['x-custom-lang']),
       ],
     }),
+    ThrottlerModule.forRoot([{
+      name: 'global-rate-limitter',
+      ttl: minutes(1),
+      limit: 10,
+      // blockDuration: 60000 // in (ms)
+    }]),
     TranslationModule,
     AuthModule,
     RegionModule,
@@ -61,9 +70,16 @@ import { CouponModule } from './modules/coupon/coupon.module';
     TagsModule,
     NotificationModule,
     CouponModule,
+    OfferModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard, // This applies the rate limit globally
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

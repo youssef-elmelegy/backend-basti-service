@@ -194,6 +194,41 @@
       "not_found": "Coupon not found"
     },
 
+    "offers": {
+      "created": "Offer created successfully",
+      "failed_create": "Failed to create offer",
+
+      "updated": "Offer updated successfully",
+      "failed_update": "Failed to update offer",
+
+      "retrieved": "Offer retrieved successfully",
+      "failed_retrieve": "Failed to retrieve offer",
+
+      "list_retrieved": "Offers retrieved successfully",
+      "failed_list": "Failed to retrieve offers",
+
+      "deleted": "Offer deleted successfully",
+      "failed_delete": "Failed to delete offer",
+
+      "toggled": "Offer status toggled successfully",
+      "failed_toggle": "Failed to toggle offer status",
+      
+      "not_found": "Offer not found",
+
+      "added_item": "Item added to offer successfully",
+      "failed_add_item": "Failed to add item to offer",
+
+      "removed_item": "Item removed from offer successfully",
+      "failed_remove_item": "Failed to remove item from offer",
+
+      "no_item": "No item provided",
+
+      "item_region_error": "Item is not available in this region or there is no pricing available"
+
+
+
+    },
+
     "decorations": {
       "created": "Decoration created successfully",
       "failed_create": "Failed to create decoration",
@@ -440,7 +475,10 @@
       "not_assigned_to_bakery": "Order with id: {orderId} is not assigned to a bakery",
       "assinged_for_too_long": "Order with id: {orderId} has been assigned to a bakery for more than 1 hour, so it cannot be unassigned",
       "final_images_required": "At least one final image is required to finalize the order",
-      "not_assined_to_this_bakery": "Order with id: {orderId} is not assigned to bakery {bakeryId}. Current bakery: {currentBakeryId}"
+      "not_assined_to_this_bakery": "Order with id: {orderId} is not assigned to bakery {bakeryId}. Current bakery: {currentBakeryId}",
+      "financials_retrieved": "Orders financials retrieved successfully",
+      "failed_financials": "Failed to retrieve orders financials",
+      "no_financials": "No financials found"
     },
 
     "Stock": {
@@ -603,6 +641,11 @@
       "method_retrieved": "Payment method retrieved successfully",
       "methods_retrieved": "Payment methods retrieved successfully",
       "method_updated": "Payment method updated successfully"
+    },
+
+    "item_flags": {
+      "featured_toggled": "Item featured status toggled successfully",
+      "failed_toggle_featured": "Failed to toggle item featured status"
     },
 
     "common": {

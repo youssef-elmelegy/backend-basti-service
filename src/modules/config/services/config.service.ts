@@ -58,6 +58,12 @@ export class ConfigService {
           ...(updateDto.closureMessage !== undefined && {
             closureMessage: updateDto.closureMessage,
           }),
+          ...(updateDto.bastiPercentage !== undefined && {
+            bastiPercentage: updateDto.bastiPercentage.toFixed(2),
+          }),
+          ...(updateDto.deliveryAmount !== undefined && {
+            deliveryAmount: updateDto.deliveryAmount,
+          }),
           updatedAt: new Date(),
         })
         .where(eq(appConfig.id, config.id))
@@ -91,6 +97,8 @@ export class ConfigService {
       emergencyClosures: config.emergencyClosures,
       isOpen: config.isOpen,
       closureMessage: config.closureMessage || '',
+      bastiPercentage: parseFloat(config.bastiPercentage),
+      deliveryAmount: config.deliveryAmount,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };

@@ -8,3 +8,4 @@ export { CreateAddonRegionItemPriceDecorator } from './create-addon-region-item-
 export { CreateAddonOptionDecorator } from './create-addon-option.decorator';
 export { UpdateAddonOptionDecorator } from './update-addon-option.decorator';
 export { DeleteAddonOptionDecorator } from './delete-addon-option.decorator';
+export { ToggleFeaturedStatusDecorator } from './toggle-featured-flag.decorator';
