@@ -124,14 +124,14 @@ export class UpdateConfigDto {
   closureMessage?: string;
 
   @ApiProperty({
-    description: 'Basti percentage applied to orders',
-    example: 0.2,
+    description: 'Basti percentage applied to orders (0-100)',
+    example: 20,
     required: false,
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(1)
+  @Max(100)
   bastiPercentage?: number;
 
   @ApiProperty({
