@@ -13,6 +13,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { visualKeyTypeEnum } from '@/db/schema';
 
 export enum ShapeSize {
+  MINI = 'mini',
   SMALL = 'small',
   MEDIUM = 'medium',
   LARGE = 'large',

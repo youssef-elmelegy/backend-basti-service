@@ -145,12 +145,12 @@ export class UpdateConfigDto {
   deliveryAmount?: number;
 
   @ApiProperty({
-    description: 'Minimum number of small cakes required for an order',
+    description: 'Minimum number of mini cakes required for an order',
     example: 10,
     required: false,
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  minSmallCakesRequired?: number;
+  minMiniCakesRequired?: number;
 }

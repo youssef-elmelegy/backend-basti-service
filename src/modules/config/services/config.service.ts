@@ -64,8 +64,8 @@ export class ConfigService {
           ...(updateDto.deliveryAmount !== undefined && {
             deliveryAmount: updateDto.deliveryAmount,
           }),
-          ...(updateDto.minSmallCakesRequired !== undefined && {
-            minSmallCakesRequired: updateDto.minSmallCakesRequired,
+          ...(updateDto.minMiniCakesRequired !== undefined && {
+            minMiniCakesRequired: updateDto.minMiniCakesRequired,
           }),
           updatedAt: new Date(),
         })
@@ -102,7 +102,7 @@ export class ConfigService {
       closureMessage: config.closureMessage || '',
       bastiPercentage: parseFloat(config.bastiPercentage),
       deliveryAmount: config.deliveryAmount,
-      minSmallCakesRequired: config.minSmallCakesRequired,
+      minMiniCakesRequired: config.minMiniCakesRequired,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };
