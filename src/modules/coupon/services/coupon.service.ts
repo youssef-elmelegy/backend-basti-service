@@ -109,7 +109,7 @@ export class CouponService {
 		}
 	}
 
-	async verify(verifyDto: VerifyCouponDto, userId: string): Promise<SuccessResponse<{ message: string }>> {
+	async verify(verifyDto: VerifyCouponDto, userId: string): Promise<SuccessResponse<CouponResponse>> {
 		
 		const {
 			cartTotal,
@@ -160,9 +160,7 @@ export class CouponService {
 			}
 
 			return successResponse(
-				{
-					message: 'routes.coupons.verify',
-				},
+				this.formatCouponResponse(coupon),
 				'routes.coupons.verify',
 			);
 
