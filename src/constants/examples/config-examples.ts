@@ -18,6 +18,9 @@ const configItem = {
   ],
   isOpen: true,
   closureMessage: null,
+  bastiPercentage: 0.2,
+  deliveryAmount: 10,
+  minSmallCakesRequired: 10,
   createdAt: MOCK_DATA.dates.default,
   updatedAt: MOCK_DATA.dates.default,
 };

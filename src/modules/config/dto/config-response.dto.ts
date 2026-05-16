@@ -73,6 +73,12 @@ export class ConfigResponseDto {
   deliveryAmount: number;
 
   @ApiProperty({
+    description: 'Minimum number of small cakes required for an order',
+    example: 10,
+  })
+  minSmallCakesRequired: number;
+
+  @ApiProperty({
     description: 'Config creation timestamp',
     example: MOCK_DATA.dates.default,
   })
