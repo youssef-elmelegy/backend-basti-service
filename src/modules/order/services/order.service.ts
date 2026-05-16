@@ -417,10 +417,10 @@ export class OrderService {
           this.logger.warn(`No items found in the cart for user ${userId} and type ${type}`);
           throw new BadRequestException(
             errorResponse(
-              'routes.cart.orders.cart_empty_for_user', 
-              HttpStatus.BAD_REQUEST, 
+              'routes.cart.orders.cart_empty_for_user',
+              HttpStatus.BAD_REQUEST,
               'BadRequest',
-              { userId, type }
+              { userId, type },
             ),
           );
         }
@@ -930,12 +930,10 @@ export class OrderService {
         `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(
-          `routes.orders.not_pending`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { orderId, status: order.orderStatus },
-        ),
+        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+          orderId,
+          status: order.orderStatus,
+        }),
       );
     }
 
@@ -1050,12 +1048,10 @@ export class OrderService {
         `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(
-          `routes.orders.not_pending`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { orderId, status: order.orderStatus },
-        ),
+        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+          orderId,
+          status: order.orderStatus,
+        }),
       );
     }
 
@@ -1155,10 +1151,7 @@ export class OrderService {
     }
   }
 
-  async finalizeData(
-    orderId: string,
-    data: FinalizeOrderDto,
-  ): Promise<FinalizeOrderResponseDto> {
+  async finalizeData(orderId: string, data: FinalizeOrderDto): Promise<FinalizeOrderResponseDto> {
     const bakeryId = data.bakeryId;
 
     // Verify data contains at least one final image
@@ -1250,9 +1243,11 @@ export class OrderService {
     }
   }
 
-  async getOrdersFinancials(dto: GetOrdersFinancialsDto): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
+  async getOrdersFinancials(
+    dto: GetOrdersFinancialsDto,
+  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
     const { bakeryId, from, to, page, limit } = dto;
-    
+
     try {
       const conditions: SQL[] = [];
 
@@ -1296,7 +1291,10 @@ export class OrderService {
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
       const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
-      const resolvedLimit = Math.min(limit ?? PAGINATION_DEFAULTS.LIMIT, PAGINATION_DEFAULTS.MAX_LIMIT);
+      const resolvedLimit = Math.min(
+        limit ?? PAGINATION_DEFAULTS.LIMIT,
+        PAGINATION_DEFAULTS.MAX_LIMIT,
+      );
       const offset = (resolvedPage - 1) * resolvedLimit;
 
       const ordersTotalList = await db
@@ -1319,9 +1317,27 @@ export class OrderService {
         .orderBy(desc(orders.deliveredAt));
 
       if (!ordersTotalList || ordersTotalList.length === 0) {
-        this.logger.warn(`No orders found`);
-        throw new NotFoundException(
-          errorResponse('routes.orders.no_financials', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        this.logger.log('No orders matched the financials filters; returning empty result');
+        return successResponse(
+          {
+            rows: [],
+            total: {
+              addonsTotal: 0,
+              bastiTotal: 0,
+              bakeryTotal: 0,
+              deliveryAmount: 0,
+              totalPrice: 0,
+              discountAmount: 0,
+              finalPrice: 0,
+            },
+            pagination: {
+              total: 0,
+              limit: resolvedLimit,
+              page: resolvedPage,
+              totalPages: 0,
+            },
+          },
+          'routes.orders.financials_retrieved',
         );
       }
 
@@ -1346,8 +1362,7 @@ export class OrderService {
         .limit(resolvedLimit)
         .offset(offset);
 
-      
-        const rows = ordersList.map((order) => {
+      const rows = ordersList.map((order) => {
         const totalPrice = Number(order.totalPrice) || 0;
         const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
         const bastiAmount = bastiPercentage * totalPrice;
@@ -1372,7 +1387,8 @@ export class OrderService {
         (acc, order) => ({
           addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
           bastiTotal:
-            acc.bastiTotal + (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0),
+            acc.bastiTotal +
+            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0),
           bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
           deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
           totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
@@ -1406,9 +1422,10 @@ export class OrderService {
         },
         'routes.orders.financials_retrieved',
       );
-
-
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       this.logger.error(`Failed to retrieve financials:`, error);
       throw new InternalServerErrorException(
         errorResponse(
@@ -1584,7 +1601,10 @@ export class OrderService {
           updatedAt: item.updatedAt,
         });
       } else if (item.predesignedCakeId) {
-        const [pdc] = await this.itemService.getPredesignedCakes([item.predesignedCakeId], regionId);
+        const [pdc] = await this.itemService.getPredesignedCakes(
+          [item.predesignedCakeId],
+          regionId,
+        );
         predesignedCakeItems.push({
           data: {
             id: pdc.id,
@@ -1736,7 +1756,6 @@ export class OrderService {
     };
   }
 }
-
 
 // {
 //   "offerId": "b6937c54-0122-47f8-ad7c-3ced3c31485d",
