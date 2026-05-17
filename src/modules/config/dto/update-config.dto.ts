@@ -143,4 +143,14 @@ export class UpdateConfigDto {
   @IsInt()
   @Min(0)
   deliveryAmount?: number;
+
+  @ApiProperty({
+    description: 'Minimum number of mini cakes required for an order',
+    example: 10,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  minMiniCakesRequired?: number;
 }

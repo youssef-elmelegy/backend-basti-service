@@ -24,6 +24,7 @@ export const appConfig = pgTable('app_config', {
   closureMessage: varchar('closure_message', { length: 500 }),
   bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 }).notNull().default('0.20'),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
+  minMiniCakesRequired: integer('min_mini_cakes_required').notNull().default(1),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

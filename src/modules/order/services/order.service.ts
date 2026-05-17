@@ -496,7 +496,10 @@ export class OrderService {
 
   async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
     try {
-      const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
+      const ordersForUser = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.userId, userId));
 
       const validOrderIds = ordersForUser
         .map((order) => order.id)
@@ -1605,145 +1608,153 @@ export class OrderService {
           [item.predesignedCakeId],
           regionId,
         );
-        predesignedCakeItems.push({
-          data: {
-            id: pdc.id,
-            name: pdc.name,
-            description: pdc.description,
-            tagId: pdc.tagId || '',
-            tagName: pdc.tagName || '',
-            isActive: pdc.isActive,
-            configs: pdc.configs.map((config) => ({
-              id: config.id,
-              predesignedCakeId: config.id || '',
-              shape: {
-                id: config.shape.id,
-                title: config.shape.title,
-                description: config.shape.description,
-                shapeUrl: config.shape.shapeUrl,
-                minPrepHours: config.shape.minPrepHours,
-                createdAt: config.shape.createdAt,
-                updatedAt: config.shape.updatedAt,
-              },
-              flavor: {
-                id: config.flavor.id,
-                title: config.flavor.title,
-                description: config.flavor.description,
-                flavorUrl: config.flavor.flavorUrl,
-                createdAt: config.flavor.createdAt,
-                updatedAt: config.flavor.updatedAt,
-              },
-              decoration: {
-                id: config.decoration.id,
-                title: config.decoration.title,
-                description: config.decoration.description,
-                minPrepHours: config.decoration.minPrepHours,
-                decorationUrl: config.decoration.decorationUrl,
-                createdAt: config.decoration.createdAt,
-                updatedAt: config.decoration.updatedAt,
-              },
-              frostColorValue: config.frostColorValue,
-              createdAt: config.createdAt,
-              updatedAt: config.updatedAt,
-            })),
-            price: pdc.price ?? '0',
-            offer: pdc.offer,
-            createdAt: pdc.createdAt,
-            updatedAt: pdc.updatedAt,
-          },
-          price: parseFloat(item.price ?? '0'),
-          id: item.id,
-          orderId: item.orderId,
-          quantity: item.quantity ?? 0,
-          size: item.size ?? '',
-          flavor: item.flavor ?? '',
-          selectedOptions: [],
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        });
-      } else if (item.featuredCakeId) {
-        const [fc] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
-        featuredCakeItems.push({
-          data: {
-            id: fc.id,
-            name: fc.name,
-            description: fc.description,
-            images: fc.images,
-            capacity: fc.capacity,
-            flavorList: fc.flavorList,
-            pipingPaletteList: fc.pipingPaletteList,
-            tagName: fc.tagName || '',
-            isActive: fc.isActive,
-            price: fc.price ?? '0',
-            offer: fc.offer,
-            createdAt: item.createdAt.toISOString(),
-            updatedAt: item.updatedAt.toISOString(),
-          },
-          price: parseFloat(item.price ?? '0'),
-          id: item.id,
-          orderId: item.orderId,
-          quantity: item.quantity ?? 0,
-          size: item.size ?? '',
-          flavor: item.flavor ?? '',
-          selectedOptions: [],
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        });
-      } else if (item.addonId) {
-        const [addon] = await this.itemService.getAddons([{ id: item.addonId }], regionId);
-        addonItems.push({
-          data: {
-            id: addon.id,
-            name: addon.name,
-            description: addon.description || '',
-            category: addon.category as string,
-            images: addon.images,
-            tagId: addon.tagId || '',
-            options: [],
-            tagName: addon.tagName || '',
-            isActive: addon.isActive,
-            price: addon.price ?? '0',
-            offer: addon.offer,
+        if (pdc) {
+          predesignedCakeItems.push({
+            data: {
+              id: pdc.id,
+              name: pdc.name,
+              description: pdc.description,
+              tagId: pdc.tagId || '',
+              tagName: pdc.tagName || '',
+              isActive: pdc.isActive,
+              configs: pdc.configs.map((config) => ({
+                id: config.id,
+                predesignedCakeId: config.id || '',
+                shape: {
+                  id: config.shape.id,
+                  title: config.shape.title,
+                  description: config.shape.description,
+                  shapeUrl: config.shape.shapeUrl,
+                  minPrepHours: config.shape.minPrepHours,
+                  createdAt: config.shape.createdAt,
+                  updatedAt: config.shape.updatedAt,
+                },
+                flavor: {
+                  id: config.flavor.id,
+                  title: config.flavor.title,
+                  description: config.flavor.description,
+                  flavorUrl: config.flavor.flavorUrl,
+                  createdAt: config.flavor.createdAt,
+                  updatedAt: config.flavor.updatedAt,
+                },
+                decoration: {
+                  id: config.decoration.id,
+                  title: config.decoration.title,
+                  description: config.decoration.description,
+                  minPrepHours: config.decoration.minPrepHours,
+                  decorationUrl: config.decoration.decorationUrl,
+                  createdAt: config.decoration.createdAt,
+                  updatedAt: config.decoration.updatedAt,
+                },
+                frostColorValue: config.frostColorValue,
+                createdAt: config.createdAt,
+                updatedAt: config.updatedAt,
+              })),
+              price: pdc.price ?? '0',
+              offer: pdc.offer,
+              createdAt: pdc.createdAt,
+              updatedAt: pdc.updatedAt,
+            },
+            price: parseFloat(item.price ?? '0'),
+            id: item.id,
+            orderId: item.orderId,
+            quantity: item.quantity ?? 0,
+            size: item.size ?? '',
+            flavor: item.flavor ?? '',
+            selectedOptions: [],
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
-          },
-          price: parseFloat(item.price ?? '0'),
-          id: item.id,
-          orderId: item.orderId,
-          quantity: item.quantity ?? 0,
-          size: item.size ?? '',
-          flavor: item.flavor ?? '',
-          selectedOptions: item.selectedOptions || [],
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        });
+          });
+        }
+      } else if (item.featuredCakeId) {
+        const [fc] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
+        if (fc) {
+          featuredCakeItems.push({
+            data: {
+              id: fc.id,
+              name: fc.name,
+              description: fc.description,
+              images: fc.images,
+              capacity: fc.capacity,
+              flavorList: fc.flavorList,
+              pipingPaletteList: fc.pipingPaletteList,
+              tagName: fc.tagName || '',
+              isActive: fc.isActive,
+              price: fc.price ?? '0',
+              offer: fc.offer,
+              createdAt: item.createdAt.toISOString(),
+              updatedAt: item.updatedAt.toISOString(),
+            },
+            price: parseFloat(item.price ?? '0'),
+            id: item.id,
+            orderId: item.orderId,
+            quantity: item.quantity ?? 0,
+            size: item.size ?? '',
+            flavor: item.flavor ?? '',
+            selectedOptions: [],
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          });
+        }
+      } else if (item.addonId) {
+        const [addon] = await this.itemService.getAddons([{ id: item.addonId }], regionId);
+        if (addon) {
+          addonItems.push({
+            data: {
+              id: addon.id,
+              name: addon.name,
+              description: addon.description || '',
+              category: addon.category as string,
+              images: addon.images,
+              tagId: addon.tagId || '',
+              options: [],
+              tagName: addon.tagName || '',
+              isActive: addon.isActive,
+              price: addon.price ?? '0',
+              offer: addon.offer,
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt,
+            },
+            price: parseFloat(item.price ?? '0'),
+            id: item.id,
+            orderId: item.orderId,
+            quantity: item.quantity ?? 0,
+            size: item.size ?? '',
+            flavor: item.flavor ?? '',
+            selectedOptions: item.selectedOptions || [],
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          });
+        }
       } else if (item.sweetId) {
         const [sweet] = await this.itemService.getSweets([item.sweetId], regionId);
-        sweetItems.push({
-          data: {
-            id: sweet.id,
-            name: sweet.name,
-            description: sweet.description || '',
-            images: sweet.images,
-            tagId: sweet.tagId || '',
-            tagName: sweet.tagName || '',
-            isActive: sweet.isActive,
-            sizes: sweet.sizes,
-            price: sweet.price ?? '0',
-            offer: sweet.offer,
-            createdAt: sweet.createdAt,
-            updatedAt: sweet.updatedAt,
-          },
-          price: parseFloat(item.price ?? '0'),
-          id: item.id,
-          orderId: item.orderId,
-          quantity: item.quantity ?? 0,
-          size: item.size ?? '',
-          flavor: item.flavor ?? '',
-          selectedOptions: [],
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        });
+        if (sweet) {
+          sweetItems.push({
+            data: {
+              id: sweet.id,
+              name: sweet.name,
+              description: sweet.description || '',
+              images: sweet.images,
+              tagId: sweet.tagId || '',
+              tagName: sweet.tagName || '',
+              isActive: sweet.isActive,
+              sizes: sweet.sizes,
+              price: sweet.price ?? '0',
+              offer: sweet.offer,
+              createdAt: sweet.createdAt,
+              updatedAt: sweet.updatedAt,
+            },
+            price: parseFloat(item.price ?? '0'),
+            id: item.id,
+            orderId: item.orderId,
+            quantity: item.quantity ?? 0,
+            size: item.size ?? '',
+            flavor: item.flavor ?? '',
+            selectedOptions: [],
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+          });
+        }
       }
     }
 
