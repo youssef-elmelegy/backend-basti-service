@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
@@ -19,9 +20,13 @@ const logLevelMap: Record<string, NestLogLevel[]> = {
 };
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Create app with logger configuration based on env.LOG_LEVEL
   app.useLogger(logLevelMap[env.LOG_LEVEL] || logLevelMap.info);
+
+  // Trust Caddy / Cloudflare so req.ip reflects the real client (via X-Forwarded-For).
+  // Required for @nestjs/throttler to rate-limit by client IP instead of proxy IP.
+  app.set('trust proxy', 1);
 
   app.setGlobalPrefix('api');
 
