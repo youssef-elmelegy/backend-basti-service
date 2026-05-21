@@ -25,8 +25,19 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: DEBUG - inspect loaded SSH key
+        run: |
+          echo "Loaded keys in agent:"
+          ssh-add -L | sed 's/^\(ssh-\w*\) [A-Za-z0-9+/=]\{1,40\}.*\([A-Za-z0-9+/=]\{20\}\) /\1 ...\2 /'
+          echo "Expected fingerprint (last 20 chars of pub): TloINTQYp"
+
       - name: Trust the server host key
         run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: DEBUG - test SSH auth
+        run: |
+          ssh -v -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+            elmelegy@${{ secrets.SERVER_HOST }} 'echo ssh-auth-works' 2>&1 | tail -30 || true
 
       - name: Write production .env
         env:
