@@ -80,6 +80,20 @@ cat > /etc/docker/daemon.json <<'EOF'
 EOF
 systemctl restart docker
 
+# ---------- 4b. Node.js 22 + pnpm (for building the dashboard on the server) ----------
+echo "==> Node.js + pnpm"
+if ! command -v node >/dev/null; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+fi
+echo "Node: $(node --version)"
+if ! command -v corepack >/dev/null; then
+  npm install -g corepack
+fi
+corepack enable
+corepack prepare pnpm@10.33.0 --activate
+echo "pnpm: $(pnpm --version)"
+
 # ---------- 5. Caddy (skip if already installed) ----------
 echo "==> Caddy"
 if ! command -v caddy >/dev/null; then
