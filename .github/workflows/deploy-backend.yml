@@ -103,7 +103,21 @@ jobs:
             sudo systemctl reload caddy || true
           EOF
 
-      - name: Verify health
+      - name: Verify health (with retry)
         run: |
-          ssh -o StrictHostKeyChecking=no elmelegy@${{ secrets.SERVER_HOST }} \
-            'curl -fsS http://127.0.0.1:3000/api/health || (docker logs basti-backend --tail 50 && exit 1)'
+          ssh -o StrictHostKeyChecking=no elmelegy@${{ secrets.SERVER_HOST }} 'bash -se' <<'EOF'
+            set -euo pipefail
+            # Backend takes ~20s to fully boot. Retry up to 60s.
+            for i in $(seq 1 12); do
+              if curl -fsS http://127.0.0.1:3000/api/health; then
+                echo ""
+                echo "Health OK after ${i} attempt(s)."
+                exit 0
+              fi
+              echo "Attempt $i: not ready yet, sleeping 5s..."
+              sleep 5
+            done
+            echo "Health check failed after 60s. Recent logs:"
+            docker logs basti-backend --tail 80
+            exit 1
+          EOF
