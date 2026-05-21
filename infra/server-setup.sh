@@ -94,19 +94,36 @@ else
   echo "Caddy present: $(caddy version)"
 fi
 
-# ---------- 6. Symlink Caddyfile from repo ----------
-echo "==> Caddy config symlink"
-REPO_CADDYFILE="${REPO_DIR}/infra/caddy/Caddyfile"
-if [[ -f "${REPO_CADDYFILE}" ]]; then
-  if [[ -L /etc/caddy/Caddyfile ]] || [[ -f /etc/caddy/Caddyfile ]]; then
-    cp -n /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak.$(date +%s) 2>/dev/null || true
-    rm -f /etc/caddy/Caddyfile
+# ---------- 6. Sync Caddy config from repo into /etc/caddy/ ----------
+# We copy (not symlink) because the caddy user can't traverse into /home/elmelegy/
+# (home dirs are 750 by default). /etc/caddy/ is root-owned + world-readable, so caddy
+# can read freely. Re-run this script to refresh /etc/caddy/ when config changes.
+echo "==> Caddy config sync"
+REPO_CADDY_DIR="${REPO_DIR}/infra/caddy"
+if [[ -d "${REPO_CADDY_DIR}" ]]; then
+  # One-time backup of original default Caddyfile
+  if [[ -f /etc/caddy/Caddyfile && ! -L /etc/caddy/Caddyfile && ! -f /etc/caddy/Caddyfile.orig ]]; then
+    cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.orig
   fi
-  ln -s "${REPO_CADDYFILE}" /etc/caddy/Caddyfile
-  systemctl reload caddy 2>/dev/null || systemctl restart caddy
-  echo "Caddyfile linked: $(readlink /etc/caddy/Caddyfile)"
+  # Remove any old symlink
+  [[ -L /etc/caddy/Caddyfile ]] && rm -f /etc/caddy/Caddyfile
+  # Copy in fresh config
+  cp "${REPO_CADDY_DIR}/Caddyfile" /etc/caddy/Caddyfile
+  mkdir -p /etc/caddy/sites /etc/caddy/snippets
+  cp -f "${REPO_CADDY_DIR}/sites/"*.caddy /etc/caddy/sites/
+  cp -f "${REPO_CADDY_DIR}/snippets/"*.caddy /etc/caddy/snippets/
+  chown -R root:caddy /etc/caddy/Caddyfile /etc/caddy/sites /etc/caddy/snippets
+  chmod 0644 /etc/caddy/Caddyfile /etc/caddy/sites/*.caddy /etc/caddy/snippets/*.caddy
+  # Validate before reload
+  if caddy validate --config /etc/caddy/Caddyfile; then
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy
+    echo "Caddy reloaded."
+  else
+    echo "ERROR: Caddyfile validation failed; not reloading caddy."
+    exit 1
+  fi
 else
-  echo "WARN: ${REPO_CADDYFILE} not found yet — clone the backend repo and re-run this script"
+  echo "WARN: ${REPO_CADDY_DIR} not found yet — clone the backend repo and re-run this script"
 fi
 
 # ---------- 7. Static dashboard dir ----------
