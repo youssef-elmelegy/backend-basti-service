@@ -97,8 +97,9 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             cd infra
-            docker compose up -d --build
-            docker compose ps
+            # Use --env-file so docker compose substitutes ${VAR} references from .env
+            docker compose --env-file ../.env up -d --build
+            docker compose --env-file ../.env ps
             sudo systemctl reload caddy || true
           EOF
 
