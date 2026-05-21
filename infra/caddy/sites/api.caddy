@@ -9,11 +9,4 @@ api.basty.ly {
 		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 		header_up X-Forwarded-Proto https
 	}
-
-	log {
-		output file /var/log/caddy/api.log {
-			roll_size 50mb
-			roll_keep 7
-		}
-	}
 }

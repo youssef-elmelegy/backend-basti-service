@@ -1,8 +1,5 @@
 {
 	email youssefelmelegy999@gmail.com
-	servers {
-		trusted_proxies cloudflare
-	}
 }
 
 import snippets/*.caddy
