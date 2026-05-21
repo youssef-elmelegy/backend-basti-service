@@ -1,0 +1,105 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.editorconfig'
+      - '.prettierrc'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Configure SSH agent with deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust the server host key
+        run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Write production .env
+        env:
+          ENV_BODY: |
+            NODE_ENV=production
+            PORT=3000
+            LOG_LEVEL=info
+
+            DB_HOST=postgres
+            DB_PORT=5432
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DATABASE=${{ secrets.DB_DATABASE }}
+            DB_SSL=false
+
+            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+            JWT_ACCESS_EXPIRES_IN=900
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            JWT_REFRESH_EXPIRES_IN=604800
+            JWT_SETUP_PROFILE_EXPIRES_IN=600
+            JWT_RESET_PASSWORD_EXPIRES_IN=3600
+
+            BCRYPT_SALT_ROUNDS=12
+            CORS_ORIGINS=https://dashboard.basty.ly
+
+            SMTP_HOST=${{ secrets.SMTP_HOST }}
+            SMTP_PORT=${{ secrets.SMTP_PORT }}
+            SMTP_USER=${{ secrets.SMTP_USER }}
+            SMTP_PASS=${{ secrets.SMTP_PASS }}
+            MAIL_FROM_NAME=basti
+            MAIL_FROM=${{ secrets.MAIL_FROM }}
+
+            CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
+            CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
+            CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
+
+            GOOGLE_CLOUD_PROJECT_ID=${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
+            GOOGLE_CLOUD_KEY_FILE=${{ secrets.GOOGLE_CLOUD_KEY_FILE }}
+
+            LARA_ACCESS_KEY_ID=${{ secrets.LARA_ACCESS_KEY_ID }}
+            LARA_ACCESS_KEY_SECRET=${{ secrets.LARA_ACCESS_KEY_SECRET }}
+
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$ENV_BODY" > backend.env
+          # sanity check that no required value rendered empty
+          if grep -E '^[A-Z_]+=$' backend.env; then
+            echo "::error::One or more secrets are empty"
+            grep -E '^[A-Z_]+=$' backend.env
+            exit 1
+          fi
+
+      - name: Upload .env to server
+        run: |
+          scp -o StrictHostKeyChecking=no backend.env \
+            elmelegy@${{ secrets.SERVER_HOST }}:/home/elmelegy/basti/backend-basti-service/.env
+
+      - name: Pull, build, restart
+        run: |
+          ssh -o StrictHostKeyChecking=no elmelegy@${{ secrets.SERVER_HOST }} 'bash -se' <<'EOF'
+            set -euo pipefail
+            cd ~/basti/backend-basti-service
+            git fetch origin main
+            git reset --hard origin/main
+            cd infra
+            docker compose up -d --build
+            docker compose ps
+            sudo systemctl reload caddy || true
+          EOF
+
+      - name: Verify health
+        run: |
+          ssh -o StrictHostKeyChecking=no elmelegy@${{ secrets.SERVER_HOST }} \
+            'curl -fsS http://127.0.0.1:3000/api/health || (docker logs basti-backend --tail 50 && exit 1)'

@@ -26,7 +26,8 @@ import * as path from 'path';
 import { TranslationModule } from '@/common/translation/translation.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { OfferModule } from './modules/offer/offer.module';
-import { ThrottlerModule, ThrottlerGuard, seconds, minutes } from '@nestjs/throttler';
+import { HealthModule } from './modules/health/health.module';
+import { ThrottlerModule, ThrottlerGuard, minutes } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
 @Module({
@@ -43,12 +44,14 @@ import { APP_GUARD } from '@nestjs/core';
         new HeaderResolver(['x-custom-lang']),
       ],
     }),
-    ThrottlerModule.forRoot([{
-      name: 'global-rate-limitter',
-      ttl: minutes(1),
-      limit: 10,
-      // blockDuration: 60000 // in (ms)
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'global-rate-limitter',
+        ttl: minutes(1),
+        limit: 10,
+        // blockDuration: 60000 // in (ms)
+      },
+    ]),
     TranslationModule,
     AuthModule,
     RegionModule,
@@ -71,6 +74,7 @@ import { APP_GUARD } from '@nestjs/core';
     NotificationModule,
     CouponModule,
     OfferModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

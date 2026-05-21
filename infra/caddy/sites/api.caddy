@@ -1,0 +1,19 @@
+api.basty.ly {
+	import security_headers
+	import hide_dotfiles
+
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-Proto https
+	}
+
+	log {
+		output file /var/log/caddy/api.log {
+			roll_size 50mb
+			roll_keep 7
+		}
+	}
+}
