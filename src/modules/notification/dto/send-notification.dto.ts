@@ -4,10 +4,13 @@ import { ApiProperty } from '@nestjs/swagger';
 export const NOTIFICATION_TYPES = [
   'order_update',
   'order_status',
+  'order_cancelled_by_bakery',
   'promotion',
   'system',
   'review',
   'new_order',
+  'offer',
+  'coupon',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

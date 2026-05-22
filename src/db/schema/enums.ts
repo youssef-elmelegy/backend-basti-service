@@ -49,10 +49,13 @@ export const addonInfoTypeEnum = pgEnum('addon_info_type_enum', [
 export const notificationTypeEnum = pgEnum('notification_type_enum', [
   'order_update',
   'order_status',
+  'order_cancelled_by_bakery',
   'promotion',
   'system',
   'review',
   'new_order',
+  'offer',
+  'coupon',
 ]);
 
 export const visualKeyTypeEnum = pgEnum('visual_key_type_enum', [

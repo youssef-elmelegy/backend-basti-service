@@ -1,4 +1,4 @@
-import { pgTable, varchar, boolean, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, boolean, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { notificationTypeEnum, users, admins } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';

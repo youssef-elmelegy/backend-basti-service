@@ -30,6 +30,7 @@ import {
   ToggleItemOfferDto,
   OfferItemResponse,
 } from '@/modules/offer/dto/index';
+import { NotificationService } from '@/modules/notification/services/notification.service';
 
 type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
   name: string;
@@ -40,7 +41,10 @@ type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
 export class OfferService {
   private readonly logger = new Logger(OfferService.name);
 
-  constructor(private readonly translationService: TranslationService) {}
+  constructor(
+    private readonly translationService: TranslationService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async create(data: CreateOfferDto): Promise<SuccessResponse<OfferResponse>> {
     try {
@@ -61,6 +65,16 @@ export class OfferService {
           ...getTableColumns(offers),
           name: this.translationService.getLocalized(offers.name, 'name'),
         });
+
+      if (offer.isActive) {
+        await this.notificationService.broadcastToAllUsers({
+          title: `New offer: ${offer.name}`,
+          body: `Save ${offer.percentage}% on selected items.`,
+          type: 'offer',
+          redirectId: offer.id,
+          data: { offerId: offer.id, percentage: String(offer.percentage) },
+        });
+      }
 
       return successResponse(
         this.formatOfferResponse(offer),

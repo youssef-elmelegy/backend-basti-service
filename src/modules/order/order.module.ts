@@ -7,12 +7,12 @@ import { StockService } from './services/stock.service';
 import { SchedulerService } from './services/scheduler.service';
 import { ItemsModule } from '../items/items.module';
 import { CouponModule } from '../coupon/coupon.module';
-import { CouponService } from '../coupon/services/coupon.service';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, StockService, SchedulerService, CouponService],
-  imports: [CartModule, ConfigModule, ItemsModule, CouponModule],
+  providers: [OrderService, StockService, SchedulerService],
+  imports: [CartModule, ConfigModule, ItemsModule, CouponModule, NotificationModule],
   exports: [OrderService, StockService, SchedulerService],
 })
 export class OrderModule {}

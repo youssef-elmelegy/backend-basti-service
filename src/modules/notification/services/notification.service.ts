@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { notifications, users, admins } from '@/db/schema';
-import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { notifications, users, admins, bakeries } from '@/db/schema';
+import { and, desc, eq, getTableColumns, inArray, or, sql } from 'drizzle-orm';
 import {
   SendNotificationDto,
   BroadcastNotificationDto,
@@ -21,6 +21,16 @@ import { FirebaseService } from '@/common/services';
 import { TranslationService } from '@/common';
 
 export type RecipientKind = 'user' | 'admin';
+
+export interface PushNotificationParams {
+  title: string;
+  body: string;
+  type: NotificationType;
+  recipientType: RecipientKind;
+  recipientId: string;
+  redirectId?: string | null;
+  data?: Record<string, string>;
+}
 
 @Injectable()
 export class NotificationService {
@@ -130,7 +140,33 @@ export class NotificationService {
   }
 
   async sendNotification(dto: SendNotificationDto): Promise<SuccessResponse<NotificationResponse>> {
-    const { title, body, type, recipientType, recipientId, redirectId, data } = dto;
+    const created = await this.pushNotification(dto);
+    return successResponse(
+      this.formatNotificationResponse(created),
+      'routes.notifications.sent',
+      HttpStatus.CREATED,
+    );
+  }
+
+  /**
+   * Internal helper used by other services to persist a notification and
+   * deliver an FCM push in one call. Throws NotFoundException only if the
+   * recipient does not exist; otherwise it logs and swallows push failures
+   * so the caller's primary action is never disrupted by a push error.
+   */
+  async pushNotification(params: PushNotificationParams): Promise<{
+    id: string;
+    title: string;
+    body: string;
+    type: NotificationType;
+    userId: string | null;
+    adminId: string | null;
+    redirectId: string | null;
+    isRead: boolean;
+    readAt: Date | null;
+    createdAt: Date;
+  }> {
+    const { title, body, type, recipientType, recipientId, redirectId, data } = params;
 
     let fcmToken: string | null = null;
 
@@ -170,48 +206,38 @@ export class NotificationService {
       fcmToken = admin.fcmToken;
     }
 
-    // const titleObject = await this.translationService.getTranslationObject(title);
-    // const bodyObject = await this.translationService.getTranslationObject(body);
+    const titleObject = { ar: title, en: title };
+    const bodyObject = { ar: body, en: body };
 
-    const titleObject = {
-      ar: title,
-      en: title,
-    };
+    const [created] = await db
+      .insert(notifications)
+      .values({
+        title: titleObject,
+        body: bodyObject,
+        type,
+        userId: recipientType === 'user' ? recipientId : null,
+        adminId: recipientType === 'admin' ? recipientId : null,
+        redirectId: redirectId ?? null,
+      })
+      .returning({
+        ...getTableColumns(notifications),
+        title: this.translationService.getLocalized(notifications.title, 'title'),
+        body: this.translationService.getLocalized(notifications.body, 'body'),
+      });
 
-    const bodyObject = {
-      ar: title,
-      en: title,
-    };
+    this.logger.log(
+      `Notification ${created.id} stored for ${recipientType} ${recipientId} (type=${type})`,
+    );
 
-    try {
-      const [created] = await db
-        .insert(notifications)
-        .values({
-          title: titleObject,
-          body: bodyObject,
-          type,
-          userId: recipientType === 'user' ? recipientId : null,
-          adminId: recipientType === 'admin' ? recipientId : null,
-          redirectId: redirectId ?? null,
-        })
-        .returning({
-          ...getTableColumns(notifications),
-          title: this.translationService.getLocalized(notifications.title, 'title'),
-          body: this.translationService.getLocalized(notifications.body, 'body'),
-        });
+    if (fcmToken) {
+      const pushPayload: Record<string, string> = {
+        notificationId: created.id,
+        type,
+        ...(created.redirectId ? { redirectId: created.redirectId } : {}),
+        ...(data ?? {}),
+      };
 
-      this.logger.log(
-        `Notification ${created.id} stored for ${recipientType} ${recipientId} (type=${type})`,
-      );
-
-      if (fcmToken) {
-        const pushPayload: Record<string, string> = {
-          notificationId: created.id,
-          type,
-          ...(created.redirectId ? { redirectId: created.redirectId } : {}),
-          ...(data ?? {}),
-        };
-
+      try {
         const result = await this.firebaseService.sendToToken(fcmToken, title, body, pushPayload);
 
         if (!result.success && result.invalidToken) {
@@ -228,28 +254,198 @@ export class NotificationService {
               .where(eq(admins.id, recipientId));
           }
         }
-      } else {
-        this.logger.debug(
-          `No FCM token registered for ${recipientType} ${recipientId} — push skipped`,
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Non-fatal FCM push failure for ${recipientType} ${recipientId}: ${errMsg}`,
         );
       }
-
-      return successResponse(
-        this.formatNotificationResponse(created),
-        'routes.notifications.sent',
-        HttpStatus.CREATED,
+    } else {
+      this.logger.debug(
+        `No FCM token registered for ${recipientType} ${recipientId} — push skipped`,
       );
+    }
+
+    return created;
+  }
+
+  /**
+   * Fire-and-forget variant of pushNotification. Catches all errors and logs
+   * them so callers (order/review/coupon/offer flows) don't have to wrap each
+   * call in try/catch — the primary business action stays unaffected.
+   */
+  async pushNotificationSafe(params: PushNotificationParams): Promise<void> {
+    try {
+      await this.pushNotification(params);
     } catch (error) {
-      if (error instanceof NotFoundException) throw error;
       const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to send notification: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.notifications.failed_send',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
+      this.logger.warn(
+        `Failed to deliver ${params.type} notification to ${params.recipientType} ${params.recipientId}: ${errMsg}`,
+      );
+    }
+  }
+
+  /**
+   * Fan-out push to every admin staffing a given bakery (manager + any other
+   * bakery-scoped admin). Returns silently if the bakery has no staff.
+   */
+  async pushToBakeryStaff(
+    bakeryId: string,
+    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
+  ): Promise<void> {
+    try {
+      const bakeryAdmins = await db
+        .select({ id: admins.id })
+        .from(admins)
+        .where(and(eq(admins.bakeryId, bakeryId), eq(admins.isBlocked, false)));
+
+      const [bakery] = await db
+        .select({ managerId: bakeries.managerId })
+        .from(bakeries)
+        .where(eq(bakeries.id, bakeryId))
+        .limit(1);
+
+      const ids = new Set<string>();
+      for (const a of bakeryAdmins) ids.add(a.id);
+      if (bakery?.managerId) ids.add(bakery.managerId);
+
+      if (ids.size === 0) {
+        this.logger.debug(`Bakery ${bakeryId} has no admins to notify`);
+        return;
+      }
+
+      await Promise.all(
+        Array.from(ids).map((adminId) =>
+          this.pushNotificationSafe({
+            ...payload,
+            recipientType: 'admin',
+            recipientId: adminId,
+          }),
         ),
       );
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to push to bakery staff (${bakeryId}): ${errMsg}`);
+    }
+  }
+
+  /**
+   * Fan-out push to every platform-level admin (super_admin / admin), used
+   * for new orders, cancellations, and other events admins must oversee.
+   */
+  async pushToPlatformAdmins(
+    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
+  ): Promise<void> {
+    try {
+      const rows = await db
+        .select({ id: admins.id })
+        .from(admins)
+        .where(
+          and(
+            eq(admins.isBlocked, false),
+            or(eq(admins.role, 'super_admin'), eq(admins.role, 'admin')),
+          ),
+        );
+
+      if (rows.length === 0) {
+        this.logger.debug('No platform admins to notify');
+        return;
+      }
+
+      await Promise.all(
+        rows.map((a) =>
+          this.pushNotificationSafe({
+            ...payload,
+            recipientType: 'admin',
+            recipientId: a.id,
+          }),
+        ),
+      );
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to push to platform admins: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Broadcast to every user (used for offers, coupons and other promotional
+   * messages). Stores a row per user and pushes to those with FCM tokens.
+   */
+  async broadcastToAllUsers(
+    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
+  ): Promise<{ totalUsers: number; pushedCount: number; failedCount: number }> {
+    try {
+      const allUsers = await db.select({ id: users.id, fcmToken: users.fcmToken }).from(users);
+
+      if (allUsers.length === 0) {
+        return { totalUsers: 0, pushedCount: 0, failedCount: 0 };
+      }
+
+      const titleObject = { ar: payload.title, en: payload.title };
+      const bodyObject = { ar: payload.body, en: payload.body };
+
+      await db.insert(notifications).values(
+        allUsers.map((u) => ({
+          title: titleObject,
+          body: bodyObject,
+          type: payload.type,
+          userId: u.id,
+          adminId: null,
+          redirectId: payload.redirectId ?? null,
+        })),
+      );
+
+      const withToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
+        Boolean(u.fcmToken),
+      );
+
+      let pushedCount = 0;
+      let failedCount = 0;
+      const invalidTokenUserIds: string[] = [];
+
+      const pushPayloadBase: Record<string, string> = {
+        type: payload.type,
+        ...(payload.redirectId ? { redirectId: payload.redirectId } : {}),
+        ...(payload.data ?? {}),
+      };
+
+      await Promise.all(
+        withToken.map(async (u) => {
+          try {
+            const result = await this.firebaseService.sendToToken(
+              u.fcmToken,
+              payload.title,
+              payload.body,
+              pushPayloadBase,
+            );
+            if (result.success) {
+              pushedCount += 1;
+            } else {
+              failedCount += 1;
+              if (result.invalidToken) invalidTokenUserIds.push(u.id);
+            }
+          } catch {
+            failedCount += 1;
+          }
+        }),
+      );
+
+      if (invalidTokenUserIds.length > 0) {
+        await db
+          .update(users)
+          .set({ fcmToken: null, updatedAt: new Date() })
+          .where(inArray(users.id, invalidTokenUserIds));
+      }
+
+      this.logger.log(
+        `Broadcast ${payload.type}: ${pushedCount} delivered, ${failedCount} failed (${allUsers.length} total)`,
+      );
+
+      return { totalUsers: allUsers.length, pushedCount, failedCount };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Broadcast push failure: ${errMsg}`);
+      return { totalUsers: 0, pushedCount: 0, failedCount: 0 };
     }
   }
 
