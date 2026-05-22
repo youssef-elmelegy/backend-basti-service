@@ -20,10 +20,13 @@ import {
   PaginatedBakeyReviewsResponseDto,
 } from '../dto';
 import { PaginationDto } from '@/common/dto';
+import { NotificationService } from '@/modules/notification/services/notification.service';
 
 @Injectable()
 export class ReviewService {
   private readonly logger = new Logger(ReviewService.name);
+
+  constructor(private readonly notificationService: NotificationService) {}
 
   async create(userId: string, createDto: CreateReviewDto): Promise<ReviewResponseDto> {
     try {
@@ -117,6 +120,31 @@ export class ReviewService {
 
       this.logger.log(`Review created: ${newReview.id} by user: ${userId}`);
 
+      const ratingStars = '★'.repeat(createDto.rating);
+      await this.notificationService.pushToBakeryStaff(order.bakeryId, {
+        title: 'New review received',
+        body: `Your bakery received a ${createDto.rating}-star review ${ratingStars}.`,
+        type: 'review',
+        redirectId: newReview.id,
+        data: {
+          reviewId: newReview.id,
+          bakeryId: order.bakeryId,
+          rating: String(createDto.rating),
+        },
+      });
+
+      await this.notificationService.pushToPlatformAdmins({
+        title: 'New review submitted',
+        body: `A customer left a ${createDto.rating}-star review.`,
+        type: 'review',
+        redirectId: newReview.id,
+        data: {
+          reviewId: newReview.id,
+          bakeryId: order.bakeryId,
+          rating: String(createDto.rating),
+        },
+      });
+
       return newReview;
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -192,7 +220,7 @@ export class ReviewService {
         .limit(limit)
         .offset(offset);
 
-      const sanitizedReviews = bakeryReviews.map(review => ({
+      const sanitizedReviews = bakeryReviews.map((review) => ({
         ...review,
         firstName: review.firstName ?? '',
         lastName: review.lastName ?? '',
@@ -323,7 +351,7 @@ export class ReviewService {
         .returning();
 
       const newAverageRating =
-        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + updateDto.rating!) /
+        ((Number(bakery.averageRating) || 0) * (bakery.totalReviews || 0) + updateDto.rating) /
         bakery.totalReviews;
 
       await db
@@ -438,10 +466,10 @@ export class ReviewService {
     if (!review) {
       throw new NotFoundException(
         errorResponse(
-          `routes.reviews.not_found_with_id`, 
-          HttpStatus.NOT_FOUND, 
-          'NotFoundException', 
-          { reviewId: id }
+          `routes.reviews.not_found_with_id`,
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+          { reviewId: id },
         ),
       );
     }
@@ -454,10 +482,10 @@ export class ReviewService {
     if (!bakery) {
       throw new NotFoundException(
         errorResponse(
-          `routes.bakery.not_found_with_id`, 
-          HttpStatus.NOT_FOUND, 
-          'NotFoundException', 
-          { bakeryId: review.bakeryId }
+          `routes.bakery.not_found_with_id`,
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+          { bakeryId: review.bakeryId },
         ),
       );
     }

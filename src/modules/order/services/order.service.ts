@@ -42,6 +42,7 @@ import { StockService } from './stock.service';
 import { SchedulerService } from './scheduler.service';
 import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
+import { NotificationService } from '@/modules/notification/services/notification.service';
 
 /* eslint-disable */
 @Injectable()
@@ -52,6 +53,7 @@ export class OrderService {
     private readonly schedulerService: SchedulerService,
     private readonly translationService: TranslationService,
     private readonly couponservice: CouponService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
@@ -434,6 +436,14 @@ export class OrderService {
         `Order created: ${newOrder.id} for user ${userId}, with ${newItems.length} items`,
       );
 
+      await this.notificationService.pushToPlatformAdmins({
+        title: 'New order placed',
+        body: `Order ${newOrder.referenceNumber} was placed by ${user.firstName ?? 'a customer'}.`,
+        type: 'new_order',
+        redirectId: newOrder.id,
+        data: { orderId: newOrder.id, referenceNumber: newOrder.referenceNumber ?? '' },
+      });
+
       const response: CreateOrderResponseDto = {
         ...newOrder,
         bakeryId: undefined,
@@ -496,10 +506,7 @@ export class OrderService {
 
   async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
     try {
-      const ordersForUser = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.userId, userId));
+      const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
 
       const validOrderIds = ordersForUser
         .map((order) => order.id)
@@ -818,6 +825,35 @@ export class OrderService {
         .returning({ id: orders.id, status: orders.orderStatus });
 
       this.logger.log(`Order ${orderId} cancelled successfully`);
+
+      await this.notificationService.pushNotificationSafe({
+        title: 'Order cancelled',
+        body: `Your order ${order.referenceNumber ?? ''} has been cancelled.`,
+        type: 'order_status',
+        recipientType: 'user',
+        recipientId: userId,
+        redirectId: orderId,
+        data: { orderId, status: 'cancelled' },
+      });
+
+      await this.notificationService.pushToPlatformAdmins({
+        title: 'Order cancelled by customer',
+        body: `Order ${order.referenceNumber ?? orderId} was cancelled by the customer.`,
+        type: 'order_status',
+        redirectId: orderId,
+        data: { orderId, status: 'cancelled' },
+      });
+
+      if (order.bakeryId) {
+        await this.notificationService.pushToBakeryStaff(order.bakeryId, {
+          title: 'Order cancelled by customer',
+          body: `Order ${order.referenceNumber ?? orderId} was cancelled by the customer.`,
+          type: 'order_status',
+          redirectId: orderId,
+          data: { orderId, status: 'cancelled' },
+        });
+      }
+
       return updatedOrder;
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof NotFoundException) {
@@ -857,6 +893,29 @@ export class OrderService {
         .returning({ id: orders.id, status: orders.orderStatus });
 
       this.logger.log(`Order ${orderId} refused (cancelled) successfully`);
+
+      if (order.userId) {
+        await this.notificationService.pushNotificationSafe({
+          title: 'Order refused',
+          body: `We were unable to fulfil your order ${order.referenceNumber ?? ''}. Please contact support.`,
+          type: 'order_status',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: { orderId, status: 'cancelled', reason: 'refused' },
+        });
+      }
+
+      if (order.bakeryId) {
+        await this.notificationService.pushToBakeryStaff(order.bakeryId, {
+          title: 'Order refused by admin',
+          body: `Order ${order.referenceNumber ?? orderId} was refused by an admin.`,
+          type: 'order_status',
+          redirectId: orderId,
+          data: { orderId, status: 'cancelled', reason: 'refused' },
+        });
+      }
+
       return updatedOrder;
     } catch (error) {
       if (error instanceof HttpException) {
@@ -898,6 +957,30 @@ export class OrderService {
         .returning({ id: orders.id, status: orders.orderStatus });
 
       this.logger.log(`Order ${orderId} status changed to ${status} successfully`);
+
+      if (order.userId && status) {
+        const { title, body } = this.buildStatusMessage(status, order.referenceNumber ?? '');
+        await this.notificationService.pushNotificationSafe({
+          title,
+          body,
+          type: 'order_status',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: { orderId, status },
+        });
+      }
+
+      if (order.bakeryId && status) {
+        await this.notificationService.pushToBakeryStaff(order.bakeryId, {
+          title: 'Order status updated',
+          body: `Order ${order.referenceNumber ?? orderId} is now ${status}.`,
+          type: 'order_status',
+          redirectId: orderId,
+          data: { orderId, status },
+        });
+      }
+
       return updatedOrder;
     } catch (error) {
       if (error instanceof HttpException) {
@@ -1001,6 +1084,15 @@ export class OrderService {
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
+
+      await this.notificationService.pushToBakeryStaff(bakeryId, {
+        title: 'New order assigned',
+        body: `Order ${order.referenceNumber ?? orderId} has been assigned to your bakery.`,
+        type: 'new_order',
+        redirectId: orderId,
+        data: { orderId, bakeryId },
+      });
+
       return {
         id: updatedOrder.id,
         bakeryId: updatedOrder.bakeryId || '',
@@ -1134,6 +1226,45 @@ export class OrderService {
       }
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
+
+      if (order.userId) {
+        await this.notificationService.pushNotificationSafe({
+          title: 'Bakery cancelled your order',
+          body: `Your assigned bakery declined order ${order.referenceNumber ?? ''}. We're finding you another one.`,
+          type: 'order_cancelled_by_bakery',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: {
+            orderId,
+            bakeryId: bakeryIdToUnassign,
+            ...(reason ? { reason } : {}),
+          },
+        });
+      }
+
+      await this.notificationService.pushToPlatformAdmins({
+        title: 'Bakery declined an order',
+        body: `Bakery unassigned itself from order ${order.referenceNumber ?? orderId}${
+          reason ? ` — reason: ${reason}` : ''
+        }.`,
+        type: 'order_cancelled_by_bakery',
+        redirectId: orderId,
+        data: {
+          orderId,
+          bakeryId: bakeryIdToUnassign,
+          ...(reason ? { reason } : {}),
+        },
+      });
+
+      await this.notificationService.pushToBakeryStaff(bakeryIdToUnassign, {
+        title: 'Order unassigned',
+        body: `Order ${order.referenceNumber ?? orderId} is no longer assigned to your bakery.`,
+        type: 'order_update',
+        redirectId: orderId,
+        data: { orderId, bakeryId: bakeryIdToUnassign },
+      });
+
       return {
         id: updatedOrder.id,
         bakeryId: updatedOrder.bakeryId || '',
@@ -1222,6 +1353,19 @@ export class OrderService {
         .returning({ id: orders.id, qa: orders.qa, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} finalized successfully`);
+
+      if (order.userId) {
+        await this.notificationService.pushNotificationSafe({
+          title: 'Your order is ready for review',
+          body: `Final preview images have been uploaded for order ${order.referenceNumber ?? ''}.`,
+          type: 'order_update',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: { orderId, event: 'qa_finalized' },
+        });
+      }
+
       return {
         id: updatedOrder.id,
         bakeryId: updatedOrder.bakeryId || '',
@@ -1444,6 +1588,34 @@ export class OrderService {
     const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomPart = randomBytes(3).toString('hex').toUpperCase();
     return `ORD-${datePart}-${randomPart}`;
+  }
+
+  private buildStatusMessage(
+    status: NonNullable<typeof orders.$inferSelect.orderStatus>,
+    referenceNumber: string,
+  ): { title: string; body: string } {
+    const ref = referenceNumber ? `#${referenceNumber}` : '';
+    switch (status) {
+      case 'pending':
+        return { title: 'Order pending', body: `Your order ${ref} is pending confirmation.` };
+      case 'confirmed':
+        return { title: 'Order confirmed', body: `Your order ${ref} has been confirmed.` };
+      case 'preparing':
+        return { title: 'Order preparing', body: `Your order ${ref} is being prepared.` };
+      case 'ready':
+        return { title: 'Order ready', body: `Your order ${ref} is ready for delivery.` };
+      case 'out_for_delivery':
+        return {
+          title: 'Out for delivery',
+          body: `Your order ${ref} is on the way!`,
+        };
+      case 'delivered':
+        return { title: 'Order delivered', body: `Your order ${ref} has been delivered. Enjoy!` };
+      case 'cancelled':
+        return { title: 'Order cancelled', body: `Your order ${ref} has been cancelled.` };
+      default:
+        return { title: 'Order updated', body: `Your order ${ref} status has changed.` };
+    }
   }
 
   private matchesStatusFilter(
