@@ -22,6 +22,7 @@ import {
 } from '../dto';
 import { errorResponse } from '@/utils';
 import { ItemService } from '@/modules/items/item.service';
+import { ItemOfferDto } from '@/common/dto/item-offer.dto';
 
 @Injectable()
 export class CartService {
@@ -100,7 +101,7 @@ export class CartService {
             price: featuredCake.price ?? '0',
             updatedAt: featuredCake.updatedAt.toISOString(),
             createdAt: featuredCake.createdAt.toISOString(),
-            offer: (featuredCake as { offer?: unknown }).offer || null,
+            offer: (featuredCake as { offer?: ItemOfferDto | null }).offer ?? null,
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
@@ -234,7 +235,11 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [], offer: (addon as { offer?: unknown }).offer || null },
+          item: {
+            ...addon,
+            options: [],
+            offer: (addon as { offer?: ItemOfferDto | null }).offer ?? null,
+          },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -253,7 +258,7 @@ export class CartService {
             ...featuredCake,
             updatedAt: featuredCake.updatedAt.toISOString(),
             createdAt: featuredCake.createdAt.toISOString(),
-            offer: (featuredCake as { offer?: unknown }).offer || null,
+            offer: (featuredCake as { offer?: ItemOfferDto | null }).offer ?? null,
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
@@ -348,7 +353,11 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [], offer: (addon as { offer?: unknown }).offer || null },
+          item: {
+            ...addon,
+            options: [],
+            offer: (addon as { offer?: ItemOfferDto | null }).offer ?? null,
+          },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -360,7 +369,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...sweet, offer: (sweet as { offer?: unknown }).offer || null },
+          item: { ...sweet, offer: (sweet as { offer?: ItemOfferDto | null }).offer ?? null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });

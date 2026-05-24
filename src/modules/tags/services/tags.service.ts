@@ -180,9 +180,10 @@ export class TagsService {
         updateData.types = editTagDto.types.map((type) => type.toLowerCase());
       }
 
-      // If nothing would change, reject
+      // If nothing would change, reject. `selectedTag.name` is the localized EN string from DB;
+      // `updateData.name` is the freshly built TranslationObject, so compare on the EN value.
       if (
-        updateData.name === selectedTag.name &&
+        updateData.name?.en === selectedTag.name &&
         updateData.displayOrder === selectedTag.displayOrder &&
         (updateData.types?.length ?? 0) === 0
       ) {
