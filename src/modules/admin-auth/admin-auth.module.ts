@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AdminAuthController } from './controllers/admin-auth.controller';
 import { AdminAuthService } from './services/admin-auth.service';
-import { EmailService } from '@/common/services';
+import { MailModule } from '@/common/mail/mail.module';
 import { env } from '@/env';
 
 @Module({
@@ -11,9 +11,10 @@ import { env } from '@/env';
       secret: env.JWT_ACCESS_SECRET,
       signOptions: { expiresIn: env.JWT_ACCESS_EXPIRES_IN },
     }),
+    MailModule,
   ],
   controllers: [AdminAuthController],
-  providers: [AdminAuthService, EmailService],
+  providers: [AdminAuthService],
   exports: [AdminAuthService],
 })
 export class AdminAuthModule {}

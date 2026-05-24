@@ -142,7 +142,6 @@ export class DecorationController {
     return this.decorationService.createWithVariantImages(createDecorationWithVariantImagesDto);
   }
 
-
   @Patch(':id/toggle-featured')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -150,5 +149,4 @@ export class DecorationController {
   async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
     return await this.decorationService.toggleFeatured(id);
   }
-
 }

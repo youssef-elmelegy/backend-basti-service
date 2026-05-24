@@ -57,7 +57,7 @@ export class AddonController {
     this.logger.debug(`Creating add-on: ${createAddonDto.name}`);
     const result = await this.addonService.create(createAddonDto);
     const addonData = result.data as Record<string, unknown>;
-    this.logger.log(`Add-on created: ${String(addonData['id'] as string)}`);
+    this.logger.log(`Add-on created: ${addonData['id'] as string}`);
     return result;
   }
 
@@ -167,7 +167,6 @@ export class AddonController {
     return result;
   }
 
-
   @Patch(':id/toggle-featured')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -175,5 +174,4 @@ export class AddonController {
   async toggleFeatured(@Param('id') id: string) {
     return await this.addonService.toggleFeatured(id);
   }
-
 }

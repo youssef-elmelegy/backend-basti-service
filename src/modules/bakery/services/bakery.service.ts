@@ -38,7 +38,8 @@ export class BakeryService {
     }
 
     const nameObject = await this.translationService.getTranslationObject(name);
-    const locationDescriptionObject = await this.translationService.getTranslationObject(locationDescription);
+    const locationDescriptionObject =
+      await this.translationService.getTranslationObject(locationDescription);
 
     try {
       const [newBakery] = await db
@@ -53,7 +54,10 @@ export class BakeryService {
         .returning({
           ...getTableColumns(bakeries),
           name: this.translationService.getLocalized(bakeries.name, 'name'),
-          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+          locationDescription: this.translationService.getLocalized(
+            bakeries.locationDescription,
+            'location_description',
+          ),
         });
 
       this.logger.log(`Bakery created: ${newBakery.id} (${name})`);
@@ -77,7 +81,6 @@ export class BakeryService {
   }
 
   async findAll(pagination: PaginationDto, sort: SortDto) {
-
     const { page = 1, limit = 10 } = pagination;
 
     try {
@@ -93,7 +96,10 @@ export class BakeryService {
         .select({
           ...getTableColumns(bakeries),
           name: this.translationService.getLocalized(bakeries.name, 'name'),
-          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+          locationDescription: this.translationService.getLocalized(
+            bakeries.locationDescription,
+            'location_description',
+          ),
         })
         .from(bakeries)
         .orderBy(sort.sort === 'alpha' ? sortOrder(bakeries.name) : sortOrder(bakeries.createdAt))
@@ -135,12 +141,14 @@ export class BakeryService {
   }
 
   async findOne(id: string): Promise<SuccessResponse<BakeryResponse>> {
-
     const [bakery] = await db
       .select({
         ...getTableColumns(bakeries),
         name: this.translationService.getLocalized(bakeries.name, 'name'),
-        locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+        locationDescription: this.translationService.getLocalized(
+          bakeries.locationDescription,
+          'location_description',
+        ),
       })
       .from(bakeries)
       .where(eq(bakeries.id, id))
@@ -200,7 +208,8 @@ export class BakeryService {
         updateData.name = await this.translationService.getTranslationObject(name);
       }
       if (locationDescription !== undefined) {
-        updateData.locationDescription = await this.translationService.getTranslationObject(locationDescription);
+        updateData.locationDescription =
+          await this.translationService.getTranslationObject(locationDescription);
       }
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
@@ -215,7 +224,10 @@ export class BakeryService {
         .returning({
           ...getTableColumns(bakeries),
           name: this.translationService.getLocalized(bakeries.name, 'name'),
-          locationDescription: this.translationService.getLocalized(bakeries.locationDescription, 'location_description'),
+          locationDescription: this.translationService.getLocalized(
+            bakeries.locationDescription,
+            'location_description',
+          ),
         });
 
       this.logger.log(`Bakery updated: ${id}`);

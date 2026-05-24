@@ -1,4 +1,13 @@
-import { pgTable, uuid, integer, jsonb, timestamp, varchar, boolean, decimal } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  integer,
+  jsonb,
+  timestamp,
+  varchar,
+  boolean,
+  decimal,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 export const appConfig = pgTable('app_config', {
@@ -22,7 +31,9 @@ export const appConfig = pgTable('app_config', {
     .default(sql`'[]'::jsonb`),
   isOpen: boolean('is_open').notNull().default(true),
   closureMessage: varchar('closure_message', { length: 500 }),
-  bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 }).notNull().default('0.20'),
+  bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 })
+    .notNull()
+    .default('0.20'),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
   minMiniCakesRequired: integer('min_mini_cakes_required').notNull().default(1),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

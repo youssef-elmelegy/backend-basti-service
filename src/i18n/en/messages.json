@@ -121,7 +121,6 @@
       "option_stock_negative": "Option stock cannot be negative",
       "stock_updated": "Stock updated successfully",
       "failed_update_stock": "Failed to update stock"
-      
     },
 
     "cart": {
@@ -212,7 +211,7 @@
 
       "toggled": "Offer status toggled successfully",
       "failed_toggle": "Failed to toggle offer status",
-      
+
       "not_found": "Offer not found",
 
       "added_item": "Item added to offer successfully",
@@ -224,9 +223,6 @@
       "no_item": "No item provided",
 
       "item_region_error": "Item is not available in this region or there is no pricing available"
-
-
-
     },
 
     "decorations": {
@@ -241,7 +237,7 @@
       "variant_images_created": "Decoration and variant images created successfully",
       "variant_images_failed_create": "Failed to create decoration and variant images",
       "variant_images_retrieved": "Decoration variant images retrieved successfully",
-      "variant_images_failed_retrieve": "Failed to retrieve decoration variant images", 
+      "variant_images_failed_retrieve": "Failed to retrieve decoration variant images",
       "deleted_related": "Decoration and related records deleted successfully",
       "not_found": "Decoration not found",
       "not_found_with_id": "Decoration with ID {decorationId} not found",
@@ -298,7 +294,6 @@
       "order_updated": "Flavor order updated successfully",
       "failed_change_order": "Failed to change flavor order",
       "order_must_be_at_least": "Order must be at least 1"
-      
     },
 
     "shapes": {
@@ -509,7 +504,7 @@
       "failed_update": "Failed to update review",
       "not_found": "Review not found",
       "not_found_with_id": "Review with ID {reviewId} not found",
-       "not_found_or_does_not_belong_to_you": "Order not found or does not belong to you",
+      "not_found_or_does_not_belong_to_you": "Order not found or does not belong to you",
       "order_is_not_delivered": "Order is not delivered yet",
       "order_does_not_belong_to_a_bakery": "Order does not belong to a bakery",
       "order_does_not_belong_to_bakery": "Order does not belong to bakery",
@@ -592,9 +587,10 @@
       "image_uploaded": "Image uploaded successfully",
       "image_failed_upload": "Failed to upload image",
       "images_deleted": "Images deleted successfully",
+      "images_listed": "Images listed successfully",
       "images_failed_delete": "Failed to delete images",
       "no_file": "No file uploaded",
-      "cloudinary_failed": "Cloudinary upload failed: Internal server error",
+      "storage_failed": "Storage upload failed: Internal server error",
       "no_images_to_delete": "No images to delete"
     },
 

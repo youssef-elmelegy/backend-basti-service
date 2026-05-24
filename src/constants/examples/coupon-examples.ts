@@ -46,7 +46,6 @@ export const CouponExamples = {
       regionId: '660e8400-e29b-41d4-a716-446655440001',
       userId: '660e8400-e29b-41d4-a716-446655440001',
       cartTotal: 100,
-      
     },
     response: {
       success: {
@@ -70,8 +69,8 @@ export const CouponExamples = {
           updatedAt: MOCK_DATA.dates.default,
         },
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
+      },
+    },
   },
   getAll: {
     response: {
@@ -95,11 +94,11 @@ export const CouponExamples = {
             isActive: true,
             createdAt: MOCK_DATA.dates.default,
             updatedAt: MOCK_DATA.dates.default,
-          }
+          },
         ],
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
+      },
+    },
   },
   getById: {
     response: {
@@ -124,8 +123,8 @@ export const CouponExamples = {
           updatedAt: MOCK_DATA.dates.default,
         },
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
+      },
+    },
   },
   update: {
     request: {
@@ -153,8 +152,8 @@ export const CouponExamples = {
           updatedAt: MOCK_DATA.dates.default,
         },
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
+      },
+    },
   },
   toggleStatus: {
     response: {
@@ -179,8 +178,8 @@ export const CouponExamples = {
           updatedAt: MOCK_DATA.dates.default,
         },
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
+      },
+    },
   },
   delete: {
     response: {
@@ -189,10 +188,10 @@ export const CouponExamples = {
         success: true,
         message: 'Coupon deleted successfully',
         data: {
-            message: 'routes.coupons.deleted'
+          message: 'routes.coupons.deleted',
         },
         timestamp: MOCK_DATA.dates.default,
-      }
-    }
-  }
+      },
+    },
+  },
 };

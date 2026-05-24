@@ -104,10 +104,7 @@ export class ItemService {
             and(eq(regionItemPrices.addonId, addons.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
           .limit(uniqueAddonIds.length);
 
@@ -219,10 +216,7 @@ export class ItemService {
             and(eq(regionItemPrices.sweetId, sweets.id), eq(regionItemPrices.regionId, regionId)),
           )
           .leftJoin(tags, eq(sweets.tagId, tags.id))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(sweets.isActive, true), inArray(sweets.id, sweetIds)))
           .limit(sweetIds.length);
 
@@ -290,7 +284,10 @@ export class ItemService {
           .select({
             ...getTableColumns(featuredCakes),
             name: this.translationService.getLocalized(featuredCakes.name, 'name'),
-            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            description: this.translationService.getLocalized(
+              featuredCakes.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             offer: {
@@ -308,10 +305,7 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, featuredCakeIds)))
           .limit(featuredCakeIds.length);
 
@@ -329,7 +323,10 @@ export class ItemService {
           .select({
             ...getTableColumns(featuredCakes),
             name: this.translationService.getLocalized(featuredCakes.name, 'name'),
-            description: this.translationService.getLocalized(featuredCakes.description, 'description'),
+            description: this.translationService.getLocalized(
+              featuredCakes.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(featuredCakes)
@@ -388,10 +385,7 @@ export class ItemService {
             regionItemPrices,
             and(eq(regionItemPrices.flavorId, flavors.id), eq(regionItemPrices.regionId, regionId)),
           )
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(flavors.isActive, true), inArray(flavors.id, flavorIds)))
           .limit(flavorIds.length);
 
@@ -464,10 +458,7 @@ export class ItemService {
             regionItemPrices,
             and(eq(regionItemPrices.shapeId, shapes.id), eq(regionItemPrices.regionId, regionId)),
           )
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(shapes.isActive, true), inArray(shapes.id, shapeIds)))
           .limit(shapeIds.length);
 
@@ -528,7 +519,10 @@ export class ItemService {
           .select({
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             offer: {
@@ -545,10 +539,7 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(decorations.tagId, tags.id))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(and(eq(decorations.isActive, true), inArray(decorations.id, decorationIds)))
           .limit(decorationIds.length);
 
@@ -567,7 +558,10 @@ export class ItemService {
           .select({
             ...getTableColumns(decorations),
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(decorations)
@@ -618,7 +612,10 @@ export class ItemService {
           .select({
             ...getTableColumns(predesignedCakes),
             name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
-            description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            description: this.translationService.getLocalized(
+              predesignedCakes.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
             price: regionItemPrices.price,
             offer: {
@@ -636,10 +633,7 @@ export class ItemService {
             ),
           )
           .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(
             and(
               eq(predesignedCakes.isActive, true),
@@ -679,7 +673,10 @@ export class ItemService {
           .select({
             ...getTableColumns(predesignedCakes),
             name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
-            description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+            description: this.translationService.getLocalized(
+              predesignedCakes.description,
+              'description',
+            ),
             tagName: this.translationService.getLocalized(tags.name, 'name'),
           })
           .from(predesignedCakes)
@@ -888,7 +885,10 @@ export class ItemService {
           decoration: {
             id: decorations.id,
             title: this.translationService.getLocalized(decorations.title, 'title'),
-            description: this.translationService.getLocalized(decorations.description, 'description'),
+            description: this.translationService.getLocalized(
+              decorations.description,
+              'description',
+            ),
             decorationUrl: decorations.decorationUrl,
             capacity: decorations.capacity,
             tagId: decorations.tagId,

@@ -6,9 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import {
-  cartItems,
-} from '@/db/schema';
+import { cartItems } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import {
   CartResponseDto,
@@ -27,9 +25,7 @@ import { ItemService } from '@/modules/items/item.service';
 
 @Injectable()
 export class CartService {
-  constructor(
-    private readonly itemService: ItemService,
-  ) {}
+  constructor(private readonly itemService: ItemService) {}
 
   private readonly logger = new Logger(CartService.name);
 
@@ -78,8 +74,8 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { 
-            ...addon, 
+          item: {
+            ...addon,
             options: [],
             price: addon.price ?? '0',
             tagName: addon.tagName ?? '',
@@ -89,7 +85,10 @@ export class CartService {
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.featuredCakeId) {
-        const [featuredCake] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
+        const [featuredCake] = await this.itemService.getFeaturedCakes(
+          [item.featuredCakeId],
+          regionId,
+        );
         const unitPrice = Number(featuredCake.price ?? '0');
         bigCartExpanded.featuredCakes.push({
           id: item.id,
@@ -100,13 +99,17 @@ export class CartService {
             ...featuredCake,
             price: featuredCake.price ?? '0',
             updatedAt: featuredCake.updatedAt.toISOString(),
-            createdAt: featuredCake.createdAt.toISOString(), offer: (featuredCake as any).offer || null
+            createdAt: featuredCake.createdAt.toISOString(),
+            offer: (featuredCake as { offer?: unknown }).offer || null,
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.predesignedCakeId) {
-        const [predesignedCake] = await this.itemService.getPredesignedCakes([item.predesignedCakeId], regionId);
+        const [predesignedCake] = await this.itemService.getPredesignedCakes(
+          [item.predesignedCakeId],
+          regionId,
+        );
         const unitPrice = predesignedCake.configs.reduce((total, config) => {
           return (
             total +
@@ -231,12 +234,15 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [], offer: (addon as any).offer || null },
+          item: { ...addon, options: [], offer: (addon as { offer?: unknown }).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.featuredCakeId) {
-        const [featuredCake] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
+        const [featuredCake] = await this.itemService.getFeaturedCakes(
+          [item.featuredCakeId],
+          regionId,
+        );
         const unitPrice = Number(featuredCake.price);
         bigCartExpanded.featuredCakes.push({
           id: item.id,
@@ -246,13 +252,17 @@ export class CartService {
           item: {
             ...featuredCake,
             updatedAt: featuredCake.updatedAt.toISOString(),
-            createdAt: featuredCake.createdAt.toISOString(), offer: (featuredCake as any).offer || null
+            createdAt: featuredCake.createdAt.toISOString(),
+            offer: (featuredCake as { offer?: unknown }).offer || null,
           },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.predesignedCakeId) {
-        const [predesignedCake] = await this.itemService.getPredesignedCakes([item.predesignedCakeId], regionId);
+        const [predesignedCake] = await this.itemService.getPredesignedCakes(
+          [item.predesignedCakeId],
+          regionId,
+        );
         const unitPrice = predesignedCake.configs.reduce((total, config) => {
           return (
             total +
@@ -338,7 +348,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...addon, options: [], offer: (addon as any).offer || null },
+          item: { ...addon, options: [], offer: (addon as { offer?: unknown }).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });
@@ -350,7 +360,7 @@ export class CartService {
           quantity: item.quantity,
           isIncluded: item.isIncluded,
           type: item.type,
-          item: { ...sweet, offer: (sweet as any).offer || null },
+          item: { ...sweet, offer: (sweet as { offer?: unknown }).offer || null },
           unitPrice: unitPrice,
           totalPrice: unitPrice * item.quantity,
         });

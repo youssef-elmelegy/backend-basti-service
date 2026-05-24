@@ -16,7 +16,7 @@ export class ShapeDataDto {
   })
   shapeUrl: string;
 
-  @ApiProperty({ example: 'medium', enum: ['mini' ,'small', 'medium', 'large'] })
+  @ApiProperty({ example: 'medium', enum: ['mini', 'small', 'medium', 'large'] })
   size: string;
 
   @ApiProperty({ example: 20 })

@@ -5,7 +5,6 @@ import { eq, and, gte, sql } from 'drizzle-orm';
 
 @Injectable()
 export class StockService {
-
   async incrementStock(
     bakeryId: string,
     regionItemPriceId: string,

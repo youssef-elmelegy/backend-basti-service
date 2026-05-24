@@ -158,7 +158,6 @@ export class FlavorController {
     return this.flavorService.createWithVariantImages(createFlavorWithVariantImagesDto);
   }
 
-
   @Patch(':id/toggle-featured')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -166,5 +165,4 @@ export class FlavorController {
   async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
     return await this.flavorService.toggleFeatured(id);
   }
-
 }

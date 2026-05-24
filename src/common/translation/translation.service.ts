@@ -22,13 +22,11 @@ export class TranslationService {
   private credentials: Credentials;
   private lara: Translator;
 
-  constructor(
-    private readonly i18nService: I18nService,
-  ) {
+  constructor(private readonly i18nService: I18nService) {
     this.translate = new Translate({
       projectId: env.GOOGLE_CLOUD_PROJECT_ID,
       keyFilename: env.GOOGLE_CLOUD_KEY_FILE,
-    })
+    });
 
     this.credentials = new Credentials(env.LARA_ACCESS_KEY_ID, env.LARA_ACCESS_KEY_SECRET);
     this.lara = new Translator(this.credentials);
@@ -71,17 +69,12 @@ export class TranslationService {
     const { text, targetLang, sourceLang } = dto;
 
     try {
-      const res = await this.lara.translate(
-        text,
-        sourceLang,
-        targetLang,
-        {
-          contentType: 'text/plain',
-          style: 'fluid',
-          timeoutInMillis: 8000,
-          priority: 'normal',
-        },
-      );
+      const res = await this.lara.translate(text, sourceLang, targetLang, {
+        contentType: 'text/plain',
+        style: 'fluid',
+        timeoutInMillis: 8000,
+        priority: 'normal',
+      });
 
       return successResponse({ result: res.translation }, 'Translation successful', 200);
     } catch (error) {
@@ -111,8 +104,7 @@ export class TranslationService {
           en: text,
           ar: tr.data.result,
         };
-      }
-      else {
+      } else {
         const tr = await this.dynamicTranslate({ text, targetLang: 'en', sourceLang: 'ar' });
         translationObject = {
           en: tr.data.result,
@@ -128,12 +120,12 @@ export class TranslationService {
       this.logger.error(`Translation failed for text: ${text}`);
       throw new InternalServerErrorException('Translation failed');
     }
-  } 
+  }
 
   flattenTranslationObject(translationObject: TranslationObject): string {
     const context = I18nContext.current();
     const lang = context?.lang || 'en';
-    if(lang !== 'en' && lang !== 'ar') {
+    if (lang !== 'en' && lang !== 'ar') {
       return translationObject['en'] || '';
     }
     return translationObject[lang] || translationObject['en'] || '';
@@ -145,22 +137,27 @@ export class TranslationService {
   }
 
   // Overload 1: If an alias (string) is provided, tell TS it returns an Aliased<string> (for SELECT)
-  getLocalized(column: AnyPgColumn, alias: string, lang?: string, fallback?: string): SQL.Aliased<string>;
-  
+  getLocalized(
+    column: AnyPgColumn,
+    alias: string,
+    lang?: string,
+    fallback?: string,
+  ): SQL.Aliased<string>;
+
   // Overload 2: If alias is null or omitted, tell TS it returns an SQL<string> (for WHERE)
   getLocalized(column: AnyPgColumn, alias?: null, lang?: string, fallback?: string): SQL<string>;
-  
+
   // The actual implementation
   getLocalized(
-    column: AnyPgColumn, 
-    alias?: string | null, 
+    column: AnyPgColumn,
+    alias?: string | null,
     lang?: string,
-    fallback: string = 'en'
+    fallback: string = 'en',
   ): SQL<string> | SQL.Aliased<string> {
     const locale = lang || this.getLanguage();
-    
+
     const queryChunk = sql<string>`COALESCE(${column}->>${locale}, ${column}->>${fallback})`;
-    
+
     return alias ? queryChunk.as(alias) : queryChunk;
   }
 }

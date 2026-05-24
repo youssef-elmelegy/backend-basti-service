@@ -58,20 +58,13 @@ export class RegionService {
     const existingRegion = await db
       .select()
       .from(regions)
-      .where(eq(
-        this.translationService.getLocalized(regions.name, null, 'en'),
-        name
-      ))
+      .where(eq(this.translationService.getLocalized(regions.name, null, 'en'), name))
       .limit(1);
 
     if (existingRegion.length > 0) {
       this.logger.warn(`Region creation failed: Name already exists - ${name}`);
       throw new ConflictException(
-        errorResponse(
-          'routes.regions.name_exists',
-          HttpStatus.CONFLICT,
-          'ConflictException',
-        ),
+        errorResponse('routes.regions.name_exists', HttpStatus.CONFLICT, 'ConflictException'),
       );
     }
 
@@ -89,11 +82,11 @@ export class RegionService {
 
       const [newRegion] = await db
         .insert(regions)
-        .values({ 
-          name: nameObject, 
-          image, 
-          isAvailable, 
-          order: nextOrder 
+        .values({
+          name: nameObject,
+          image,
+          isAvailable,
+          order: nextOrder,
         })
         .returning({
           ...getTableColumns(regions),
@@ -253,20 +246,13 @@ export class RegionService {
       const [duplicateRegion] = await db
         .select()
         .from(regions)
-        .where(eq(
-          this.translationService.getLocalized(regions.name, null, 'en'),
-          name
-        ))
+        .where(eq(this.translationService.getLocalized(regions.name, null, 'en'), name))
         .limit(1);
 
       if (duplicateRegion && duplicateRegion.id !== id) {
         this.logger.warn(`Region update failed: Name already exists - ${name}`);
         throw new ConflictException(
-          errorResponse(
-            'routes.regions.name_exists',
-            HttpStatus.CONFLICT,
-            'ConflictException',
-          ),
+          errorResponse('routes.regions.name_exists', HttpStatus.CONFLICT, 'ConflictException'),
         );
       }
     }
@@ -583,7 +569,7 @@ export class RegionService {
                 products = cakes.map((cake) => ({
                   ...cake,
                   type: ProductTypeFilter.FEATURED_CAKE,
-                })) as RegionalProduct[];
+                }));
               }
               break;
             }
@@ -606,7 +592,7 @@ export class RegionService {
                 products = addonItems.map((addon) => ({
                   ...addon,
                   type: ProductTypeFilter.ADDON,
-                })) as RegionalProduct[];
+                }));
               }
               break;
             }
@@ -628,7 +614,7 @@ export class RegionService {
                   products = sweetItems.map((sweet) => ({
                     ...sweet,
                     type: ProductTypeFilter.SWEET,
-                  })) as RegionalProduct[];
+                  }));
                 }
               }
               break;
@@ -651,7 +637,7 @@ export class RegionService {
                   products = flavorItems.map((flavor) => ({
                     ...flavor,
                     type: ProductTypeFilter.FLAVOR,
-                  })) as RegionalProduct[];
+                  }));
                 }
               }
               break;
@@ -688,7 +674,7 @@ export class RegionService {
                   products = shapeItems.map((shape) => ({
                     ...shape,
                     type: ProductTypeFilter.SHAPE,
-                  })) as RegionalProduct[];
+                  }));
                 }
               }
               break;
@@ -711,7 +697,7 @@ export class RegionService {
                   products = decorationItems.map((decoration) => ({
                     ...decoration,
                     type: ProductTypeFilter.DECORATION,
-                  })) as RegionalProduct[];
+                  }));
                 }
               }
               break;
@@ -732,7 +718,7 @@ export class RegionService {
                 products = predesignedItems.map((cake) => ({
                   ...cake,
                   type: ProductTypeFilter.PREDESIGNED_CAKE,
-                })) as RegionalProduct[];
+                }));
               }
               break;
             }
@@ -895,7 +881,11 @@ export class RegionService {
     if (!productField) {
       this.logger.warn(`Invalid product type: ${productType}`);
       throw new NotFoundException(
-        errorResponse('routes.regions.invalid_product_type', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        errorResponse(
+          'routes.regions.invalid_product_type',
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+        ),
       );
     }
 

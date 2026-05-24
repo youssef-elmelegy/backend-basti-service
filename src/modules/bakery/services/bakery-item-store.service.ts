@@ -166,7 +166,10 @@ export class BakeryItemStoreService {
               .select({
                 id: addons.id,
                 name: this.translationService.getLocalized(addons.name, 'name'),
-                description: this.translationService.getLocalized(addons.description, 'description'),
+                description: this.translationService.getLocalized(
+                  addons.description,
+                  'description',
+                ),
                 images: addons.images,
               })
               .from(addons)
@@ -238,11 +241,7 @@ export class BakeryItemStoreService {
 
       this.logger.debug(`Retrieved ${enrichedStores.length} item stores for bakery ${bakeryId}`);
 
-      return successResponse(
-        enrichedStores,
-        'routes.bakery.item_stores_retrieved',
-        HttpStatus.OK,
-      );
+      return successResponse(enrichedStores, 'routes.bakery.item_stores_retrieved', HttpStatus.OK);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -278,14 +277,22 @@ export class BakeryItemStoreService {
 
       if (!storeExists) {
         throw new NotFoundException(
-          errorResponse('routes.bakery.item_store_not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.bakery.item_store_not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
 
       // Validate stock is non-negative
       if (stock < 0) {
         throw new BadRequestException(
-          errorResponse('routes.bakery.stock_negative', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+          errorResponse(
+            'routes.bakery.stock_negative',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
         );
       }
 

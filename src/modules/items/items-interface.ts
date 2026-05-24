@@ -1,4 +1,4 @@
-import { ItemOfferDto } from "@/common/dto";
+import { ItemOfferDto } from '@/common/dto';
 
 export interface AddonOptionData {
   id: string;

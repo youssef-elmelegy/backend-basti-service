@@ -19,7 +19,10 @@ export const addons = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     category: addonCategoryEnum('category').notNull(),
     images: jsonb('images').notNull().$type<string[]>(),
     tagId: uuid('tag_id'),

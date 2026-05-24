@@ -47,11 +47,7 @@ export class AddonOptionService {
 
       this.logger.log(`Add-on option created: ${createdOption.id} for add-on: ${addonId}`);
 
-      return successResponse(
-        createdOption,
-        'routes.addons.option_created',
-        HttpStatus.CREATED,
-      );
+      return successResponse(createdOption, 'routes.addons.option_created', HttpStatus.CREATED);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;

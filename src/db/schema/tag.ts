@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 

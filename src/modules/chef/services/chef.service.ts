@@ -54,7 +54,10 @@ export class ChefService {
         })
         .returning({
           ...getTableColumns(chefs),
-          specialization: this.translationService.getLocalized(chefs.specialization, 'specialization'),
+          specialization: this.translationService.getLocalized(
+            chefs.specialization,
+            'specialization',
+          ),
           bio: this.translationService.getLocalized(chefs.bio, 'bio'),
         });
 
@@ -196,7 +199,8 @@ export class ChefService {
       updateData.fullName = name;
     }
     if (specialization !== undefined) {
-      updateData.specialization = await this.translationService.getTranslationObject(specialization);
+      updateData.specialization =
+        await this.translationService.getTranslationObject(specialization);
     }
     if (bio !== undefined) {
       updateData.bio = await this.translationService.getTranslationObject(bio);
@@ -206,15 +210,16 @@ export class ChefService {
 
     if (Object.keys(updateData).length === 0) {
       throw new BadRequestException(
-        errorResponse('routes.common.no_fields_to_update', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+        errorResponse(
+          'routes.common.no_fields_to_update',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
       );
     }
 
     try {
-      await db
-        .update(chefs)
-        .set(updateData)
-        .where(eq(chefs.id, id));
+      await db.update(chefs).set(updateData).where(eq(chefs.id, id));
 
       this.logger.log(`Chef updated: ${id}`);
 
@@ -364,7 +369,10 @@ export class ChefService {
     const [chef] = await db
       .select({
         ...getTableColumns(chefs),
-        specialization: this.translationService.getLocalized(chefs.specialization, 'specialization'),
+        specialization: this.translationService.getLocalized(
+          chefs.specialization,
+          'specialization',
+        ),
         bio: this.translationService.getLocalized(chefs.bio, 'bio'),
       })
       .from(chefs)

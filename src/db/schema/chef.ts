@@ -15,7 +15,10 @@ export const chefs = pgTable(
 
     fullName: varchar('full_name', { length: 255 }).notNull(),
     image: text('image'),
-    specialization: jsonb('specialization').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    specialization: jsonb('specialization')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     bio: jsonb('bio').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

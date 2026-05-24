@@ -120,7 +120,6 @@ export class PredesignedCakesController {
     return this.regionPricingService.createRegionItemPrice(createRegionPricingDto);
   }
 
-
   @Patch(':id/toggle-featured')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -128,5 +127,4 @@ export class PredesignedCakesController {
   async toggleFeatured(@Param('id', ParseUUIDPipe) id: string) {
     return await this.predesignedCakesService.toggleFeatured(id);
   }
-
 }

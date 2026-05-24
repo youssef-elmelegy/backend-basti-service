@@ -117,5 +117,4 @@ export class SweetController {
   async toggleFeatured(@Param('id') id: string) {
     return await this.sweetService.toggleFeatured(id);
   }
-
 }

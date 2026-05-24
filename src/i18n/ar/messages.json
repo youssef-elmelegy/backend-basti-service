@@ -205,7 +205,7 @@
       "variant_images_created": "تم إنشاء الزينة وصور المتغيرات بنجاح",
       "variant_images_failed_create": "تعذر إنشاء الزينة وصور المتغيرات",
       "variant_images_retrieved": "تم استرجاع صور متغيرات الزينة بنجاح",
-      "variant_images_failed_retrieve": "تعذر استرجاع صور متغيرات الزينة", 
+      "variant_images_failed_retrieve": "تعذر استرجاع صور متغيرات الزينة",
       "deleted_related": "تم حذف الزينة والسجلات المرتبطة بها بنجاح",
       "not_found": "الزينة غير موجودة",
       "not_found_with_id": "الزينة بالمعرف {decorationId} غير موجودة",
@@ -552,9 +552,10 @@
       "image_uploaded": "تم رفع الصورة بنجاح",
       "image_failed_upload": "تعذر رفع الصورة",
       "images_deleted": "تم حذف الصور بنجاح",
+      "images_listed": "تم جلب الصور بنجاح",
       "images_failed_delete": "تعذر حذف الصور",
       "no_file": "لم يتم رفع أي ملف",
-      "cloudinary_failed": "فشل الرفع إلى Cloudinary: خطأ داخلي في الخادم",
+      "storage_failed": "فشل الرفع إلى التخزين: خطأ داخلي في الخادم",
       "no_images_to_delete": "لا توجد صور لحذفها"
     },
 

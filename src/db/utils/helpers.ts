@@ -10,17 +10,11 @@ export function isOfferActive(offerTable: typeof offers = offers) {
   return and(
     // must be active
     eq(offerTable.isActive, true),
-    
+
     // start date is null OR in the past
-    or(
-      isNull(offerTable.startDate), 
-      lte(offerTable.startDate, sql`now()`)
-    ),
-    
+    or(isNull(offerTable.startDate), lte(offerTable.startDate, sql`now()`)),
+
     // expiry date is null OR in the future
-    or(
-      isNull(offerTable.expiryDate), 
-      gte(offerTable.expiryDate, sql`now()`)
-    )
+    or(isNull(offerTable.expiryDate), gte(offerTable.expiryDate, sql`now()`)),
   );
 }
