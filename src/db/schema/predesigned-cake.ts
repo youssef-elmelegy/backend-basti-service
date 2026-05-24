@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { tags } from './tag';
 import { cartItems } from './cart-item';
@@ -11,7 +11,10 @@ export const predesignedCakes = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
     isActive: boolean('is_active').default(true).notNull(),
     isFeatured: boolean('is_featured').default(false).notNull(),
@@ -34,5 +37,4 @@ export const predesignedCakesRelations = relations(predesignedCakes, ({ one, man
   CartItems: many(cartItems),
 }));
 
-import { designedCakeConfigs } from './designed-cake-config';import { json } from 'zod';
-
+import { designedCakeConfigs } from './designed-cake-config';

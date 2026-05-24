@@ -98,10 +98,7 @@ export class LocationService {
 
       this.logger.debug(`Retrieved location: ${id}`);
 
-      return successResponse(
-        this.mapToLocationResponse(location),
-        'routes.locations.retrieved',
-      );
+      return successResponse(this.mapToLocationResponse(location), 'routes.locations.retrieved');
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;
@@ -175,10 +172,7 @@ export class LocationService {
 
       this.logger.log(`Location deleted: ${id}`);
 
-      return successResponse(
-        { message: 'routes.locations.deleted' },
-        'routes.locations.deleted',
-      );
+      return successResponse({ message: 'routes.locations.deleted' }, 'routes.locations.deleted');
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;

@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  uuid,
-  timestamp,
-  boolean,
-  integer,
-  jsonb,
-  index,
-} from 'drizzle-orm/pg-core';
+import { pgTable, uuid, timestamp, boolean, integer, jsonb, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 import { regionItemPrices } from './region-item-price';

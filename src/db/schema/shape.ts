@@ -21,7 +21,10 @@ export const shapes = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     shapeUrl: text('shape_url').notNull(),
     size: varchar('size', { length: 50 }).notNull().default('medium'),
     capacity: integer('capacity'),

@@ -87,11 +87,7 @@ export class AuthService {
     if (existingUser.length > 0) {
       this.logger.warn(`Signup failed: Email already exists - ${email}`);
       throw new ConflictException(
-        errorResponse(
-          'routes.auth.email_exists',
-          HttpStatus.CONFLICT,
-          'ConflictException',
-        ),
+        errorResponse('routes.auth.email_exists', HttpStatus.CONFLICT, 'ConflictException'),
       );
     }
 
@@ -159,7 +155,11 @@ export class AuthService {
     if (user.isEmailVerified) {
       this.logger.warn(`OTP verification failed: Email already verified - ${email}`);
       throw new ConflictException(
-        errorResponse('routes.auth.email_already_verified', HttpStatus.CONFLICT, 'ConflictException'),
+        errorResponse(
+          'routes.auth.email_already_verified',
+          HttpStatus.CONFLICT,
+          'ConflictException',
+        ),
       );
     }
 
@@ -171,7 +171,11 @@ export class AuthService {
     if (!isOtpValid) {
       this.logger.warn(`OTP verification failed: Invalid or expired OTP - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('routes.otp.invalid_or_expired', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse(
+          'routes.otp.invalid_or_expired',
+          HttpStatus.UNAUTHORIZED,
+          'UnauthorizedException',
+        ),
       );
     }
 
@@ -238,11 +242,7 @@ export class AuthService {
     if (!user.isEmailVerified) {
       this.logger.warn(`Profile setup failed: Email not verified - ${userId}`);
       throw new ForbiddenException(
-        errorResponse(
-          'routes.auth.email_not_verified',
-          HttpStatus.FORBIDDEN,
-          'ForbiddenException',
-        ),
+        errorResponse('routes.auth.email_not_verified', HttpStatus.FORBIDDEN, 'ForbiddenException'),
       );
     }
 
@@ -311,7 +311,11 @@ export class AuthService {
     if (user.isEmailVerified) {
       this.logger.warn(`OTP resend failed: Email already verified - ${email}`);
       throw new ConflictException(
-        errorResponse('routes.auth.email_already_verified', HttpStatus.CONFLICT, 'ConflictException'),
+        errorResponse(
+          'routes.auth.email_already_verified',
+          HttpStatus.CONFLICT,
+          'ConflictException',
+        ),
       );
     }
 
@@ -390,7 +394,11 @@ export class AuthService {
     if (!user) {
       this.logger.warn(`Login failed: User not found - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('routes.auth.invalid_credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse(
+          'routes.auth.invalid_credentials',
+          HttpStatus.UNAUTHORIZED,
+          'UnauthorizedException',
+        ),
       );
     }
 
@@ -399,18 +407,18 @@ export class AuthService {
     if (!isPasswordValid) {
       this.logger.warn(`Login failed: Invalid password - ${email}`);
       throw new UnauthorizedException(
-        errorResponse('routes.auth.invalid_credentials', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+        errorResponse(
+          'routes.auth.invalid_credentials',
+          HttpStatus.UNAUTHORIZED,
+          'UnauthorizedException',
+        ),
       );
     }
 
     if (!user.isEmailVerified) {
       this.logger.warn(`Login failed: Email not verified - ${email}`);
       throw new ForbiddenException(
-        errorResponse(
-          'routes.auth.email_not_verified',
-          HttpStatus.FORBIDDEN,
-          'ForbiddenException',
-        ),
+        errorResponse('routes.auth.email_not_verified', HttpStatus.FORBIDDEN, 'ForbiddenException'),
       );
     }
 
@@ -669,7 +677,11 @@ export class AuthService {
       if (!user.isEmailVerified) {
         this.logger.warn(`Reset OTP verification failed: Email not verified - ${email}`);
         throw new UnauthorizedException(
-          errorResponse('routes.auth.email_not_verified', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse(
+            'routes.auth.email_not_verified',
+            HttpStatus.UNAUTHORIZED,
+            'UnauthorizedException',
+          ),
         );
       }
 
@@ -681,7 +693,11 @@ export class AuthService {
       if (!isOtpValid) {
         this.logger.warn(`Reset OTP verification failed: Invalid or expired OTP - ${email}`);
         throw new UnauthorizedException(
-          errorResponse('routes.otp.invalid_or_expired', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse(
+            'routes.otp.invalid_or_expired',
+            HttpStatus.UNAUTHORIZED,
+            'UnauthorizedException',
+          ),
         );
       }
 
@@ -744,7 +760,11 @@ export class AuthService {
       if (payload.type !== 'reset-password') {
         this.logger.warn('Reset password failed: Invalid token type');
         throw new UnauthorizedException(
-          errorResponse('routes.auth.invalid_token_type', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse(
+            'routes.auth.invalid_token_type',
+            HttpStatus.UNAUTHORIZED,
+            'UnauthorizedException',
+          ),
         );
       }
 
@@ -910,7 +930,11 @@ export class AuthService {
       if (!isPasswordValid) {
         this.logger.warn(`Delete profile failed: Invalid password - ${userId}`);
         throw new UnauthorizedException(
-          errorResponse('routes.auth.invalid_password', HttpStatus.UNAUTHORIZED, 'UnauthorizedException'),
+          errorResponse(
+            'routes.auth.invalid_password',
+            HttpStatus.UNAUTHORIZED,
+            'UnauthorizedException',
+          ),
         );
       }
 

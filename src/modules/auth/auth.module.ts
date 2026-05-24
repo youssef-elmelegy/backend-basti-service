@@ -5,7 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
 import { AccessTokenStrategy, RefreshTokenStrategy, JwtAuthGuard } from '@/common';
-import { EmailService } from '@/common/services/email.service';
+import { MailModule } from '@/common/mail/mail.module';
 import { env } from '@/env';
 
 @Module({
@@ -15,6 +15,7 @@ import { env } from '@/env';
       secret: env.JWT_ACCESS_SECRET,
       signOptions: { expiresIn: env.JWT_ACCESS_EXPIRES_IN },
     }),
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -25,7 +26,6 @@ import { env } from '@/env';
     AccessTokenStrategy,
     RefreshTokenStrategy,
     AuthService,
-    EmailService,
   ],
   exports: [AuthService],
 })

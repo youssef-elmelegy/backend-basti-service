@@ -60,6 +60,6 @@ export class SliderImageController {
     this.logger.debug(`Deleting slider image: ${id}`);
     const result = await this.sliderImageService.remove(id);
     this.logger.log(`Slider image deleted: ${id}`);
-    return result as SuccessResponse<{ message: string }>;
+    return result;
   }
 }

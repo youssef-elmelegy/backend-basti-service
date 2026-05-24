@@ -455,10 +455,16 @@ export class NotificationService {
     const { title, body, type, redirectId, data } = dto;
 
     try {
-      const allUsers = await db.select({ id: users.id, fcmToken: users.fcmToken }).from(users);
+      const [allUsers, allAdmins] = await Promise.all([
+        db.select({ id: users.id, fcmToken: users.fcmToken }).from(users),
+        db
+          .select({ id: admins.id, fcmToken: admins.fcmToken })
+          .from(admins)
+          .where(eq(admins.isBlocked, false)),
+      ]);
 
-      if (allUsers.length === 0) {
-        this.logger.warn('Broadcast requested but no users exist');
+      if (allUsers.length === 0 && allAdmins.length === 0) {
+        this.logger.warn('Broadcast requested but no users or admins exist');
         return successResponse(
           { totalUsers: 0, pushedCount: 0, failedCount: 0 },
           'routes.notifications.broadcast_sent',
@@ -467,28 +473,46 @@ export class NotificationService {
       }
 
       const titleObject = { ar: title, en: title };
-      const bodyObject = { ar: title, en: title };
+      const bodyObject = { ar: body, en: body };
 
-      const notificationRows = allUsers.map((u) => ({
-        title: titleObject,
-        body: bodyObject,
-        type,
-        userId: u.id,
-        adminId: null,
-        redirectId: redirectId ?? null,
-      }));
+      const notificationRows = [
+        ...allUsers.map((u) => ({
+          title: titleObject,
+          body: bodyObject,
+          type,
+          userId: u.id,
+          adminId: null,
+          redirectId: redirectId ?? null,
+        })),
+        ...allAdmins.map((a) => ({
+          title: titleObject,
+          body: bodyObject,
+          type,
+          userId: null,
+          adminId: a.id,
+          redirectId: redirectId ?? null,
+        })),
+      ];
 
-      await db.insert(notifications).values(notificationRows);
+      if (notificationRows.length > 0) {
+        await db.insert(notifications).values(notificationRows);
+      }
 
-      this.logger.log(`Broadcast notification stored for ${allUsers.length} users (type=${type})`);
+      this.logger.log(
+        `Broadcast notification stored for ${allUsers.length} users + ${allAdmins.length} admins (type=${type})`,
+      );
 
       const usersWithToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
         Boolean(u.fcmToken),
+      );
+      const adminsWithToken = allAdmins.filter((a): a is { id: string; fcmToken: string } =>
+        Boolean(a.fcmToken),
       );
 
       let pushedCount = 0;
       let failedCount = 0;
       const invalidTokenUserIds: string[] = [];
+      const invalidTokenAdminIds: string[] = [];
 
       const pushPayloadBase: Record<string, string> = {
         type,
@@ -496,8 +520,8 @@ export class NotificationService {
         ...(data ?? {}),
       };
 
-      await Promise.all(
-        usersWithToken.map(async (u) => {
+      await Promise.all([
+        ...usersWithToken.map(async (u) => {
           try {
             const result = await this.firebaseService.sendToToken(
               u.fcmToken,
@@ -520,11 +544,34 @@ export class NotificationService {
             this.logger.warn(`FCM push failed for user ${u.id}: ${errMsg}`);
           }
         }),
-      );
+        ...adminsWithToken.map(async (a) => {
+          try {
+            const result = await this.firebaseService.sendToToken(
+              a.fcmToken,
+              title,
+              body,
+              pushPayloadBase,
+            );
+
+            if (result.success) {
+              pushedCount += 1;
+            } else {
+              failedCount += 1;
+              if (result.invalidToken) {
+                invalidTokenAdminIds.push(a.id);
+              }
+            }
+          } catch (err) {
+            failedCount += 1;
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(`FCM push failed for admin ${a.id}: ${errMsg}`);
+          }
+        }),
+      ]);
 
       if (invalidTokenUserIds.length > 0) {
         this.logger.warn(
-          `Clearing ${invalidTokenUserIds.length} invalid FCM tokens after broadcast`,
+          `Clearing ${invalidTokenUserIds.length} invalid user FCM tokens after broadcast`,
         );
         for (const userId of invalidTokenUserIds) {
           await db
@@ -534,13 +581,28 @@ export class NotificationService {
         }
       }
 
+      if (invalidTokenAdminIds.length > 0) {
+        this.logger.warn(
+          `Clearing ${invalidTokenAdminIds.length} invalid admin FCM tokens after broadcast`,
+        );
+        for (const adminId of invalidTokenAdminIds) {
+          await db
+            .update(admins)
+            .set({ fcmToken: null, updatedAt: new Date() })
+            .where(eq(admins.id, adminId));
+        }
+      }
+
+      const totalRecipients = allUsers.length + allAdmins.length;
+      const totalWithToken = usersWithToken.length + adminsWithToken.length;
+
       this.logger.log(
-        `Broadcast push complete: ${pushedCount} delivered, ${failedCount} failed (${allUsers.length} total users, ${usersWithToken.length} with tokens)`,
+        `Broadcast push complete: ${pushedCount} delivered, ${failedCount} failed (${totalRecipients} total recipients, ${totalWithToken} with tokens)`,
       );
 
       return successResponse(
         {
-          totalUsers: allUsers.length,
+          totalUsers: totalRecipients,
           pushedCount,
           failedCount,
         },

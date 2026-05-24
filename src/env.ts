@@ -42,18 +42,23 @@ const envSchema = z.object({
         : [],
     ),
 
-  // Email / SMTP
-  SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
-  SMTP_PORT: z.coerce.number().default(587),
-  SMTP_USER: z.string().min(1, 'SMTP_USER is required'),
-  SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
+  // Email / AWS SES
+  AWS_REGION: z.string().min(1, 'AWS_REGION is required'),
+  AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS_ACCESS_KEY_ID is required'),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS_SECRET_ACCESS_KEY is required'),
   MAIL_FROM_NAME: z.string().min(1, 'MAIL_FROM_NAME is required'),
-  MAIL_FROM: z.string().min(1, 'MAIL_FROM is required'),
+  MAIL_FROM: z.string().email('MAIL_FROM must be a valid email'),
+  MAIL_REPLY_TO: z.string().email().optional(),
 
-  // Cloudinary
-  CLOUDINARY_CLOUD_NAME: z.string().min(1, 'CLOUDINARY_CLOUD_NAME is required'),
-  CLOUDINARY_API_KEY: z.string().min(1, 'CLOUDINARY_API_KEY is required'),
-  CLOUDINARY_API_SECRET: z.string().min(1, 'CLOUDINARY_API_SECRET is required'),
+  // R2 / Cloudflare object storage
+  R2_ACCOUNT_ID: z.string().min(1, 'R2_ACCOUNT_ID is required'),
+  R2_ACCESS_KEY_ID: z.string().min(1, 'R2_ACCESS_KEY_ID is required'),
+  R2_SECRET_ACCESS_KEY: z.string().min(1, 'R2_SECRET_ACCESS_KEY is required'),
+  R2_BUCKET_NAME: z.string().min(1, 'R2_BUCKET_NAME is required'),
+  R2_PUBLIC_URL: z
+    .string()
+    .url('R2_PUBLIC_URL must be a valid URL')
+    .transform((val) => val.replace(/\/$/, '')),
 
   // Google cloud translation
   GOOGLE_CLOUD_PROJECT_ID: z.string().min(1, 'GOOGLE_CLOUD_PROJECT_ID is required'),

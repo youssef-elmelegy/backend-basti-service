@@ -5,8 +5,7 @@ import { ErrorResponseDto } from '@/modules/auth/dto';
 import { ShapeExamples } from '@/constants/examples';
 
 export function ForceDeleteShapeDecorator() {
-  const forceDeleteExample = ShapeExamples.forceDelete.response
-    .success as unknown as DeleteShapeResponseDto;
+  const forceDeleteExample = ShapeExamples.forceDelete.response.success;
   return applyDecorators(
     ApiOperation({
       summary: 'Force-delete a shape and its predesigned cake configs',

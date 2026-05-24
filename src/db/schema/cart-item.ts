@@ -21,7 +21,7 @@ export const cartItems = pgTable(
     predesignedCakeId: uuid('predesigned_cake_id').references(() => predesignedCakes.id, {
       onDelete: 'cascade',
     }),
-    
+
     customCake: jsonb('custom_cake').$type<{
       shapeId: string;
       flavorId: string;

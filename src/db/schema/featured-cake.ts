@@ -1,14 +1,4 @@
-import {
-  pgTable,
-  varchar,
-  boolean,
-  timestamp,
-  uuid,
-  integer,
-  text,
-  jsonb,
-  index,
-} from 'drizzle-orm/pg-core';
+import { pgTable, boolean, timestamp, uuid, integer, jsonb, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { cartItems, tags } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
@@ -20,7 +10,10 @@ export const featuredCakes = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     images: jsonb('images').notNull().$type<string[]>(),
     capacity: integer('capacity').notNull(),
     flavorList: jsonb('flavor_list').notNull().$type<string[]>(),

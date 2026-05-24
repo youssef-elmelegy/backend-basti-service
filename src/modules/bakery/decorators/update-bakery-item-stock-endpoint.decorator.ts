@@ -37,7 +37,7 @@ export function UpdateBakeryItemStockDecorator() {
       status: HttpStatus.OK,
       description: 'Stock updated successfully',
       type: SuccessBakeryItemStoreResponseDto,
-      example: BakeryExamples.updateItemStock?.response?.success as Record<string, unknown>,
+      example: BakeryExamples.updateItemStock?.response?.success,
     }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,

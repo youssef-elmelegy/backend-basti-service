@@ -11,7 +11,14 @@ import { ItemsModule } from '@/modules/items/items.module';
 @Module({
   controllers: [CartController],
   providers: [CartService],
-  imports: [AddonModule, SweetModule, FeaturedCakeModule, CustomCakesModule, RegionModule, ItemsModule],
+  imports: [
+    AddonModule,
+    SweetModule,
+    FeaturedCakeModule,
+    CustomCakesModule,
+    RegionModule,
+    ItemsModule,
+  ],
   exports: [CartService],
 })
 export class CartModule {}

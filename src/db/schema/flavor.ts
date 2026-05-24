@@ -1,7 +1,6 @@
 import {
   pgTable,
   uuid,
-  varchar,
   text,
   timestamp,
   index,
@@ -20,7 +19,10 @@ export const flavors = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     flavorUrl: text('flavor_url').notNull(),
     order: integer('order').notNull(),
     isActive: boolean('is_active').default(true).notNull(),

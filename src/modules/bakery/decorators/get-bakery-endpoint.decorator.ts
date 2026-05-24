@@ -20,7 +20,7 @@ export function GetBakeryDecorator() {
       status: HttpStatus.OK,
       description: 'Bakery retrieved successfully',
       type: SuccessBakeryResponseDto,
-      example: BakeryExamples.getById?.response?.success as Record<string, unknown>,
+      example: BakeryExamples.getById?.response?.success,
     }),
     ApiResponse({
       status: HttpStatus.NOT_FOUND,

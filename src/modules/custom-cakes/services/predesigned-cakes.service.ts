@@ -31,13 +31,16 @@ import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 
-type FlattenedPredesignedCake = Omit<typeof predesignedCakes.$inferSelect, 'name' | 'description'> & { 
-  name: string; 
-  description: string; 
+type FlattenedPredesignedCake = Omit<
+  typeof predesignedCakes.$inferSelect,
+  'name' | 'description'
+> & {
+  name: string;
+  description: string;
 };
 
-type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & { 
-  name: string; 
+type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
+  name: string;
 };
 
 @Injectable()
@@ -119,7 +122,9 @@ export class PredesignedCakesService {
       }
 
       const nameObject = await this.translationService.getTranslationObject(createDto.name);
-      const descriptionObject = await this.translationService.getTranslationObject(createDto.description);
+      const descriptionObject = await this.translationService.getTranslationObject(
+        createDto.description,
+      );
 
       const [newCake] = await db
         .insert(predesignedCakes)
@@ -132,7 +137,10 @@ export class PredesignedCakesService {
         .returning({
           ...getTableColumns(predesignedCakes),
           name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
-          description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+          description: this.translationService.getLocalized(
+            predesignedCakes.description,
+            'description',
+          ),
         });
 
       // Create all configs
@@ -174,7 +182,6 @@ export class PredesignedCakesService {
   async findAll(
     query: GetPredesignedCakesQueryDto,
   ): Promise<SuccessResponse<Record<string, unknown>>> {
-
     const { page = 1, limit = 10 } = query;
 
     try {
@@ -207,17 +214,17 @@ export class PredesignedCakesService {
       if (query.search) {
         const searchPattern = `%${query.search}%`;
         whereConditions.push(
-            or(
-              ilike(
-                this.translationService.getLocalized(predesignedCakes.name, null, 'en'), 
-                searchPattern
-              ),
-              ilike(
-                this.translationService.getLocalized(predesignedCakes.description, null, 'en'), 
-                searchPattern
-              ),
+          or(
+            ilike(
+              this.translationService.getLocalized(predesignedCakes.name, null, 'en'),
+              searchPattern,
             ),
-          );
+            ilike(
+              this.translationService.getLocalized(predesignedCakes.description, null, 'en'),
+              searchPattern,
+            ),
+          ),
+        );
       }
 
       if (query.regionId) {
@@ -241,7 +248,10 @@ export class PredesignedCakesService {
             cake: {
               ...getTableColumns(predesignedCakes),
               name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
-              description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+              description: this.translationService.getLocalized(
+                predesignedCakes.description,
+                'description',
+              ),
             },
             price: regionItemPrices.price,
             offer: {
@@ -251,10 +261,7 @@ export class PredesignedCakesService {
           })
           .from(predesignedCakes)
           .innerJoin(regionItemPrices, and(...joinConditions))
-          .leftJoin(offers, and(
-            eq(regionItemPrices.offerId, offers.id),
-            isOfferActive(offers),
-          ))
+          .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
           .orderBy(sortOrder(sortColumn))
           .limit(limit)
@@ -278,7 +285,10 @@ export class PredesignedCakesService {
             cake: {
               ...getTableColumns(predesignedCakes),
               name: this.translationService.getLocalized(predesignedCakes.name, 'name'),
-              description: this.translationService.getLocalized(predesignedCakes.description, 'description'),
+              description: this.translationService.getLocalized(
+                predesignedCakes.description,
+                'description',
+              ),
             },
           })
           .from(predesignedCakes)
@@ -293,10 +303,10 @@ export class PredesignedCakesService {
       // Get tag names, configs, and format pricing for all items
       const itemsWithTagsAndConfigs = await Promise.all(
         allCakesResult.map(
-          async (result: { 
-            cake: FlattenedPredesignedCake; 
-            price?: string, offer?: 
-            FlattenedOffer | null 
+          async (result: {
+            cake: FlattenedPredesignedCake;
+            price?: string;
+            offer?: FlattenedOffer | null;
           }) => {
             const tagName = result.cake.tagId ? await this.getTagName(result.cake.tagId) : null;
             const configs = await this.getConfigIds(result.cake.id);
@@ -305,12 +315,14 @@ export class PredesignedCakesService {
               tagName,
               configs,
               ...(result.price && { price: result.price }),
-              offer: result.offer ? {
-                id: result.offer.id,
-                name: result.offer.name,
-                percentage: result.offer.percentage,
-                expiryDate: result.offer.expiryDate,
-              } : null,
+              offer: result.offer
+                ? {
+                    id: result.offer.id,
+                    name: result.offer.name,
+                    percentage: result.offer.percentage,
+                    expiryDate: result.offer.expiryDate,
+                  }
+                : null,
             };
 
             return item;
@@ -355,7 +367,11 @@ export class PredesignedCakesService {
 
       if (!cake.length) {
         throw new NotFoundException(
-          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.predesigned_cakes.not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
 
@@ -397,7 +413,11 @@ export class PredesignedCakesService {
 
       if (!cakeExists.length) {
         throw new NotFoundException(
-          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.predesigned_cakes.not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
 
@@ -489,7 +509,9 @@ export class PredesignedCakesService {
         updateValues.name = await this.translationService.getTranslationObject(updateDto.name);
       }
       if (updateDto.description) {
-        updateValues.description = await this.translationService.getTranslationObject(updateDto.description);
+        updateValues.description = await this.translationService.getTranslationObject(
+          updateDto.description,
+        );
       }
       if (updateDto.thumbnailUrl !== undefined) updateValues.thumbnailUrl = updateDto.thumbnailUrl;
       if (updateDto.tagId !== undefined) updateValues.tagId = updateDto.tagId;
@@ -535,7 +557,11 @@ export class PredesignedCakesService {
 
       if (!cakeExists.length) {
         throw new NotFoundException(
-          errorResponse('routes.predesigned_cakes.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          errorResponse(
+            'routes.predesigned_cakes.not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
 
@@ -586,7 +612,7 @@ export class PredesignedCakesService {
       const statusText = updatedCake.isActive ? 'activated' : 'deactivated';
       this.logger.log(`Predesigned cake status toggled (${statusText}): ${id}`);
 
-      let tagName = updatedCake.tagId ? await this.getTagName(updatedCake.tagId) : null;
+      const tagName = updatedCake.tagId ? await this.getTagName(updatedCake.tagId) : null;
 
       return successResponse(
         {
@@ -872,18 +898,19 @@ export class PredesignedCakesService {
 
   private async getTagName(tagId: string): Promise<string> {
     const tag = await db
-    .select({ 
-      name: this.translationService.getLocalized(tags.name, 'name')
-    })
-    .from(tags)
-    .where(eq(tags.id, tagId)).limit(1);
+      .select({
+        name: this.translationService.getLocalized(tags.name, 'name'),
+      })
+      .from(tags)
+      .where(eq(tags.id, tagId))
+      .limit(1);
     return tag.length > 0 ? tag[0].name : '';
   }
 
   async toggleFeatured(id: string): Promise<SuccessResponse<{ message: string }>> {
     try {
       const [existing] = await db
-        .select({ 
+        .select({
           id: predesignedCakes.id,
           isFeatured: predesignedCakes.isFeatured,
         })
@@ -894,20 +921,20 @@ export class PredesignedCakesService {
       if (!existing) {
         throw new NotFoundException(
           errorResponse(
-            'routes.predesigned_cakes.not_found', 
-            HttpStatus.NOT_FOUND, 
-            'NotFoundException'
-          )
+            'routes.predesigned_cakes.not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
         );
       }
 
       await db
         .update(predesignedCakes)
-        .set({ 
-          isFeatured: !existing.isFeatured, 
-          updatedAt: new Date() 
+        .set({
+          isFeatured: !existing.isFeatured,
+          updatedAt: new Date(),
         })
-        .where(eq(predesignedCakes.id, id))
+        .where(eq(predesignedCakes.id, id));
 
       return successResponse(
         { message: 'routes.item_flags.featured_toggled' },
@@ -916,10 +943,8 @@ export class PredesignedCakesService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
-        errorResponse(
-          'routes.item_flags.failed_toggle_featured',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        ));
+        errorResponse('routes.item_flags.failed_toggle_featured', HttpStatus.INTERNAL_SERVER_ERROR),
+      );
     }
   }
 

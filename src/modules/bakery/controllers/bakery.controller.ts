@@ -21,7 +21,6 @@ import {
   SortDto,
   UpdateBakeryItemStockDto,
 } from '../dto';
-import { SortType, SortOrder } from '@/common/dto';
 import {
   CreateBakeryDecorator,
   GetAllBakeriesDecorator,
@@ -77,8 +76,8 @@ export class BakeryController {
       limit: Math.max(1, parseInt(limit, 10) || 10),
     };
     const sortDto: SortDto = {
-      sort: (sort === 'alpha' || sort === 'created_at' ? sort : 'created_at') as SortType,
-      order: (order === 'asc' || order === 'desc' ? order : 'desc') as SortOrder,
+      sort: sort === 'alpha' || sort === 'created_at' ? sort : 'created_at',
+      order: order === 'asc' || order === 'desc' ? order : 'desc',
     };
     return this.bakeryService.findAll(pagination, sortDto);
   }

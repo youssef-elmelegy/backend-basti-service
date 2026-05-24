@@ -1,11 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { ApiTags, ApiQuery } from '@nestjs/swagger';
-import { CloudinaryService } from '@/common/services/cloudinary.service';
-import { UploadImageDecorator, DeleteImagesDecorator } from './decorators/upload.decorator';
+import { StorageService } from '@/common/services/storage.service';
+import {
+  UploadImageDecorator,
+  DeleteImagesDecorator,
+  ListImagesDecorator,
+} from './decorators/upload.decorator';
 import { FlexibleJwtGuard } from '@/common/guards/flexible-jwt.guard';
 import { successResponse } from '@/utils/response.handler';
 import {
   Post,
+  Get,
   UseInterceptors,
   UploadedFile,
   ParseFilePipe,
@@ -32,19 +36,19 @@ export interface DeleteImageDto {
 export class UploadController {
   private readonly logger = new Logger(UploadController.name);
 
-  constructor(private readonly cloudinaryService: CloudinaryService) {}
+  constructor(private readonly storageService: StorageService) {}
 
   /**
-   * Upload image to Cloudinary with dynamic folder path
+   * Upload image to R2 with dynamic folder path
    * @param file - Image file to upload
-   * @param folder - Target folder in Cloudinary (e.g., 'basti/chefs', 'basti/products')
-   * @returns CloudinaryUploadResult with secure_url
+   * @param folder - Target folder in R2 (e.g., 'basti/chefs', 'basti/products')
+   * @returns StorageUploadResult with secure_url
    */
   @Public()
   @Post('image')
   // @UseGuards(FlexibleJwtGuard)
-  @ApiQuery({ name: 'folder', required: false, description: 'Target folder in Cloudinary' })
-  @UploadImageDecorator('Upload image to Cloudinary')
+  @ApiQuery({ name: 'folder', required: false, description: 'Target folder in R2' })
+  @UploadImageDecorator('Upload image to R2')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
     @Query('folder') folder: string = 'basti/general',
@@ -61,11 +65,12 @@ export class UploadController {
     this.logger.debug(`Uploading image to folder: ${folder}, filename: ${file.originalname}`);
 
     try {
-      const result = await this.cloudinaryService.uploadFile(
+      const result = await this.storageService.uploadFile(
         file.buffer,
         file.originalname,
         folder,
         'image',
+        file.mimetype,
       );
 
       this.logger.log(`Image uploaded to ${folder}: ${result.public_id}`);
@@ -77,24 +82,53 @@ export class UploadController {
   }
 
   /**
-   * Delete images by URL array
-   * @param urls - Array of Cloudinary image URLs to delete
-   * @returns DeleteImageResult with success/failed counts
+   * Delete images by URL array. Non-R2 URLs (e.g. legacy Cloudinary links)
+   * are reported as `skipped` instead of failing the request.
+   * @param urls - Array of image URLs to delete
+   * @returns StorageDeleteResult with success/failed/skipped counts
    */
   @Delete('images')
   @UseGuards(FlexibleJwtGuard)
   @DeleteImagesDecorator('Delete images by URLs')
   async deleteImages(@Body() { urls }: DeleteImageDto) {
-    this.logger.debug(`Deleting ${urls.length} images`);
+    this.logger.debug(`Deleting ${urls?.length ?? 0} images`);
 
     if (!urls || urls.length === 0) {
       this.logger.warn('No URLs provided for deletion');
-      return successResponse({ results: {}, success: 0, failed: 0 }, 'route.upload.no_images_to_delete');
+      return successResponse(
+        { results: {}, success: 0, failed: 0, skipped: 0 },
+        'route.upload.no_images_to_delete',
+      );
     }
 
-    const result = await this.cloudinaryService.deleteFilesByUrls(urls);
+    const result = await this.storageService.deleteFilesByUrls(urls);
 
-    this.logger.log(`Image deletion completed: ${result.success} success, ${result.failed} failed`);
+    this.logger.log(
+      `Image deletion completed: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped`,
+    );
     return successResponse(result, 'route.upload.images_deleted');
+  }
+
+  /**
+   * List images in R2 by folder prefix (paginated).
+   * @param prefix - Folder prefix (e.g. 'basti/chefs')
+   * @param cursor - Opaque continuation token from a previous response
+   * @param limit - Page size (1-1000, default 100)
+   * @returns StorageListResult with objects + nextCursor
+   */
+  @Get('images')
+  @UseGuards(FlexibleJwtGuard)
+  @ListImagesDecorator('List images by folder prefix')
+  async listImages(
+    @Query('prefix') prefix: string = 'basti',
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = Math.min(Math.max(parseInt(limit ?? '100', 10) || 100, 1), 1000);
+    const result = await this.storageService.listFiles(prefix, cursor, parsedLimit);
+    this.logger.log(
+      `Listed ${result.objects.length} object(s) under prefix "${prefix}" (truncated=${result.isTruncated})`,
+    );
+    return successResponse(result, 'route.upload.images_listed');
   }
 }

@@ -1,7 +1,6 @@
 import {
   pgTable,
   uuid,
-  varchar,
   text,
   timestamp,
   index,
@@ -20,7 +19,10 @@ export const decorations = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     title: jsonb('title').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    description: jsonb('description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    description: jsonb('description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     tagId: uuid('tag_id'),
     decorationUrl: text('decoration_url').notNull(),
     isActive: boolean('is_active').default(true).notNull(),

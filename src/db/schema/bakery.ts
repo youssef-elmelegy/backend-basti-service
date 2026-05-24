@@ -1,18 +1,7 @@
-import {
-  pgTable,
-  varchar,
-  timestamp,
-  uuid,
-  integer,
-  decimal,
-  text,
-  jsonb,
-  index,
-} from 'drizzle-orm/pg-core';
+import { pgTable, timestamp, uuid, integer, decimal, jsonb, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { regions, chefs, orders, reviews, admins, bakeryItemStores } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
-
 
 export const bakeries = pgTable(
   'bakeries',
@@ -26,7 +15,10 @@ export const bakeries = pgTable(
     managerId: uuid('manager_id').references(() => admins.id),
 
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
-    locationDescription: jsonb('location_description').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    locationDescription: jsonb('location_description')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     capacity: integer('capacity').notNull(),
 
     bakeryTypes: jsonb('bakery_types')

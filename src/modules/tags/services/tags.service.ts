@@ -25,13 +25,13 @@ export class TagsService {
    */
   async findAll(query: FindAllQueryDto): Promise<SuccessResponse<TagDto[]>> {
     try {
-      let allTags = await db.
-        select({
+      let allTags = await db
+        .select({
           ...getTableColumns(tags),
           name: this.translationService.getLocalized(tags.name, 'name'),
-        }).
-        from(tags).
-        orderBy(asc(tags.displayOrder));
+        })
+        .from(tags)
+        .orderBy(asc(tags.displayOrder));
 
       if (query.type && query.type.trim() !== '') {
         const typeLower = query.type.toLowerCase();
@@ -69,23 +69,20 @@ export class TagsService {
           name: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(tags)
-        .where(eq(
-          this.translationService.getLocalized(tags.name, null, 'en'),
-          tagNameLower
-        ))
+        .where(eq(this.translationService.getLocalized(tags.name, null, 'en'), tagNameLower))
         .limit(1);
 
       if (existingTag.length > 0) {
         throw new BadRequestException(
           errorResponse('routes.tags.name_exists', HttpStatus.BAD_REQUEST, 'BadRequestException'),
         );
-      }      
+      }
 
       const existingDisplayOrder = await db
         .select()
         .from(tags)
         .where(eq(tags.displayOrder, displayOrderValue))
-        .limit(1);  
+        .limit(1);
 
       if (existingDisplayOrder.length > 0) {
         throw new BadRequestException(
@@ -95,11 +92,11 @@ export class TagsService {
             'BadRequestException',
           ),
         );
-      }      
+      }
 
-      let nameObject = await this.translationService.getTranslationObject(tagName);
+      const nameObject = await this.translationService.getTranslationObject(tagName);
 
-      nameObject.en = nameObject.en.toLowerCase(); 
+      nameObject.en = nameObject.en.toLowerCase();
 
       const [newTag] = await db
         .insert(tags)
@@ -111,7 +108,7 @@ export class TagsService {
         .returning({
           ...getTableColumns(tags),
           name: this.translationService.getLocalized(tags.name, 'name'),
-        });      
+        });
 
       this.logger.log(
         `Tag created: ${newTag.id} (${newTag.name}) with types ${newTag.types.join(', ')}`,
@@ -167,25 +164,27 @@ export class TagsService {
         );
       }
 
-      const updateData: Record<string, any> = {};
+      const updateData: {
+        name?: Awaited<ReturnType<TranslationService['getTranslationObject']>>;
+        displayOrder?: number;
+        types?: string[];
+      } = {};
 
       if (editTagDto.name) {
         const nameObject = await this.translationService.getTranslationObject(editTagDto.name);
         nameObject.en = nameObject.en.toLowerCase();
         updateData.name = nameObject;
       }
-      if (editTagDto.displayOrder !== undefined) 
-        updateData.displayOrder = editTagDto.displayOrder;
+      if (editTagDto.displayOrder !== undefined) updateData.displayOrder = editTagDto.displayOrder;
       if (editTagDto.types !== undefined) {
-        updateData.types = editTagDto.types;
-        updateData.types = updateData.types.map((type) => type.toLowerCase());
+        updateData.types = editTagDto.types.map((type) => type.toLowerCase());
       }
 
       // If nothing would change, reject
       if (
         updateData.name === selectedTag.name &&
         updateData.displayOrder === selectedTag.displayOrder &&
-        updateData.types.length === 0
+        (updateData.types?.length ?? 0) === 0
       ) {
         throw new BadRequestException(
           errorResponse(
@@ -202,10 +201,7 @@ export class TagsService {
           name: this.translationService.getLocalized(tags.name, 'name'),
         })
         .from(tags)
-        .where(eq(
-          this.translationService.getLocalized(tags.name, null, 'en'),
-          updateData.name
-        ))
+        .where(eq(this.translationService.getLocalized(tags.name, null, 'en'), updateData.name))
         .limit(1);
 
       if (existingTagName && existingTagName.id !== id) {

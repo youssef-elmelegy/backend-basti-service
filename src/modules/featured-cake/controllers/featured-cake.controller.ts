@@ -48,7 +48,7 @@ export class FeaturedCakeController {
     this.logger.debug(`Creating featured cake: ${createFeaturedCakeDto.name}`);
     const result = await this.featuredCakeService.create(createFeaturedCakeDto);
     const cakeData = result.data;
-    this.logger.log(`Featured cake created: ${String(cakeData['id'] as string)}`);
+    this.logger.log(`Featured cake created: ${cakeData['id'] as string}`);
     return result;
   }
 
@@ -112,7 +112,6 @@ export class FeaturedCakeController {
     return result;
   }
 
-
   @Patch(':id/toggle-featured')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
@@ -120,5 +119,4 @@ export class FeaturedCakeController {
   async toggleFeatured(@Param('id') id: string) {
     return await this.featuredCakeService.toggleFeatured(id);
   }
-
 }

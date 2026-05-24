@@ -1,6 +1,14 @@
 import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { locations, orders, cartItems, paymentMethods, reviews, notifications, couponUsages } from '.';
+import {
+  locations,
+  orders,
+  cartItems,
+  paymentMethods,
+  reviews,
+  notifications,
+  couponUsages,
+} from '.';
 
 export const users = pgTable(
   'users',

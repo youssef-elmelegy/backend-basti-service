@@ -1,16 +1,14 @@
-import { 
-	pgTable, 
-	varchar, 
-	timestamp, 
-	uuid, 
-	text, 
-	index, 
-	jsonb, 
-	decimal, 
-	boolean, 
-	integer, 
+import {
+  pgTable,
+  varchar,
+  timestamp,
+  uuid,
+  index,
+  jsonb,
+  decimal,
+  boolean,
+  integer,
   uniqueIndex,
-  primaryKey
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { discountType, orders, regions, users } from '.';
@@ -47,24 +45,36 @@ export const coupons = pgTable(
   },
   (table) => ({
     codeIdx: uniqueIndex('coupon_code_idx').on(table.code),
-    activeDatesIdx: index('coupon_active_dates_idx').on(table.isActive, table.startDate, table.expiryDate),
-  })
+    activeDatesIdx: index('coupon_active_dates_idx').on(
+      table.isActive,
+      table.startDate,
+      table.expiryDate,
+    ),
+  }),
 );
 
 export const couponUsages = pgTable(
-  'coupon_usages', 
+  'coupon_usages',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-    couponId: uuid('coupon_id').references(() => coupons.id).notNull(),
-    userId: uuid('user_id').references(() => users.id).notNull(),
-    orderId: uuid('order_id').references(() => orders.id).notNull(),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    couponId: uuid('coupon_id')
+      .references(() => coupons.id)
+      .notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id)
+      .notNull(),
+    orderId: uuid('order_id')
+      .references(() => orders.id)
+      .notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({
     userCouponIdx: index('coupon_usages_user_coupon_idx').on(table.userId, table.couponId),
     globalCouponIdx: index('coupon_usages_global_coupon_idx').on(table.couponId),
     uniqueOrderCouponIdx: uniqueIndex('unique_order_coupon_idx').on(table.orderId, table.couponId),
-  })
+  }),
 );
 
 export const couponsRelations = relations(coupons, ({ one, many }) => ({
