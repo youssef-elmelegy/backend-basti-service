@@ -37,6 +37,7 @@
     "prepare": "husky || true"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1053.0",
     "@aws-sdk/client-sesv2": "^3.1053.0",
     "@google-cloud/translate": "^9.3.0",
     "@nestjs/common": "11.1.9",
@@ -47,12 +48,12 @@
     "@nestjs/swagger": "^11.2.3",
     "@nestjs/throttler": "^6.5.0",
     "@scalar/nestjs-api-reference": "^1.0.8",
+    "@sentry/nestjs": "^10.55.0",
     "@translated/lara": "^1.9.1",
     "bcrypt": "^6.0.0",
     "busboy": "^1.6.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
-    "@aws-sdk/client-s3": "^3.1053.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
