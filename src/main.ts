@@ -9,6 +9,7 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { env } from './env';
+import { SentryLogger } from './sentry-logger';
 import { I18nExceptionFilter } from './common/filters/i18n-translation.filter';
 import { I18nResponseInterceptor } from './common/interceptors/i18n-transaltion.interceptor';
 
@@ -23,9 +24,14 @@ const logLevelMap: Record<string, NestLogLevel[]> = {
 };
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // Create app with logger configuration based on env.LOG_LEVEL
-  app.useLogger(logLevelMap[env.LOG_LEVEL] || logLevelMap.info);
+  // bufferLogs lets us swap in our custom logger before any startup log lines are lost.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
+  // Custom logger: writes to stdout (default) AND forwards to GlitchTip Logs.
+  const logger = new SentryLogger();
+  logger.setLogLevels(logLevelMap[env.LOG_LEVEL] || logLevelMap.info);
+  app.useLogger(logger);
 
   // Trust Caddy / Cloudflare so req.ip reflects the real client (via X-Forwarded-For).
   // Required for @nestjs/throttler to rate-limit by client IP instead of proxy IP.
