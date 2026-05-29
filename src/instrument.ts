@@ -11,4 +11,11 @@ Sentry.init({
   tracesSampleRate: 0.1,
   // Don't leak request bodies to the issue tracker by default.
   sendDefaultPii: false,
+  // Enable structured logs (experimental in both SDK and GlitchTip).
+  _experiments: { enableLogs: true },
+  integrations: [
+    // Forward `console.warn` and `console.error` to GlitchTip's Logs panel.
+    // Skipping `log`/`info`/`debug` keeps the volume sane on a chatty Nest startup.
+    Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] }),
+  ],
 });
