@@ -68,6 +68,9 @@ const envSchema = z.object({
   LARA_ACCESS_KEY_ID: z.string().min(1, 'LARA_ACCESS_KEY_ID is required'),
   LARA_ACCESS_KEY_SECRET: z.string().min(1, 'LARA_ACCESS_KEY_SECRET is required'),
 
+  // GlitchTip / Sentry error monitoring (optional — disabled if unset)
+  SENTRY_DSN: z.string().url().optional(),
+
   // Firebase Admin (FCM)
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
   FIREBASE_CLIENT_EMAIL: z.string().min(1, 'FIREBASE_CLIENT_EMAIL is required'),

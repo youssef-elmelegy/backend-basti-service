@@ -1,3 +1,6 @@
+// MUST be the first import: initializes Sentry/GlitchTip before any other module loads.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
