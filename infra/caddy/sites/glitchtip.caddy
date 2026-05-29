@@ -1,0 +1,19 @@
+glitchtip.basty.ly {
+	import security_headers
+	import hide_dotfiles
+
+	encode zstd gzip
+
+	# GlitchTip web (Django) listens on 127.0.0.1:8001 on the host
+	# (8000 is a common port; we use 8001 to avoid clashing with anything else)
+	reverse_proxy 127.0.0.1:8001 {
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-Proto https
+		# Glitchtip uploads / source-map uploads can be larger than default
+		transport http {
+			read_timeout 120s
+			write_timeout 120s
+		}
+	}
+}
