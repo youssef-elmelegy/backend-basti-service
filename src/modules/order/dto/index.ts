@@ -8,3 +8,7 @@ export * from './finalize-order.dto';
 export { PaginationDto, SortDto } from '@/common/dto';
 export * from './get-orders-financials.dto';
 export * from './get-orders-financials-response.dto';
+export * from './get-unassigned-orders-query.dto';
+export * from './get-assigned-orders-query.dto';
+export * from './get-completed-orders-query.dto';
+export * from './get-bakery-orders-query.dto';

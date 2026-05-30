@@ -22,7 +22,7 @@ export const regionItemPrices = pgTable(
     regionId: uuid('region_id')
       .notNull()
       .references(() => regions.id, { onDelete: 'cascade' }),
-    offerId: uuid('offer_id').references(() => offers.id),
+    offerId: uuid('offer_id').references(() => offers.id, { onDelete: 'set null' }),
 
     addonId: uuid('addon_id').references(() => addons.id, { onDelete: 'cascade' }),
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id, {
