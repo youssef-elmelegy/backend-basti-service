@@ -5,6 +5,8 @@ import * as Sentry from '@sentry/nestjs';
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || 'development',
+  // Release tag — CI passes the git SHA so we can correlate errors with deploys.
+  release: process.env.SENTRY_RELEASE,
   // Disable entirely if no DSN is set (e.g., local dev without GlitchTip).
   enabled: !!process.env.SENTRY_DSN,
   // 10% of HTTP transactions captured for performance — adjust if your SDK plan / quota matters.
