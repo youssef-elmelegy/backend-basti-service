@@ -368,6 +368,39 @@ export class NotificationService {
   }
 
   /**
+   * Fan-out push to super_admin accounts only — used when an event must reach
+   * the top-level main admins and not the wider admin pool.
+   */
+  async pushToSuperAdmins(
+    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
+  ): Promise<void> {
+    try {
+      const rows = await db
+        .select({ id: admins.id })
+        .from(admins)
+        .where(and(eq(admins.isBlocked, false), eq(admins.role, 'super_admin')));
+
+      if (rows.length === 0) {
+        this.logger.debug('No super admins to notify');
+        return;
+      }
+
+      await Promise.all(
+        rows.map((a) =>
+          this.pushNotificationSafe({
+            ...payload,
+            recipientType: 'admin',
+            recipientId: a.id,
+          }),
+        ),
+      );
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to push to super admins: ${errMsg}`);
+    }
+  }
+
+  /**
    * Broadcast to every user (used for offers, coupons and other promotional
    * messages). Stores a row per user and pushes to those with FCM tokens.
    */

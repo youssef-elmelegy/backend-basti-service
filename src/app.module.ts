@@ -50,7 +50,7 @@ import { APP_GUARD } from '@nestjs/core';
       {
         name: 'global-rate-limitter',
         ttl: minutes(1),
-        limit: 10,
+        limit: 200,
         // blockDuration: 60000 // in (ms)
       },
     ]),

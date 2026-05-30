@@ -23,6 +23,10 @@ import {
   GetDeliveryDateDto,
   FinalizeOrderDto,
   GetOrdersFinancialsDto,
+  GetUnassignedOrdersQueryDto,
+  GetAssignedOrdersQueryDto,
+  GetCompletedOrdersQueryDto,
+  GetBakeryOrdersQueryDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -97,18 +101,58 @@ export class OrderController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('unassigned')
+  async getUnassignedOrders(@Query() query: GetUnassignedOrdersQueryDto) {
+    this.logger.debug(
+      `getting unassigned orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, type=${query.type ?? '-'}, q=${query.q ?? '-'})`,
+    );
+    const result = await this.orderService.getUnassigned(query);
+    return successResponse(result, 'routes.orders.list_retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('assigned')
+  async getAssignedOrders(@Query() query: GetAssignedOrdersQueryDto) {
+    this.logger.debug(
+      `getting assigned orders (q=${query.q ?? '-'}, statuses=${query.status?.join(',') ?? '-'})`,
+    );
+    const result = await this.orderService.getAssigned(query);
+    return successResponse(result, 'routes.orders.list_retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('completed')
+  async getCompletedOrders(@Query() query: GetCompletedOrdersQueryDto) {
+    this.logger.debug(
+      `getting completed orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, q=${query.q ?? '-'})`,
+    );
+    const result = await this.orderService.getCompleted(query);
+    return successResponse(result, 'routes.orders.list_retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin', 'manager')
   @Get('bakery/:bakeryId')
   @GetBakeryOrdersDecorator()
   async getBakeryOrders(
     @Param('bakeryId', ParseUUIDPipe) bakeryId: string,
-    @Query('regionId') regionId?: string,
-    @Query('status') status?: string | string[],
+    @Query() query: GetBakeryOrdersQueryDto,
   ) {
-    this.logger.debug(`getting orders for bakery: ${bakeryId}`);
-    // Normalize status to array format
-    const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
-    const result = await this.orderService.getAllForBakery(bakeryId, regionId, statusArray);
+    this.logger.debug(
+      `getting orders for bakery: ${bakeryId} (page=${query.page}, limit=${query.limit}, q=${query.q ?? '-'})`,
+    );
+    const result = await this.orderService.getAllForBakery(bakeryId, {
+      page: query.page,
+      limit: query.limit,
+      regionId: query.regionId,
+      type: query.type,
+      status: query.status,
+      q: query.q,
+      sort: query.sort,
+    });
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -135,7 +179,7 @@ export class OrderController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  @AdminRoles('super_admin', 'admin', 'manager')
   @Get(':id')
   @GetOrderByIdDecorator()
   async getOrderById(

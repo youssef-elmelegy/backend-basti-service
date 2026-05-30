@@ -20,6 +20,9 @@ import {
   FinalizeOrderResponseDto,
   GetOrdersFinancialsDto,
   GetOrdersFinancialsResponseDto,
+  GetUnassignedOrdersQueryDto,
+  GetAssignedOrdersQueryDto,
+  GetCompletedOrdersQueryDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -33,7 +36,22 @@ import {
   regions,
   regionItemPrices,
 } from '@/db/schema';
-import { and, eq, getTableColumns, gte, inArray, lte, SQL, desc, isNotNull } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lte,
+  not,
+  SQL,
+  asc,
+  desc,
+  isNotNull,
+  sql,
+} from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { randomBytes } from 'crypto';
@@ -653,11 +671,31 @@ export class OrderService {
     }
   }
 
+  /**
+   * Paginated feed of a bakery's orders. Same shape as the admin endpoints:
+   * { items, pagination: { total, totalPages, page, limit } }.
+   * Filters: regionId, q (reference search), status[], sort.
+   */
   async getAllForBakery(
     bakeryId: string,
-    regionId?: string,
-    status?: string[],
-  ): Promise<OrderResponseDto[]> {
+    query: {
+      page?: number;
+      limit?: number;
+      regionId?: string;
+      type?: string;
+      status?: string[];
+      q?: string;
+      sort?: 'asc' | 'desc';
+    } = {},
+  ): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
     try {
       // Verify bakery exists
       const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
@@ -669,20 +707,44 @@ export class OrderService {
         );
       }
 
-      let bakeryOrders = await db.select().from(orders).where(eq(orders.bakeryId, bakeryId));
-
-      // Filter by status(es) if provided
-      if (status && status.length > 0) {
-        bakeryOrders = bakeryOrders.filter((order) =>
-          this.matchesStatusFilter(order.orderStatus, status),
+      const conditions: SQL[] = [eq(orders.bakeryId, bakeryId)];
+      if (query.regionId) {
+        conditions.push(eq(orders.regionId, query.regionId));
+      }
+      if (query.type) {
+        conditions.push(
+          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
         );
       }
-
-      if (regionId) {
-        bakeryOrders = bakeryOrders.filter((order) => order.regionId === regionId);
+      if (query.status && query.status.length > 0) {
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            query.status as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
       }
 
-      const orderIds = bakeryOrders
+      const where = and(...conditions);
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      const pageRows = await db
+        .select()
+        .from(orders)
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const orderIds = pageRows
         .map((order) => order.id)
         .filter((orderId): orderId is string => Boolean(orderId));
 
@@ -693,39 +755,342 @@ export class OrderService {
 
       const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
 
-      // Process all bakery orders concurrently with per-order fallback
-      const response = await Promise.all(
-        bakeryOrders.map(async (order): Promise<OrderResponseDto> => {
+      const items = await Promise.all(
+        pageRows.map(async (order): Promise<OrderResponseDto> => {
           try {
             if (!order.id) {
               throw new Error('Order id is missing');
             }
-
             const formattedItems = await this.formatOrderItemsResponse(
               groupedItems[order.id] || [],
-              regionId ?? order.regionId,
+              query.regionId ?? order.regionId,
             );
-
             return this.buildOrderResponse(order, formattedItems);
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
-
             await this.confirmAssignedOrder(order);
-
             return this.buildBasicOrderResponse(order);
           }
         }),
       );
 
-      this.logger.log(`Retrieved orders for bakery ${bakeryId}, count: ${response.length}`);
-      return response;
+      this.logger.log(
+        `Bakery ${bakeryId} orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
+      );
+
+      return {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
       this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_list',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Paginated feed of unassigned active orders for the admin sidebar.
+   * Excludes delivered/cancelled. Filters apply at the SQL layer so we don't
+   * scan the whole orders table for every keystroke.
+   */
+  async getUnassigned(query: GetUnassignedOrdersQueryDto): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
+    // Default statuses for an "unassigned" view: everything that's still in flight.
+    const defaultActiveStatuses = [
+      'pending',
+      'confirmed',
+      'preparing',
+      'ready',
+      'out_for_delivery',
+    ];
+    const statusList =
+      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
+
+    try {
+      const conditions: SQL[] = [
+        isNull(orders.bakeryId),
+        not(eq(orders.orderStatus, 'delivered')),
+        not(eq(orders.orderStatus, 'cancelled')),
+        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
+      ];
+
+      if (query.regionId) {
+        conditions.push(eq(orders.regionId, query.regionId));
+      }
+      if (query.type) {
+        conditions.push(
+          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
+        );
+      }
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+
+      const where = and(...conditions);
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      const pageRows = await db
+        .select()
+        .from(orders)
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const orderIds = pageRows
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const pageItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
+
+      const items = await Promise.all(
+        pageRows.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) throw new Error('Order id is missing');
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              query.regionId ?? order.regionId,
+            );
+            return this.buildOrderResponse(order, formattedItems);
+          } catch {
+            this.logger.warn(
+              `Failed to retrieve full details for order ${order.id}, returning basic data`,
+            );
+            return this.buildBasicOrderResponse(order);
+          }
+        }),
+      );
+
+      this.logger.log(
+        `Unassigned orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
+      );
+
+      return {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve unassigned orders: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_list',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Active orders that have been assigned to a bakery, grouped by bakeryId.
+   * Used by the admin Kanban view. Not paginated — usually a manageable count.
+   */
+  async getAssigned(query: GetAssignedOrdersQueryDto): Promise<Record<string, OrderResponseDto[]>> {
+    const sortDir = query.sort ?? 'desc';
+    const defaultActiveStatuses = [
+      'pending',
+      'confirmed',
+      'preparing',
+      'ready',
+      'out_for_delivery',
+    ];
+    const statusList =
+      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
+
+    try {
+      const conditions: SQL[] = [
+        isNotNull(orders.bakeryId),
+        not(eq(orders.orderStatus, 'delivered')),
+        not(eq(orders.orderStatus, 'cancelled')),
+        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
+      ];
+
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+
+      const allRows = await db
+        .select()
+        .from(orders)
+        .where(and(...conditions))
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt));
+
+      const orderIds = allRows
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const allItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+      const groupedItems = this.groupOrderItemsByOrderId(allItems);
+
+      const built = await Promise.all(
+        allRows.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) throw new Error('Order id is missing');
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              order.regionId,
+            );
+            return this.buildOrderResponse(order, formattedItems);
+          } catch {
+            return this.buildBasicOrderResponse(order);
+          }
+        }),
+      );
+
+      // Group by bakeryId. `bakeryId` is non-null here thanks to the isNotNull filter.
+      const result: Record<string, OrderResponseDto[]> = {};
+      for (const order of built) {
+        const key = order.bakeryId;
+        if (!key) continue;
+        if (!result[key]) result[key] = [];
+        result[key].push(order);
+      }
+
+      this.logger.log(
+        `Assigned orders: ${built.length} order(s) across ${Object.keys(result).length} bakery(ies)`,
+      );
+
+      return result;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve assigned orders: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_list',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Paginated feed of completed/terminal orders for the admin completed page.
+   * Default statuses: ready / out_for_delivery / delivered / cancelled.
+   */
+  async getCompleted(query: GetCompletedOrdersQueryDto): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
+    const defaultCompletedStatuses = ['ready', 'out_for_delivery', 'delivered', 'cancelled'];
+    const statusList =
+      query.status && query.status.length > 0 ? query.status : defaultCompletedStatuses;
+
+    try {
+      const conditions: SQL[] = [
+        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
+      ];
+
+      if (query.regionId) {
+        conditions.push(eq(orders.regionId, query.regionId));
+      }
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+
+      const where = and(...conditions);
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      const pageRows = await db
+        .select()
+        .from(orders)
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const orderIds = pageRows
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const pageItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
+
+      const items = await Promise.all(
+        pageRows.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) throw new Error('Order id is missing');
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              query.regionId ?? order.regionId,
+            );
+            return this.buildOrderResponse(order, formattedItems);
+          } catch {
+            return this.buildBasicOrderResponse(order);
+          }
+        }),
+      );
+
+      this.logger.log(
+        `Completed orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
+      );
+
+      return {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve completed orders: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
           'routes.orders.failed_list',
@@ -975,6 +1340,22 @@ export class OrderService {
         await this.notificationService.pushToBakeryStaff(order.bakeryId, {
           title: 'Order status updated',
           body: `Order ${order.referenceNumber ?? orderId} is now ${status}.`,
+          type: 'order_status',
+          redirectId: orderId,
+          data: { orderId, status },
+        });
+      }
+
+      if (
+        status &&
+        (['ready', 'delivered', 'cancelled'] as const).includes(
+          status as 'ready' | 'delivered' | 'cancelled',
+        )
+      ) {
+        const statusLabel = status === 'cancelled' ? 'canceled' : status;
+        await this.notificationService.pushToSuperAdmins({
+          title: `Order ${statusLabel} by bakery`,
+          body: `Order ${order.referenceNumber ?? orderId} was marked as ${statusLabel} by the bakery.`,
           type: 'order_status',
           redirectId: orderId,
           data: { orderId, status },

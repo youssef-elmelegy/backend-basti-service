@@ -113,7 +113,7 @@ export class BakeryController {
 
   @Get(':bakeryId/items')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  @AdminRoles('super_admin', 'admin', 'manager')
   @GetBakeryItemStoresDecorator()
   async getBakeryItemStores(@Param('bakeryId') bakeryId: string) {
     this.logger.debug(`Retrieving item stores for bakery: ${bakeryId}`);
@@ -122,7 +122,7 @@ export class BakeryController {
 
   @Patch(':bakeryId/items/:storeId/stock')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  @AdminRoles('super_admin', 'admin', 'manager')
   @UpdateBakeryItemStockDecorator()
   async updateItemStock(
     @Param('bakeryId') bakeryId: string,
