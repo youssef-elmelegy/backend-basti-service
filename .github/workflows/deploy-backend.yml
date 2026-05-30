@@ -76,6 +76,7 @@ jobs:
             FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
 
             SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            SENTRY_RELEASE=basti-backend@${{ github.sha }}
         run: |
           printf '%s' "$ENV_BODY" > backend.env
           # sanity check that no required value rendered empty
@@ -125,3 +126,28 @@ jobs:
             docker logs basti-backend --tail 80
             exit 1
           EOF
+
+      - name: Notify GlitchTip of new release
+        if: success()
+        env:
+          GT_ORG: basti-backend
+          PROJECT: basti-backend
+          VERSION: basti-backend@${{ github.sha }}
+          TOKEN: ${{ secrets.GLITCHTIP_AUTH_TOKEN }}
+        run: |
+          # 1. Create / upsert the release with a commit ref
+          curl -fsS -X POST "https://glitchtip.basty.ly/api/0/organizations/$GT_ORG/releases/" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"version\":\"$VERSION\",
+              \"projects\":[\"$PROJECT\"],
+              \"refs\":[{\"repository\":\"${{ github.repository }}\",\"commit\":\"${{ github.sha }}\"}]
+            }" || echo "::warning::release create returned non-2xx (may already exist)"
+
+          # 2. Record a deploy under that release for the production environment
+          curl -fsS -X POST "https://glitchtip.basty.ly/api/0/organizations/$GT_ORG/releases/$VERSION/deploys/" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"environment\":\"production\",\"name\":\"GitHub Actions ${{ github.run_id }}\"}" \
+            || echo "::warning::deploy create returned non-2xx"
