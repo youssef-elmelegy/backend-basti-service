@@ -29,6 +29,10 @@ const envSchema = z.object({
 
   BCRYPT_SALT_ROUNDS: z.coerce.number().default(10),
 
+  // API docs (Scalar) basic-auth protection — docs are locked when both are set
+  DOCS_USERNAME: z.string().optional(),
+  DOCS_PASSWORD: z.string().optional(),
+
   // CORS
   CORS_ORIGINS: z
     .string()

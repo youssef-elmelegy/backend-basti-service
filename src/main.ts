@@ -7,6 +7,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
+import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { env } from './env';
 import { SentryLogger } from './sentry-logger';
@@ -111,6 +112,24 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  // Protect the API docs with HTTP Basic Auth when credentials are configured.
+  if (env.DOCS_USERNAME && env.DOCS_PASSWORD) {
+    app.use('/api/docs', (req: Request, res: Response, next: NextFunction) => {
+      const header = req.headers.authorization || '';
+      const [scheme, encoded] = header.split(' ');
+
+      if (scheme === 'Basic' && encoded) {
+        const [user, pass] = Buffer.from(encoded, 'base64').toString().split(':');
+        if (user === env.DOCS_USERNAME && pass === env.DOCS_PASSWORD) {
+          return next();
+        }
+      }
+
+      res.set('WWW-Authenticate', 'Basic realm="API Docs"');
+      return res.status(401).send('Authentication required.');
+    });
+  }
 
   app.use(
     '/api/docs',
