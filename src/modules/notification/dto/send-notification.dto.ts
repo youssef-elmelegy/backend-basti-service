@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsUUID, MinLength, MaxLength, IsIn, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsEmail, MinLength, MaxLength, IsIn, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export const NOTIFICATION_TYPES = [
@@ -60,11 +60,11 @@ export class SendNotificationDto {
   recipientType: NotificationRecipientType;
 
   @ApiProperty({
-    description: 'Recipient ID (UUID of the user or admin)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Recipient email address (of the user or admin)',
+    example: 'recipient@example.com',
   })
-  @IsUUID('4', { message: 'recipientId must be a valid UUID' })
-  recipientId: string;
+  @IsEmail({}, { message: 'recipientEmail must be a valid email address' })
+  recipientEmail: string;
 
   @ApiProperty({
     description:
