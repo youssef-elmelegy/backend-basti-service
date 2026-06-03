@@ -68,7 +68,7 @@ export class NotificationController {
   @SendNotificationDecorator()
   async send(@Body() dto: SendNotificationDto) {
     this.logger.debug(
-      `Sending notification (type=${dto.type}) to ${dto.recipientType} ${dto.recipientId}`,
+      `Sending notification (type=${dto.type}) to ${dto.recipientType} ${dto.recipientEmail}`,
     );
     return this.notificationService.sendNotification(dto);
   }

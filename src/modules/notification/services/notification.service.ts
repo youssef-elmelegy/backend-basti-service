@@ -140,12 +140,68 @@ export class NotificationService {
   }
 
   async sendNotification(dto: SendNotificationDto): Promise<SuccessResponse<NotificationResponse>> {
-    const created = await this.pushNotification(dto);
+    const recipientId = await this.resolveRecipientIdByEmail(dto.recipientType, dto.recipientEmail);
+
+    const created = await this.pushNotification({
+      title: dto.title,
+      body: dto.body,
+      type: dto.type,
+      recipientType: dto.recipientType,
+      recipientId,
+      redirectId: dto.redirectId,
+      data: dto.data,
+    });
     return successResponse(
       this.formatNotificationResponse(created),
       'routes.notifications.sent',
       HttpStatus.CREATED,
     );
+  }
+
+  /**
+   * Resolves a recipient's email address to their UUID, looking in the
+   * users or admins table depending on the recipient type. Throws
+   * NotFoundException if no matching record exists.
+   */
+  private async resolveRecipientIdByEmail(
+    recipientType: RecipientKind,
+    email: string,
+  ): Promise<string> {
+    if (recipientType === 'user') {
+      const [user] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (!user) {
+        throw new NotFoundException(
+          errorResponse(
+            'routes.notifications.user_not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
+        );
+      }
+      return user.id;
+    }
+
+    const [admin] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(eq(admins.email, email))
+      .limit(1);
+
+    if (!admin) {
+      throw new NotFoundException(
+        errorResponse(
+          'routes.notifications.admin_not_found',
+          HttpStatus.NOT_FOUND,
+          'NotFoundException',
+        ),
+      );
+    }
+    return admin.id;
   }
 
   /**
