@@ -28,6 +28,7 @@ import { TranslationModule } from '@/common/translation/translation.module';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { OfferModule } from './modules/offer/offer.module';
 import { HealthModule } from './modules/health/health.module';
+import { DriverModule } from './modules/driver/driver.module';
 import { ThrottlerModule, ThrottlerGuard, minutes } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -77,6 +78,7 @@ import { APP_GUARD } from '@nestjs/core';
     CouponModule,
     OfferModule,
     HealthModule,
+    DriverModule,
   ],
   controllers: [AppController],
   providers: [

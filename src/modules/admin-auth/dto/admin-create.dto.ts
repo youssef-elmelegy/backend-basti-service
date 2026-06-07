@@ -11,11 +11,28 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateAdminDto {
   @ApiProperty({
+    description: 'Admin name',
+    example: 'New Admin',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: 'Admin/Driver phone number',
+    example: '+1234567890',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @ApiProperty({
     description: 'Admin email address',
     example: 'newadmin@basti.com',
   })
   @IsEmail({}, { message: 'Email must be a valid email address' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'Admin password (min 8 characters, must include uppercase, lowercase, number)',
@@ -25,7 +42,7 @@ export class CreateAdminDto {
   @IsString({ message: 'Password must be a string' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(255, { message: 'Password must not exceed 255 characters' })
-  password: string;
+  password!: string;
 
   @ApiProperty({
     description: 'Admin role',
@@ -35,7 +52,7 @@ export class CreateAdminDto {
   @IsEnum(['super_admin', 'admin', 'manager'], {
     message: 'Role must be one of: super_admin, admin, manager',
   })
-  role: 'super_admin' | 'admin' | 'manager';
+  role!: 'super_admin' | 'admin' | 'manager' | 'driver';
 
   @ApiProperty({
     description: 'Associated bakery ID (UUID)',

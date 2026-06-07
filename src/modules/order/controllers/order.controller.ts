@@ -27,6 +27,8 @@ import {
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
   GetBakeryOrdersQueryDto,
+  AssignDriverDto,
+  VerifyDeliveryCodeDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -43,6 +45,9 @@ import {
   GetBakeryOrdersDecorator,
   FinalizeOrderDecorator,
   GetOrdersFinancialsDecorator,
+  AssignDriverDecorator,
+  VerifyDeliveryCodeDecorator,
+  GenerateDeliveryCheckCodeDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { SchedulerService } from '../services/scheduler.service';
@@ -210,6 +215,50 @@ export class OrderController {
     const result = await this.orderService.refuse(id);
     this.logger.debug(`order refused: ${id}`);
     return successResponse(result, 'routes.orders.refused');
+  }
+
+  @Post(':orderId/delivery-code')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('driver')
+  @GenerateDeliveryCheckCodeDecorator()
+  async generateDeliveryCheckCode(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') driverId: string,
+  ) {
+    this.logger.debug(`Driver ${driverId} generating delivery code for order: ${orderId}`);
+    return this.orderService.generateDeliveryCheckCode(orderId, driverId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/verify-delivery-code')
+  @VerifyDeliveryCodeDecorator()
+  async verifyDeliveryCode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') userId: string,
+    @Body() verifyDeliveryCodeDto: VerifyDeliveryCodeDto,
+  ) {
+    this.logger.debug(`verifying delivery code for order: ${id}`);
+    const result = await this.orderService.verifyDeliveryCheckCode(
+      id,
+      userId,
+      verifyDeliveryCodeDto,
+    );
+    this.logger.debug(`delivery code verified for order: ${id}`);
+    return successResponse(result, 'routes.orders.delivered');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Patch(':id/assign-driver')
+  @AssignDriverDecorator()
+  async assignToDriver(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() assignDriverDto: AssignDriverDto,
+  ) {
+    this.logger.debug(`updating driver assignment for order: ${id}`);
+    const result = await this.orderService.assignToDriver(id, assignDriverDto);
+    this.logger.debug(`driver assignment updated for order: ${id}`);
+    return successResponse(result, 'routes.orders.driver_assignment_updated');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)

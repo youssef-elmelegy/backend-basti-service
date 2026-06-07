@@ -8,6 +8,7 @@ import {
   reviews,
   notifications,
   couponUsages,
+  reports,
 } from '.';
 
 export const users = pgTable(
@@ -42,6 +43,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
   paymentMethods: many(paymentMethods),
   reviews: many(reviews),
   notifications: many(notifications),
+  reports: many(reports),
   couponUsages: one(couponUsages, {
     fields: [users.id],
     references: [couponUsages.userId],

@@ -85,6 +85,8 @@ export class AdminAuthService {
           id: admin.id,
           email: admin.email,
           role: admin.role,
+          name: admin.name,
+          phoneNumber: admin.phoneNumber,
           profileImage: admin.profileImage,
           bakeryId: admin.bakeryId || undefined,
           createdAt: admin.createdAt,
@@ -314,6 +316,7 @@ export class AdminAuthService {
         admin: {
           id: admin.id,
           email: admin.email,
+          phoneNumber: admin.phoneNumber,
           role: admin.role,
           profileImage: admin.profileImage,
           bakeryId: admin.bakeryId || undefined,
@@ -338,7 +341,7 @@ export class AdminAuthService {
   }
 
   async createAdmin(createAdminDto: CreateAdminDto) {
-    const { email, password, role, bakeryId, profileImage } = createAdminDto;
+    const { email, password, role, bakeryId, profileImage, name, phoneNumber } = createAdminDto;
 
     // Check if admin with email already exists
     const existingAdmin = await db.query.admins.findFirst({
@@ -364,6 +367,8 @@ export class AdminAuthService {
     const [newAdmin] = await db
       .insert(admins)
       .values({
+        name,
+        phoneNumber,
         email,
         password: hashedPassword,
         role: role,
@@ -375,6 +380,7 @@ export class AdminAuthService {
     return successResponse(
       {
         id: newAdmin.id,
+        name: newAdmin.name,
         email: newAdmin.email,
         role: newAdmin.role,
         profileImage: newAdmin.profileImage || null,
@@ -410,7 +416,9 @@ export class AdminAuthService {
     return successResponse(
       {
         id: updatedAdmin.id,
+        name: updatedAdmin.name,
         email: updatedAdmin.email,
+        phoneNumber: updatedAdmin.phoneNumber,
         role: updatedAdmin.role,
         profileImage: updatedAdmin.profileImage || null,
         bakeryId: updatedAdmin.bakeryId || undefined,
@@ -424,7 +432,7 @@ export class AdminAuthService {
   }
 
   async updateAdmin(adminId: string, updateAdminDto: UpdateAdminDto) {
-    const { role, bakeryId, profileImage } = updateAdminDto;
+    const { role, bakeryId, profileImage, name, phoneNumber } = updateAdminDto;
 
     // Check if admin exists
     const admin = await db.query.admins.findFirst({
@@ -436,6 +444,8 @@ export class AdminAuthService {
     }
 
     const updateData: Record<string, unknown> = {};
+    if (name !== undefined) updateData.name = name;
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (role !== undefined) updateData.role = role;
     if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
     if (profileImage !== undefined) updateData.profileImage = profileImage;
@@ -449,6 +459,8 @@ export class AdminAuthService {
     return successResponse(
       {
         id: updatedAdmin.id,
+        name: updatedAdmin.name,
+        phoneNumber: updatedAdmin.phoneNumber,
         email: updatedAdmin.email,
         role: updatedAdmin.role,
         profileImage: updatedAdmin.profileImage || null,
@@ -480,6 +492,8 @@ export class AdminAuthService {
 
     const formattedAdmins = adminsList.map((admin) => ({
       id: admin.id,
+      name: admin.name,
+      phoneNumber: admin.phoneNumber,
       email: admin.email,
       role: admin.role,
       profileImage: admin.profileImage || null,

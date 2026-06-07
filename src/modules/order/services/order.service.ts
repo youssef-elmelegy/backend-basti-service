@@ -23,6 +23,8 @@ import {
   GetUnassignedOrdersQueryDto,
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
+  AssignDriverDto,
+  VerifyDeliveryCodeDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -35,6 +37,7 @@ import {
   users,
   regions,
   regionItemPrices,
+  admins,
 } from '@/db/schema';
 import {
   and,
@@ -54,13 +57,14 @@ import {
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { randomBytes } from 'crypto';
+import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
 import { SchedulerService } from './scheduler.service';
 import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
 import { NotificationService } from '@/modules/notification/services/notification.service';
+import { env } from '@/env';
 
 /* eslint-disable */
 @Injectable()
@@ -78,6 +82,14 @@ export class OrderService {
 
   private getAddonQuantityKey(addonId: string, optionId?: string): string {
     return `${addonId}::${optionId ?? ''}`;
+  }
+
+  private generateDeliveryCodeValue(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
+  private hashDeliveryCheckCode(code: string): string {
+    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
   }
 
   async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
@@ -1492,6 +1504,168 @@ export class OrderService {
         ),
       );
     }
+  }
+
+  async assignToDriver(
+    orderId: string,
+    { driverId }: AssignDriverDto,
+  ): Promise<{ id: string; driverId: string | null; driverAssignedAt: Date | null }> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    if (driverId === undefined) {
+      throw new BadRequestException(
+        errorResponse(
+          'routes.orders.invalid_driver_assignment',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    // Unassign flow
+    if (driverId === null) {
+      const nextStatus = order.orderStatus === 'out_for_delivery' ? 'ready' : order.orderStatus;
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          driverId: null,
+          driverAssignedAt: null,
+          driverData: null,
+          orderStatus: nextStatus,
+        })
+        .where(eq(orders.id, orderId))
+        .returning({
+          id: orders.id,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+        });
+
+      return updatedOrder;
+    }
+
+    const [driver] = await db
+      .select({ id: admins.id })
+      .from(admins)
+      .where(and(eq(admins.id, driverId), eq(admins.role, 'driver')))
+      .limit(1);
+
+    if (!driver) {
+      this.logger.warn(`Driver with id: ${driverId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.driver.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        driverId,
+        driverAssignedAt: new Date(),
+        driverData: null,
+      })
+      .where(eq(orders.id, orderId))
+      .returning({
+        id: orders.id,
+        driverId: orders.driverId,
+        driverAssignedAt: orders.driverAssignedAt,
+      });
+
+    return updatedOrder;
+  }
+
+  async generateDeliveryCheckCode(orderId: string, driverId: string) {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      throw new NotFoundException('routes.orders.not_found');
+    }
+
+    if (order.driverId !== driverId) {
+      throw new BadRequestException('routes.orders.not_assigned_to_driver');
+    }
+
+    if (order.orderStatus !== 'out_for_delivery') {
+      throw new BadRequestException('routes.orders.delivery_code_invalid_state');
+    }
+
+    const deliveryCheckCode = randomInt(100000, 1000000).toString();
+    const deliveryCheckCodeHash = createHmac('sha256', env.JWT_ACCESS_SECRET)
+      .update(deliveryCheckCode)
+      .digest('hex');
+    // const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = null;
+
+    await db
+      .update(orders)
+      .set({
+        deliveryCheckCodeHash,
+        deliveryCheckCodeExpiresAt: expiresAt,
+      })
+      .where(eq(orders.id, orderId));
+
+    return successResponse(
+      {
+        orderId,
+        deliveryCheckCode,
+        expiresAt,
+      },
+      'routes.orders.delivery_code_generated',
+      HttpStatus.OK,
+    );
+  }
+
+  async verifyDeliveryCheckCode(
+    orderId: string,
+    userId: string,
+    { deliveryCheckCode }: VerifyDeliveryCodeDto,
+  ) {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      throw new NotFoundException('routes.orders.not_found');
+    }
+
+    if (order.userId !== userId) {
+      throw new BadRequestException('routes.orders.not_authorized_for_verification');
+    }
+
+    if (!order.deliveryCheckCodeHash || !order.deliveryCheckCodeExpiresAt) {
+      throw new BadRequestException('routes.orders.delivery_code_not_generated');
+    }
+
+    if (order.deliveryCheckCodeExpiresAt && order.deliveryCheckCodeExpiresAt < new Date()) {
+      throw new BadRequestException('routes.orders.delivery_code_expired');
+    }
+
+    const providedHash = this.hashDeliveryCheckCode(deliveryCheckCode);
+    if (providedHash !== order.deliveryCheckCodeHash) {
+      throw new BadRequestException('routes.orders.delivery_code_invalid');
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        orderStatus: 'delivered',
+        deliveredAt: new Date(),
+        deliveryCheckCodeHash: null,
+        deliveryCheckCodeExpiresAt: null,
+      })
+      .where(eq(orders.id, orderId))
+      .returning({
+        id: orders.id,
+        status: orders.orderStatus,
+        deliveredAt: orders.deliveredAt,
+      });
+
+    return updatedOrder;
   }
 
   async unassignFromBakery(

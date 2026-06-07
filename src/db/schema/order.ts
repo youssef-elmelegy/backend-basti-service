@@ -22,6 +22,7 @@ import {
   orderItems,
   CartTypeEnum,
   couponUsages,
+  admins,
 } from '.';
 
 export const orders = pgTable(
@@ -43,6 +44,25 @@ export const orders = pgTable(
       }>()
       .notNull(),
     bakeryId: uuid('bakery_id').references(() => bakeries.id),
+
+    // when admin assigns a driver, driverId and driverAssignedAt are stored first
+    driverId: uuid('driver_id').references(() => admins.id),
+    driverAssignedAt: timestamp('driver_assigned_at', { mode: 'date' }),
+
+    /* 
+      after 30 mins, if the driver responds by accepting, driverData is filled and
+      orderStatus is updated to 'out_for_delivery',
+      else if the driver rejects or doesn't respond, driverId and driverAssignedAt 
+      is set to null and driverData remains cleared
+    */
+    driverData: jsonb('driver').$type<{
+      name: string;
+      profileImage: string;
+      phoneNumber: string;
+    }>(),
+
+    deliveryCheckCodeHash: varchar('delivery_check_code_hash', { length: 255 }),
+    deliveryCheckCodeExpiresAt: timestamp('delivery_check_code_expires_at', { mode: 'date' }),
 
     locationId: uuid('location_id').references(() => locations.id),
     locationData: jsonb('location_data')
@@ -136,6 +156,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   location: one(locations, {
     fields: [orders.locationId],
     references: [locations.id],
+  }),
+  driver: one(admins, {
+    fields: [orders.driverId],
+    references: [admins.id],
   }),
   paymentMethod: one(paymentMethods, {
     fields: [orders.paymentMethodId],
