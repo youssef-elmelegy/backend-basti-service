@@ -20,6 +20,7 @@ const configItem = {
   closureMessage: null,
   bastiPercentage: 0.2,
   deliveryAmount: 10,
+  bastiDeliveryAmount: 3,
   minMiniCakesRequired: 10,
   createdAt: MOCK_DATA.dates.default,
   updatedAt: MOCK_DATA.dates.default,
@@ -54,6 +55,7 @@ export const ConfigExamples = {
       closureMessage: null,
       bastiPercentage: 0.25,
       deliveryAmount: 15,
+      bastiDeliveryAmount: 5,
       minMiniCakesRequired: 15,
     },
     response: {

@@ -26,6 +26,7 @@ export * from './order-items';
 export * from './payment-method';
 export * from './location';
 export * from './review';
+export * from './reports';
 export * from './cart-item';
 export * from './slider-image';
 export * from './region-item-price';

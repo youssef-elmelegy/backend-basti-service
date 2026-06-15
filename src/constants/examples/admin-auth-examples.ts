@@ -12,6 +12,8 @@ export const AdminAuthExamples = {
         data: {
           admin: {
             id: '990e8400-e29b-41d4-a716-446655440004',
+            name: 'Admin',
+            phoneNumber: '+1234567890',
             email: 'admin@example.com',
             role: 'main_admin',
             profileImage: null,
@@ -259,6 +261,8 @@ export const AdminAuthExamples = {
           isAuthenticated: true,
           admin: {
             id: '990e8400-e29b-41d4-a716-446655440004',
+            name: 'Admin',
+            phoneNumber: '+1234567890',
             email: 'admin@example.com',
             role: 'super_admin',
             profileImage: 'https://example.com/superadmin.jpg',
@@ -296,7 +300,9 @@ export const AdminAuthExamples = {
         data: {
           admin: {
             id: '990e8400-e29b-41d4-a716-446655440004',
+            name: 'Admin',
             email: 'admin@example.com',
+            phoneNumber: '+1234567890',
             role: 'super_admin',
             profileImage: 'https://example.com/superadmin.jpg',
             createdAt: '2025-01-11T10:00:00.000Z',
@@ -319,6 +325,8 @@ export const AdminAuthExamples = {
     request: {
       email: 'newadmin@basti.com',
       password: 'NewAdminPass1',
+      phoneNumber: '+1234567890',
+      name: 'New Admin',
       role: 'admin',
       bakeryId: '550e8400-e29b-41d4-a716-446655440000',
       profileImage: 'https://example.com/images/admin.jpg',
@@ -330,6 +338,8 @@ export const AdminAuthExamples = {
         message: 'Admin created successfully',
         data: {
           id: '990e8400-e29b-41d4-a716-446655440005',
+          name: 'New Admin',
+          phoneNumber: '+1234567890',
           email: 'newadmin@basti.com',
           role: 'admin',
           profileImage: 'https://example.com/images/admin.jpg',
@@ -377,6 +387,8 @@ export const AdminAuthExamples = {
         message: 'Admin blocked successfully',
         data: {
           id: '990e8400-e29b-41d4-a716-446655440005',
+          name: 'Admin',
+          phoneNumber: '+1234567890',
           email: 'admin@example.com',
           role: 'admin',
           profileImage: null,
@@ -413,6 +425,8 @@ export const AdminAuthExamples = {
 
   update: {
     request: {
+      name: 'Admin Updated',
+      phoneNumber: '+1234567890',
       role: 'manager',
       bakeryId: '550e8400-e29b-41d4-a716-446655440000',
       profileImage: 'https://example.com/images/admin-updated.jpg',
@@ -424,7 +438,9 @@ export const AdminAuthExamples = {
         message: 'Admin updated successfully',
         data: {
           id: '990e8400-e29b-41d4-a716-446655440005',
+          name: 'Admin',
           email: 'admin@example.com',
+          phoneNumber: '+1234567890',
           role: 'manager',
           profileImage: 'https://example.com/images/admin-updated.jpg',
           bakeryId: '550e8400-e29b-41d4-a716-446655440000',
@@ -467,6 +483,8 @@ export const AdminAuthExamples = {
           admins: [
             {
               id: '990e8400-e29b-41d4-a716-446655440001',
+              name: 'Super Admin',
+              phoneNumber: '+1234567890',
               email: 'superadmin@basti.com',
               role: 'super_admin',
               profileImage: 'https://example.com/images/superadmin.jpg',
@@ -477,6 +495,8 @@ export const AdminAuthExamples = {
             },
             {
               id: '990e8400-e29b-41d4-a716-446655440002',
+              name: 'Admin',
+              phoneNumber: '+1234567890',
               email: 'admin@basti.com',
               role: 'admin',
               profileImage: 'https://example.com/images/admin.jpg',
@@ -487,6 +507,8 @@ export const AdminAuthExamples = {
             },
             {
               id: '990e8400-e29b-41d4-a716-446655440003',
+              name: 'Manager',
+              phoneNumber: null,
               email: 'manager@basti.com',
               role: 'manager',
               profileImage: null,

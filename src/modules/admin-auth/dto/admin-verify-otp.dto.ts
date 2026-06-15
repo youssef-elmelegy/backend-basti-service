@@ -7,7 +7,7 @@ export class AdminVerifyOtpDto {
     example: 'admin@example.com',
   })
   @IsEmail({}, { message: 'Email must be a valid email address' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'One-time password (6 digits)',
@@ -17,5 +17,5 @@ export class AdminVerifyOtpDto {
   })
   @IsString({ message: 'OTP must be a string' })
   @Length(6, 6, { message: 'OTP must be exactly 6 characters' })
-  otp: string;
+  otp!: string;
 }

@@ -22,6 +22,7 @@ import {
   orderItems,
   CartTypeEnum,
   couponUsages,
+  admins,
 } from '.';
 
 export const orders = pgTable(
@@ -43,6 +44,27 @@ export const orders = pgTable(
       }>()
       .notNull(),
     bakeryId: uuid('bakery_id').references(() => bakeries.id),
+
+    // when admin assigns a driver, driverId and driverAssignedAt are stored first
+    driverId: uuid('driver_id').references(() => admins.id),
+    driverAssignedAt: timestamp('driver_assigned_at', { mode: 'date' }),
+
+    /*
+      if the driver responds by accepting, driverData is filled and
+      orderStatus is updated to 'out_for_delivery',
+      else if the driver rejects, driverId and driverAssignedAt
+      is set to null and driverData remains cleared
+    */
+    driverData: jsonb('driver').$type<{
+      name: string;
+      profileImage: string;
+      phoneNumber: string;
+    }>(),
+
+    deliveryCheckCodeHash: varchar('delivery_check_code_hash', { length: 255 }),
+    // Kept in sync with the existing DB column (not currently read in code). Held
+    // in the schema so `drizzle-kit push` doesn't try to drop it and lose data.
+    deliveryCheckCodeExpiresAt: timestamp('delivery_check_code_expires_at', { mode: 'date' }),
 
     locationId: uuid('location_id').references(() => locations.id),
     locationData: jsonb('location_data')
@@ -67,6 +89,7 @@ export const orders = pgTable(
       .notNull()
       .default('0.20'),
     deliveryAmount: integer('delivery_amount').notNull().default(10),
+    bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
     addonsTotal: integer('addons_total').notNull().default(0),
 
     totalCapacity: integer('total_capacity').default(0),
@@ -136,6 +159,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   location: one(locations, {
     fields: [orders.locationId],
     references: [locations.id],
+  }),
+  driver: one(admins, {
+    fields: [orders.driverId],
+    references: [admins.id],
   }),
   paymentMethod: one(paymentMethods, {
     fields: [orders.paymentMethodId],

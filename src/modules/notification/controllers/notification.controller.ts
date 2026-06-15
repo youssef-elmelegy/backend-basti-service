@@ -21,6 +21,7 @@ import {
   PaginationDto,
   NOTIFICATION_TYPES,
   NotificationType,
+  ACTION_REQUIRED_NOTIFICATION_TYPES,
 } from '../dto';
 import {
   RegisterFcmTokenDecorator,
@@ -77,7 +78,9 @@ export class NotificationController {
   @Public()
   @SendBroadcastNotificationDecorator()
   async sendBroadcast(@Body() dto: BroadcastNotificationDto) {
-    this.logger.debug(`Broadcasting notification (type=${dto.type}) to all users`);
+    this.logger.debug(
+      `Broadcasting notification (type=${dto.type}) to audience=${dto.audience ?? 'all'}`,
+    );
     return this.notificationService.sendBroadcastNotification(dto);
   }
 
@@ -91,6 +94,7 @@ export class NotificationController {
     @Query('limit') limit: string = '10',
     @Query('isRead') isRead?: string,
     @Query('type') type?: string,
+    @Query('actionRequired') actionRequired?: string,
   ) {
     const { kind, id } = this.resolveRecipient(user);
 
@@ -103,8 +107,12 @@ export class NotificationController {
     if (isRead === 'true') isReadFilter = true;
     else if (isRead === 'false') isReadFilter = false;
 
-    let typeFilter: NotificationType | undefined;
-    if (type !== undefined) {
+    // `actionRequired=true` restricts the list to notifications that need
+    // admin action and takes precedence over a single `type` filter.
+    let typesFilter: NotificationType[] | undefined;
+    if (actionRequired === 'true') {
+      typesFilter = [...ACTION_REQUIRED_NOTIFICATION_TYPES];
+    } else if (type !== undefined) {
       if (!(NOTIFICATION_TYPES as readonly string[]).includes(type)) {
         throw new BadRequestException(
           errorResponse(
@@ -114,13 +122,13 @@ export class NotificationController {
           ),
         );
       }
-      typeFilter = type as NotificationType;
+      typesFilter = [type as NotificationType];
     }
 
     this.logger.debug(`Listing notifications for ${kind} ${id}`);
     return this.notificationService.findAllForRecipient(kind, id, pagination, {
       isRead: isReadFilter,
-      type: typeFilter,
+      types: typesFilter,
     });
   }
 

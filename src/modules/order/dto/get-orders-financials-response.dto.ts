@@ -14,6 +14,9 @@ class OrderFinancialsRowDto {
   deliveryAmount: number;
 
   @ApiProperty()
+  bastiDeliveryAmount: number;
+
+  @ApiProperty()
   totalPrice: number;
 
   @ApiProperty()
@@ -35,7 +38,13 @@ class OrderFinancialsRowDto {
   referenceNumber: string;
 
   @ApiProperty()
+  orderStatus: string;
+
+  @ApiProperty()
   deliveredAt: Date;
+
+  @ApiProperty()
+  createdAt: Date;
 }
 
 class OrderFinancialsTotalDto {
@@ -50,6 +59,9 @@ class OrderFinancialsTotalDto {
 
   @ApiProperty()
   deliveryAmount: number;
+
+  @ApiProperty()
+  bastiDeliveryAmount: number;
 
   @ApiProperty()
   totalPrice: number;

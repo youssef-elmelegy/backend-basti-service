@@ -145,6 +145,16 @@ export class UpdateConfigDto {
   deliveryAmount?: number;
 
   @ApiProperty({
+    description: 'Portion of the delivery amount kept by Basti (must not exceed deliveryAmount)',
+    example: 3,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  bastiDeliveryAmount?: number;
+
+  @ApiProperty({
     description: 'Minimum number of mini cakes required for an order',
     example: 10,
     required: false,

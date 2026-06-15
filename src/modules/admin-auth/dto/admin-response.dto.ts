@@ -6,20 +6,29 @@ export class AdminDataDto {
     example: '990e8400-e29b-41d4-a716-446655440004',
     description: 'Unique admin identifier (UUID)',
   })
-  id: string;
+  id!: string;
+
+  @ApiProperty({
+    example: 'Admin',
+    description: 'Admin name',
+  })
+  name!: string;
 
   @ApiProperty({
     example: 'admin@example.com',
     description: 'Admin email address',
   })
-  email: string;
+  email!: string;
+
+  @ApiProperty({ example: '+1234567890', description: 'Admin/Driver phone number' })
+  phoneNumber?: string;
 
   @ApiProperty({
     example: 'admin',
     description: 'Admin role',
     enum: ['super_admin', 'admin', 'manager'],
   })
-  role: 'super_admin' | 'admin' | 'manager';
+  role!: 'super_admin' | 'admin' | 'manager';
 
   @ApiProperty({
     example: null,
@@ -33,13 +42,13 @@ export class AdminDataDto {
     example: '2025-01-11T10:00:00.000Z',
     description: 'Admin creation timestamp',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     example: '2025-01-11T10:00:00.000Z',
     description: 'Admin last update timestamp',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class AdminLoginResponseDto {
@@ -62,7 +71,7 @@ export class AdminLoginResponseDto {
     type: AdminDataDto,
     description: 'Authenticated admin information. Tokens are stored in HTTP-only cookies.',
   })
-  admin: AdminDataDto;
+  admin!: AdminDataDto;
 }
 
 export class AdminForgotPasswordResponseDto {
@@ -70,7 +79,7 @@ export class AdminForgotPasswordResponseDto {
     example: 'admin@example.com',
     description: 'Admin email address where OTP was sent',
   })
-  email: string;
+  email!: string;
 }
 
 export class AdminVerifyOtpResponseDto {
@@ -78,7 +87,7 @@ export class AdminVerifyOtpResponseDto {
     example: 'admin@example.com',
     description: 'Admin email address',
   })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
@@ -93,7 +102,7 @@ export class AdminResetPasswordResponseDto {
     example: 'Password reset successfully',
     description: 'Success message',
   })
-  message: string;
+  message!: string;
 }
 
 export class AdminChangePasswordResponseDto {
@@ -101,7 +110,7 @@ export class AdminChangePasswordResponseDto {
     example: 'Password changed successfully',
     description: 'Success message',
   })
-  message: string;
+  message!: string;
 }
 
 export class AdminLogoutResponseDto {
@@ -109,7 +118,7 @@ export class AdminLogoutResponseDto {
     example: 'Logout successful',
     description: 'Logout confirmation message',
   })
-  message: string;
+  message!: string;
 }
 
 export class CheckAuthResponseDto {
@@ -117,7 +126,7 @@ export class CheckAuthResponseDto {
     example: true,
     description: 'Whether the admin is authenticated',
   })
-  isAuthenticated: boolean;
+  isAuthenticated!: boolean;
 
   @Type(() => AdminDataDto)
   @ApiProperty({
@@ -148,5 +157,5 @@ export class AdminRefreshTokenResponseDto {
     type: AdminDataDto,
     description: 'Authenticated admin information',
   })
-  admin: AdminDataDto;
+  admin!: AdminDataDto;
 }

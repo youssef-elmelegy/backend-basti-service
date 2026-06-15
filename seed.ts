@@ -18,6 +18,15 @@ async function seed(): Promise<void> {
 
     pool = new Pool({
       connectionString: env.DATABASE_URL,
+      keepAlive: true,
+    });
+
+    // Without an 'error' listener, a dropped idle connection (Neon closes idle
+    // connections) is emitted as an unhandled 'error' event and crashes the
+    // seed process. Log it instead; the active query's own try/catch handles
+    // any in-flight failure.
+    pool.on('error', (err) => {
+      console.error(`⚠️  Idle Postgres client error during seeding: ${err.message}`);
     });
 
     const db = drizzle(pool, { schema });

@@ -16,6 +16,7 @@ import {
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
+  AvailableBakeryDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
   GetOrdersFinancialsDto,
@@ -23,6 +24,9 @@ import {
   GetUnassignedOrdersQueryDto,
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
+  GetDispatchOrdersQueryDto,
+  AssignDriverDto,
+  VerifyDeliveryCodeDto,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -35,6 +39,12 @@ import {
   users,
   regions,
   regionItemPrices,
+  admins,
+  appConfig,
+  addons,
+  sweets,
+  featuredCakes,
+  bakeryItemStores,
 } from '@/db/schema';
 import {
   and,
@@ -54,13 +64,22 @@ import {
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { randomBytes } from 'crypto';
+import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
 import { SchedulerService } from './scheduler.service';
 import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
 import { NotificationService } from '@/modules/notification/services/notification.service';
+import { env } from '@/env';
+
+/** A stockable order item the target bakery can't fully reserve when reassigning. */
+export interface BakeryStockIssue {
+  name: string;
+  reason: 'not_stocked' | 'insufficient';
+  requested: number;
+  available: number;
+}
 
 /* eslint-disable */
 @Injectable()
@@ -78,6 +97,14 @@ export class OrderService {
 
   private getAddonQuantityKey(addonId: string, optionId?: string): string {
     return `${addonId}::${optionId ?? ''}`;
+  }
+
+  private generateDeliveryCodeValue(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
+  private hashDeliveryCheckCode(code: string): string {
+    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
   }
 
   async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
@@ -357,6 +384,12 @@ export class OrderService {
 
       finalPrice = totalPrice - discountAmount;
 
+      // Snapshot pricing config at order time so financial reports reflect the
+      // config that was in effect when the order was placed, not the column defaults.
+      // Note: config stores bastiPercentage as 0-100 while the order column (and the
+      // financials calc) expect a 0-1 fraction, so we divide by 100 here.
+      const [liveConfig] = await db.select().from(appConfig).limit(1);
+
       const referenceNumber = this.generateOrderReference();
 
       const { newOrder, newItems } = await db.transaction(async (tx) => {
@@ -408,6 +441,11 @@ export class OrderService {
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
+            ...(liveConfig && {
+              bastiPercentage: (parseFloat(liveConfig.bastiPercentage) / 100).toFixed(2),
+              deliveryAmount: liveConfig.deliveryAmount,
+              bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
+            }),
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
@@ -580,7 +618,7 @@ export class OrderService {
         featuredCakes: formattedItems.featuredCakeItems,
         predesignedCakes: formattedItems.predesignedCakeItems,
         customCakes: formattedItems.customCakeItems,
-        ...order,
+        ...this.exposeOrderFields(order, 'user'),
         bakeryId: order.bakeryId || undefined,
         totalCapacity: order.totalCapacity || 0,
         deliveryNote: order.deliveryNote || '',
@@ -920,8 +958,12 @@ export class OrderService {
   }
 
   /**
-   * Active orders that have been assigned to a bakery, grouped by bakeryId.
+   * Orders that have been assigned to a bakery, grouped by bakeryId.
    * Used by the admin Kanban view. Not paginated — usually a manageable count.
+   *
+   * By default only active (non-terminal) orders are returned. To pull history,
+   * pass explicit statuses (e.g. status=delivered,cancelled) — terminal statuses
+   * are no longer hard-excluded, so the status filter fully controls the scope.
    */
   async getAssigned(query: GetAssignedOrdersQueryDto): Promise<Record<string, OrderResponseDto[]>> {
     const sortDir = query.sort ?? 'desc';
@@ -938,8 +980,6 @@ export class OrderService {
     try {
       const conditions: SQL[] = [
         isNotNull(orders.bakeryId),
-        not(eq(orders.orderStatus, 'delivered')),
-        not(eq(orders.orderStatus, 'cancelled')),
         inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
       ];
 
@@ -1101,6 +1141,122 @@ export class OrderService {
     }
   }
 
+  /**
+   * Paginated feed for the admin driver-dispatch board. Returns orders that have
+   * been assigned to a bakery and are still active (anything except
+   * delivered/cancelled), so an admin can assign/track a delivery driver.
+   * Items carry their driver assignment state (driverId / driverData /
+   * driverAssignedAt) so the board can render the assignment chip.
+   */
+  async getForDispatch(query: GetDispatchOrdersQueryDto): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
+    // Active, non-terminal statuses only — delivered/cancelled orders aren't dispatched.
+    const dispatchStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
+
+    try {
+      const conditions: SQL[] = [
+        isNotNull(orders.bakeryId),
+        inArray(
+          orders.orderStatus,
+          dispatchStatuses as (typeof orders.orderStatus.enumValues)[number][],
+        ),
+      ];
+
+      if (query.regionId) {
+        conditions.push(eq(orders.regionId, query.regionId));
+      }
+      if (query.bakeryId) {
+        conditions.push(eq(orders.bakeryId, query.bakeryId));
+      }
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+      // driverState: unassigned = no driver; assigned = driver set but not yet
+      // accepted (driverData null); accepted = driver accepted (driverData set).
+      if (query.driverState === 'unassigned') {
+        conditions.push(isNull(orders.driverId));
+      } else if (query.driverState === 'assigned') {
+        conditions.push(isNotNull(orders.driverId));
+        conditions.push(isNull(orders.driverData));
+      } else if (query.driverState === 'accepted') {
+        conditions.push(isNotNull(orders.driverId));
+        conditions.push(isNotNull(orders.driverData));
+      }
+
+      const where = and(...conditions);
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      const pageRows = await db
+        .select()
+        .from(orders)
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      const orderIds = pageRows
+        .map((order) => order.id)
+        .filter((orderId): orderId is string => Boolean(orderId));
+
+      const pageItems =
+        orderIds.length > 0
+          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
+          : [];
+      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
+
+      const items = await Promise.all(
+        pageRows.map(async (order): Promise<OrderResponseDto> => {
+          try {
+            if (!order.id) throw new Error('Order id is missing');
+            const formattedItems = await this.formatOrderItemsResponse(
+              groupedItems[order.id] || [],
+              query.regionId ?? order.regionId,
+            );
+            return this.buildOrderResponse(order, formattedItems);
+          } catch {
+            return this.buildBasicOrderResponse(order);
+          }
+        }),
+      );
+
+      this.logger.log(
+        `Dispatch orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
+      );
+
+      return {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      };
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retrieve dispatch orders: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.orders.failed_list',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
   async getOne(orderId: string, regionId?: string): Promise<OrderResponseDto> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
@@ -1124,7 +1280,7 @@ export class OrderService {
         featuredCakes: formattedItems.featuredCakeItems,
         predesignedCakes: formattedItems.predesignedCakeItems,
         customCakes: formattedItems.customCakeItems,
-        ...order,
+        ...this.exposeOrderFields(order),
         bakeryId: order.bakeryId || undefined,
         totalCapacity: order.totalCapacity || 0,
         deliveryNote: order.deliveryNote || '',
@@ -1312,19 +1468,31 @@ export class OrderService {
         );
       }
 
+      /*
+        If a driver has already accepted this order (driverData is set), marking it
+        'ready' sends it straight to 'out_for_delivery' instead — the driver was just
+        waiting on the bakery. driverData is already populated, so it shows immediately.
+      */
+      const driverAlreadyAccepted = !!order.driverData;
+      const flipsToDelivery = status === 'ready' && driverAlreadyAccepted;
+      const effectiveStatus = flipsToDelivery ? 'out_for_delivery' : status;
+
       const [updatedOrder] = await db
         .update(orders)
         .set({
-          orderStatus: status,
-          deliveredAt: status === 'delivered' ? new Date() : null,
+          orderStatus: effectiveStatus,
+          deliveredAt: effectiveStatus === 'delivered' ? new Date() : null,
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, status: orders.orderStatus });
 
-      this.logger.log(`Order ${orderId} status changed to ${status} successfully`);
+      this.logger.log(`Order ${orderId} status changed to ${effectiveStatus} successfully`);
 
-      if (order.userId && status) {
-        const { title, body } = this.buildStatusMessage(status, order.referenceNumber ?? '');
+      if (order.userId && effectiveStatus) {
+        const { title, body } = this.buildStatusMessage(
+          effectiveStatus,
+          order.referenceNumber ?? '',
+        );
         await this.notificationService.pushNotificationSafe({
           title,
           body,
@@ -1332,17 +1500,31 @@ export class OrderService {
           recipientType: 'user',
           recipientId: order.userId,
           redirectId: orderId,
-          data: { orderId, status },
+          data: { orderId, status: effectiveStatus },
         });
       }
 
-      if (order.bakeryId && status) {
+      // The order flipped to out_for_delivery because the driver had accepted earlier:
+      // let the driver know the order is ready to be picked up.
+      if (flipsToDelivery && order.driverId) {
+        await this.notificationService.pushNotificationSafe({
+          title: 'Order ready for delivery',
+          body: `Order ${order.referenceNumber ?? orderId} is ready. Please start the delivery.`,
+          type: 'order_status',
+          recipientType: 'admin',
+          recipientId: order.driverId,
+          redirectId: orderId,
+          data: { orderId, status: 'out_for_delivery' },
+        });
+      }
+
+      if (order.bakeryId && effectiveStatus) {
         await this.notificationService.pushToBakeryStaff(order.bakeryId, {
           title: 'Order status updated',
-          body: `Order ${order.referenceNumber ?? orderId} is now ${status}.`,
+          body: `Order ${order.referenceNumber ?? orderId} is now ${effectiveStatus}.`,
           type: 'order_status',
           redirectId: orderId,
-          data: { orderId, status },
+          data: { orderId, status: effectiveStatus },
         });
       }
 
@@ -1379,9 +1561,179 @@ export class OrderService {
     }
   }
 
+  /**
+   * Reserve (decrement) or release (increment) a bakery's stock for every
+   * stockable item on an order. Shared by assign / re-assign / unassign so a
+   * bakery's reserved stock always matches the orders currently sitting with it.
+   */
+  private async adjustStockForOrderItems(
+    orderId: string,
+    regionId: string,
+    bakeryId: string,
+    op: 'increment' | 'decrement',
+    force = false,
+  ): Promise<void> {
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
+    for (const item of items) {
+      if (!item.addonId && !item.sweetId && !item.featuredCakeId) {
+        continue;
+      }
+
+      const regionItemCondition = item.addonId
+        ? eq(regionItemPrices.addonId, item.addonId)
+        : item.sweetId
+          ? eq(regionItemPrices.sweetId, item.sweetId)
+          : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+      const [regionItem] = await db
+        .select()
+        .from(regionItemPrices)
+        .where(and(eq(regionItemPrices.regionId, regionId), regionItemCondition))
+        .limit(1);
+
+      if (!regionItem) {
+        continue;
+      }
+
+      if (op === 'decrement') {
+        await this.stockService.decrementStock(
+          bakeryId,
+          regionItem.id,
+          item.quantity,
+          item.selectedOptions?.[0]?.optionId,
+          force,
+        );
+      } else {
+        await this.stockService.incrementStock(
+          bakeryId,
+          regionItem.id,
+          item.quantity,
+          item.selectedOptions?.[0]?.optionId,
+          force,
+        );
+      }
+    }
+  }
+
+  /**
+   * Read-only check: which of an order's stockable items (addons / sweets /
+   * featured cakes) the target bakery cannot fully reserve — either it has no
+   * stock record for the item (`not_stocked`) or not enough on hand
+   * (`insufficient`). Used to block a normal reassign so the admin can decide
+   * whether to force it.
+   */
+  private async checkStockForOrderItems(
+    orderId: string,
+    regionId: string,
+    bakeryId: string,
+  ): Promise<BakeryStockIssue[]> {
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    const issues: BakeryStockIssue[] = [];
+
+    for (const item of items) {
+      if (!item.addonId && !item.sweetId && !item.featuredCakeId) {
+        continue;
+      }
+
+      const regionItemCondition = item.addonId
+        ? eq(regionItemPrices.addonId, item.addonId)
+        : item.sweetId
+          ? eq(regionItemPrices.sweetId, item.sweetId)
+          : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
+
+      const [regionItem] = await db
+        .select()
+        .from(regionItemPrices)
+        .where(and(eq(regionItemPrices.regionId, regionId), regionItemCondition))
+        .limit(1);
+
+      if (!regionItem) {
+        continue;
+      }
+
+      const [store] = await db
+        .select({
+          stock: bakeryItemStores.stock,
+          optionsStock: bakeryItemStores.optionsStock,
+        })
+        .from(bakeryItemStores)
+        .where(
+          and(
+            eq(bakeryItemStores.bakeryId, bakeryId),
+            eq(bakeryItemStores.regionItemPriceId, regionItem.id),
+          ),
+        )
+        .limit(1);
+
+      const optionId = item.selectedOptions?.[0]?.optionId;
+      let reason: 'not_stocked' | 'insufficient' | null = null;
+      let available = 0;
+
+      if (!store) {
+        reason = 'not_stocked';
+      } else if (optionId) {
+        const option = store.optionsStock?.find((o) => o.optionId === optionId);
+        if (!option) {
+          reason = 'not_stocked';
+        } else if (option.stock < item.quantity) {
+          reason = 'insufficient';
+          available = option.stock;
+        }
+      } else if (store.stock < item.quantity) {
+        reason = 'insufficient';
+        available = store.stock;
+      }
+
+      if (reason) {
+        issues.push({
+          name: await this.resolveOrderItemName(item),
+          reason,
+          requested: item.quantity,
+          available,
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /** Localised display name for a stockable order item (addon / sweet / featured cake). */
+  private async resolveOrderItemName(item: typeof orderItems.$inferSelect): Promise<string> {
+    try {
+      if (item.addonId) {
+        const [row] = await db
+          .select({ name: this.translationService.getLocalized(addons.name, 'name') })
+          .from(addons)
+          .where(eq(addons.id, item.addonId))
+          .limit(1);
+        return row?.name || 'Item';
+      }
+      if (item.sweetId) {
+        const [row] = await db
+          .select({ name: this.translationService.getLocalized(sweets.name, 'name') })
+          .from(sweets)
+          .where(eq(sweets.id, item.sweetId))
+          .limit(1);
+        return row?.name || 'Item';
+      }
+      if (item.featuredCakeId) {
+        const [row] = await db
+          .select({ name: this.translationService.getLocalized(featuredCakes.name, 'name') })
+          .from(featuredCakes)
+          .where(eq(featuredCakes.id, item.featuredCakeId))
+          .limit(1);
+        return row?.name || 'Item';
+      }
+    } catch {
+      // Name resolution is best-effort — never let it break the stock check.
+    }
+    return 'Item';
+  }
+
   async assignToBakery(
     orderId: string,
-    { bakeryId }: AssignBakeryDto,
+    { bakeryId, force = false }: AssignBakeryDto,
   ): Promise<AssignBakeryResponseDto> {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
@@ -1392,12 +1744,16 @@ export class OrderService {
       );
     }
 
-    if (order.orderStatus !== 'pending') {
+    // Admins can (re)assign an order while it is still early in its lifecycle —
+    // not only while pending. Once it is ready / out for delivery / delivered /
+    // cancelled it is too late to move it to another bakery.
+    const reassignableStatuses: string[] = ['pending', 'confirmed', 'preparing'];
+    if (!reassignableStatuses.includes(order.orderStatus)) {
       this.logger.warn(
-        `Order with id: ${orderId} must be in pending status to be assigned to a bakery. Current status: ${order.orderStatus}`,
+        `Order with id: ${orderId} cannot be assigned to a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
           orderId,
           status: order.orderStatus,
         }),
@@ -1427,44 +1783,71 @@ export class OrderService {
       );
     }
 
+    const previousBakeryId = order.bakeryId;
+
+    // Re-assigning to the same bakery is a no-op — don't double-reserve stock.
+    if (previousBakeryId === bakeryId) {
+      return { id: order.id, bakeryId };
+    }
+
+    // Unless the admin forces the move, block when the target bakery can't fully
+    // stock the order and report exactly which items, so the UI can offer a
+    // "reassign anyway" confirmation that retries with force=true.
+    if (!force) {
+      const stockIssues = await this.checkStockForOrderItems(orderId, order.regionId, bakeryId);
+      if (stockIssues.length > 0) {
+        this.logger.warn(
+          `Bakery ${bakeryId} cannot fully stock order ${orderId}: ${stockIssues
+            .map((i) => i.name)
+            .join(', ')}`,
+        );
+        throw new BadRequestException(
+          errorResponse(
+            'routes.orders.bakery_stock_issue',
+            HttpStatus.BAD_REQUEST,
+            'BAKERY_STOCK_ISSUE',
+            { forceable: true, issues: stockIssues },
+          ),
+        );
+      }
+    }
+
     try {
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+      // Reserve stock at the NEW bakery. With `force` this is best-effort (skips
+      // missing stores, never goes negative); without it the pre-check above has
+      // already guaranteed there's enough, so nothing is left half-changed.
+      await this.adjustStockForOrderItems(orderId, order.regionId, bakeryId, 'decrement', force);
 
-      for (const item of items) {
-        if (item.addonId || item.sweetId || item.featuredCakeId) {
-          const regionItemCondition = item.addonId
-            ? eq(regionItemPrices.addonId, item.addonId)
-            : item.sweetId
-              ? eq(regionItemPrices.sweetId, item.sweetId)
-              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
-
-          const [regionItem] = await db
-            .select()
-            .from(regionItemPrices)
-            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
-            .limit(1);
-
-          if (regionItem) {
-            await this.stockService.decrementStock(
-              bakeryId,
-              regionItem.id,
-              item.quantity,
-              item.selectedOptions?.[0]?.optionId,
-            );
-          }
-        }
+      // Re-assignment: release the stock previously reserved at the old bakery.
+      // Best-effort — releasing should never block the move.
+      if (previousBakeryId) {
+        await this.adjustStockForOrderItems(
+          orderId,
+          order.regionId,
+          previousBakeryId,
+          'increment',
+          true,
+        );
       }
 
+      // Reset to pending so the newly assigned bakery owns a fresh order it must
+      // confirm again — while keeping the rest of the order data intact. For a
+      // first-time assignment of an already-pending order this is a no-op.
       const [updatedOrder] = await db
         .update(orders)
         .set({
           bakeryId: bakeryId,
           assigningDate: new Date(),
+          orderStatus: 'pending',
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
-      this.logger.log(`Order ${orderId} assigned to bakery ${bakeryId} successfully`);
+      this.logger.log(
+        previousBakeryId
+          ? `Order ${orderId} reassigned from bakery ${previousBakeryId} to ${bakeryId} successfully`
+          : `Order ${orderId} assigned to bakery ${bakeryId} successfully`,
+      );
 
       await this.notificationService.pushToBakeryStaff(bakeryId, {
         title: 'New order assigned',
@@ -1473,6 +1856,17 @@ export class OrderService {
         redirectId: orderId,
         data: { orderId, bakeryId },
       });
+
+      // Tell the previous bakery the order has moved away from them.
+      if (previousBakeryId) {
+        await this.notificationService.pushToBakeryStaff(previousBakeryId, {
+          title: 'Order reassigned',
+          body: `Order ${order.referenceNumber ?? orderId} has been reassigned to another bakery.`,
+          type: 'order_update',
+          redirectId: orderId,
+          data: { orderId, bakeryId: previousBakeryId },
+        });
+      }
 
       return {
         id: updatedOrder.id,
@@ -1494,10 +1888,200 @@ export class OrderService {
     }
   }
 
+  async assignToDriver(
+    orderId: string,
+    { driverId }: AssignDriverDto,
+  ): Promise<{ id: string; driverId: string | null; driverAssignedAt: Date | null }> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    if (driverId === undefined) {
+      throw new BadRequestException(
+        errorResponse(
+          'routes.orders.invalid_driver_assignment',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    if (order.orderStatus === 'delivered' || order.orderStatus === 'cancelled') {
+      throw new BadRequestException(
+        errorResponse(
+          'routes.orders.assign_driver_invalid_state',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    // Unassign flow
+    if (driverId === null) {
+      const nextStatus = order.orderStatus === 'out_for_delivery' ? 'ready' : order.orderStatus;
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          driverId: null,
+          driverAssignedAt: null,
+          driverData: null,
+          orderStatus: nextStatus,
+        })
+        .where(eq(orders.id, orderId))
+        .returning({
+          id: orders.id,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+        });
+
+      return updatedOrder;
+    }
+
+    const [driver] = await db
+      .select({ id: admins.id, regionId: admins.regionId, isBlocked: admins.isBlocked })
+      .from(admins)
+      .where(and(eq(admins.id, driverId), eq(admins.role, 'driver')))
+      .limit(1);
+
+    if (!driver) {
+      this.logger.warn(`Driver with id: ${driverId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.driver.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // A blocked driver can't take deliveries.
+    if (driver.isBlocked) {
+      this.logger.warn(`Attempt to assign blocked driver ${driverId} to order ${orderId}`);
+      throw new BadRequestException(
+        errorResponse('routes.driver.blocked', HttpStatus.BAD_REQUEST, 'BadRequestException'),
+      );
+    }
+
+    // Drivers are region-scoped: only a driver from the order's region may deliver it.
+    if (driver.regionId !== order.regionId) {
+      this.logger.warn(
+        `Driver ${driverId} (region ${driver.regionId ?? '-'}) does not match order ${orderId} region ${order.regionId}`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          'routes.orders.driver_region_mismatch',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+        ),
+      );
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        driverId,
+        driverAssignedAt: new Date(),
+        driverData: null,
+      })
+      .where(eq(orders.id, orderId))
+      .returning({
+        id: orders.id,
+        driverId: orders.driverId,
+        driverAssignedAt: orders.driverAssignedAt,
+      });
+
+    return updatedOrder;
+  }
+
+  async generateDeliveryCheckCode(orderId: string, driverId: string) {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      throw new NotFoundException('routes.orders.not_found');
+    }
+
+    if (order.driverId !== driverId) {
+      throw new BadRequestException('routes.orders.not_assigned_to_driver');
+    }
+
+    if (order.orderStatus !== 'out_for_delivery') {
+      throw new BadRequestException('routes.orders.delivery_code_invalid_state');
+    }
+
+    const deliveryCheckCode = randomInt(100000, 1000000).toString();
+    const deliveryCheckCodeHash = createHmac('sha256', env.JWT_ACCESS_SECRET)
+      .update(deliveryCheckCode)
+      .digest('hex');
+
+    await db
+      .update(orders)
+      .set({
+        deliveryCheckCodeHash,
+      })
+      .where(eq(orders.id, orderId));
+
+    return successResponse(
+      {
+        orderId,
+        deliveryCheckCode,
+      },
+      'routes.orders.delivery_code_generated',
+      HttpStatus.OK,
+    );
+  }
+
+  async verifyDeliveryCheckCode(
+    orderId: string,
+    userId: string,
+    { deliveryCheckCode }: VerifyDeliveryCodeDto,
+  ) {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+    if (!order) {
+      throw new NotFoundException('routes.orders.not_found');
+    }
+
+    if (order.userId !== userId) {
+      throw new BadRequestException('routes.orders.not_authorized_for_verification');
+    }
+
+    if (!order.deliveryCheckCodeHash) {
+      throw new BadRequestException('routes.orders.delivery_code_not_generated');
+    }
+
+    const providedHash = this.hashDeliveryCheckCode(deliveryCheckCode);
+    if (providedHash !== order.deliveryCheckCodeHash) {
+      throw new BadRequestException('routes.orders.delivery_code_invalid');
+    }
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({
+        orderStatus: 'delivered',
+        deliveredAt: new Date(),
+        deliveryCheckCodeHash: null,
+      })
+      .where(eq(orders.id, orderId))
+      .returning({
+        id: orders.id,
+        status: orders.orderStatus,
+        deliveredAt: orders.deliveredAt,
+      });
+
+    return updatedOrder;
+  }
+
   async unassignFromBakery(
     orderId: string,
     reason?: string,
+    options?: { bypassTimeLimit?: boolean },
   ): Promise<{ id: string; bakeryId: string }> {
+    // Platform admins returning an order to the pool bypass the 1-hour window;
+    // a bakery declining its own order is still capped to that window.
+    const bypassTimeLimit = options?.bypassTimeLimit ?? false;
+
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
 
     if (!order) {
@@ -1519,31 +2103,30 @@ export class OrderService {
       );
     }
 
-    if (order.orderStatus !== 'pending') {
+    // Platform admins (bypassTimeLimit) can pull an order back to the unassigned
+    // pool even after the bakery confirmed/started it. A bakery declining its own
+    // order stays restricted to pending (plus the 1-hour window enforced below).
+    const returnableStatuses: string[] = bypassTimeLimit
+      ? ['pending', 'confirmed', 'preparing']
+      : ['pending'];
+    if (!returnableStatuses.includes(order.orderStatus)) {
       this.logger.warn(
-        `Order with id: ${orderId} must be in pending status to be un-assigned from a bakery. Current status: ${order.orderStatus}`,
+        `Order with id: ${orderId} cannot be un-assigned from a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_pending`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
+        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
           orderId,
           status: order.orderStatus,
         }),
       );
     }
 
-    if (!order.assigningDate || !order.bakeryId) {
-      this.logger.warn(`Order with id: ${orderId} is not assigned to a bakery`);
-      throw new BadRequestException(
-        errorResponse(
-          `routes.orders.not_assigned_to_bakery`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { orderId },
-        ),
-      );
-    }
-
+    // NOTE: we intentionally do NOT require `assigningDate` here. An order can
+    // carry a bakeryId without one (seeded / legacy / imported rows), and the
+    // bakeryId check above is what determines "assigned". `assigningDate` only
+    // gates the 1-hour decline window below, which already tolerates a null.
     if (
+      !bypassTimeLimit &&
       order.assigningDate &&
       new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
     ) {
@@ -1579,39 +2162,24 @@ export class OrderService {
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
 
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-
-      for (const item of items) {
-        if (item.addonId || item.sweetId || item.featuredCakeId) {
-          const regionItemCondition = item.addonId
-            ? eq(regionItemPrices.addonId, item.addonId)
-            : item.sweetId
-              ? eq(regionItemPrices.sweetId, item.sweetId)
-              : eq(regionItemPrices.featuredCakeId, item.featuredCakeId as string);
-
-          const [regionItem] = await db
-            .select()
-            .from(regionItemPrices)
-            .where(and(eq(regionItemPrices.regionId, order.regionId), regionItemCondition))
-            .limit(1);
-
-          if (regionItem) {
-            await this.stockService.incrementStock(
-              bakeryIdToUnassign,
-              regionItem.id,
-              item.quantity,
-              item.selectedOptions?.[0]?.optionId,
-            );
-          }
-        }
-      }
+      // Best-effort release — returning an order to the pool must never be
+      // blocked by a missing stock record at the old bakery.
+      await this.adjustStockForOrderItems(
+        orderId,
+        order.regionId,
+        bakeryIdToUnassign,
+        'increment',
+        true,
+      );
 
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
 
       if (order.userId) {
         await this.notificationService.pushNotificationSafe({
-          title: 'Bakery cancelled your order',
-          body: `Your assigned bakery declined order ${order.referenceNumber ?? ''}. We're finding you another one.`,
+          title: bypassTimeLimit ? 'Order update' : 'Bakery cancelled your order',
+          body: bypassTimeLimit
+            ? `Your order ${order.referenceNumber ?? ''} is being reassigned to another bakery.`
+            : `Your assigned bakery declined order ${order.referenceNumber ?? ''}. We're finding you another one.`,
           type: 'order_cancelled_by_bakery',
           recipientType: 'user',
           recipientId: order.userId,
@@ -1624,19 +2192,23 @@ export class OrderService {
         });
       }
 
-      await this.notificationService.pushToPlatformAdmins({
-        title: 'Bakery declined an order',
-        body: `Bakery unassigned itself from order ${order.referenceNumber ?? orderId}${
-          reason ? ` — reason: ${reason}` : ''
-        }.`,
-        type: 'order_cancelled_by_bakery',
-        redirectId: orderId,
-        data: {
-          orderId,
-          bakeryId: bakeryIdToUnassign,
-          ...(reason ? { reason } : {}),
-        },
-      });
+      // The "bakery declined" alert is only meaningful when the bakery itself
+      // backed out — an admin returning the order to the pool already knows.
+      if (!bypassTimeLimit) {
+        await this.notificationService.pushToPlatformAdmins({
+          title: 'Bakery declined an order',
+          body: `Bakery unassigned itself from order ${order.referenceNumber ?? orderId}${
+            reason ? ` — reason: ${reason}` : ''
+          }.`,
+          type: 'order_cancelled_by_bakery',
+          redirectId: orderId,
+          data: {
+            orderId,
+            bakeryId: bakeryIdToUnassign,
+            ...(reason ? { reason } : {}),
+          },
+        });
+      }
 
       await this.notificationService.pushToBakeryStaff(bakeryIdToUnassign, {
         title: 'Order unassigned',
@@ -1664,6 +2236,87 @@ export class OrderService {
         ),
       );
     }
+  }
+
+  /**
+   * Bakeries the admin can hand this order to: same region, able to handle the
+   * order's type, each with its current capacity usage so the admin can pick one
+   * with room. The currently-assigned bakery is included and flagged `isCurrent`.
+   */
+  async getAvailableBakeriesForOrder(orderId: string): Promise<AvailableBakeryDto[]> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+
+    if (!order) {
+      this.logger.warn(`Order with id: ${orderId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    // Order cart types and bakery types label the "large cake" tier differently
+    // (big_cakes vs large_cakes); normalise the order's type before matching.
+    const cartToBakeryType: Record<string, string> = {
+      big_cakes: 'large_cakes',
+      small_cakes: 'small_cakes',
+      others: 'others',
+    };
+    const requiredType = cartToBakeryType[order.cartType] ?? order.cartType;
+
+    const regionBakeries = await db
+      .select({
+        id: bakeries.id,
+        name: this.translationService.getLocalized(bakeries.name, 'name'),
+        bakeryTypes: bakeries.bakeryTypes,
+        capacity: bakeries.capacity,
+      })
+      .from(bakeries)
+      .where(and(eq(bakeries.regionId, order.regionId), eq(bakeries.isDeleted, false)));
+
+    const matching = regionBakeries.filter((bakery) =>
+      (bakery.bakeryTypes ?? []).some((type) => type === requiredType),
+    );
+
+    if (matching.length === 0) {
+      return [];
+    }
+
+    const bakeryIds = matching.map((bakery) => bakery.id);
+
+    // Used capacity = sum of capacity slots of each bakery's still-active orders
+    // (anything not delivered/cancelled is still occupying a slot).
+    const usageRows = await db
+      .select({
+        bakeryId: orders.bakeryId,
+        used: sql<number>`COALESCE(SUM(${orders.totalCapacity}), 0)`,
+      })
+      .from(orders)
+      .where(
+        and(
+          inArray(orders.bakeryId, bakeryIds),
+          not(
+            inArray(orders.orderStatus, ['delivered', 'cancelled'] as (typeof orders.orderStatus.enumValues)[number][]),
+          ),
+        ),
+      )
+      .groupBy(orders.bakeryId);
+
+    const usedByBakery = new Map<string, number>();
+    for (const row of usageRows) {
+      if (row.bakeryId) usedByBakery.set(row.bakeryId, Number(row.used) || 0);
+    }
+
+    return matching.map((bakery) => {
+      const usedCapacity = usedByBakery.get(bakery.id) ?? 0;
+      return {
+        id: bakery.id,
+        name: bakery.name,
+        types: bakery.bakeryTypes ?? [],
+        capacity: bakery.capacity,
+        usedCapacity,
+        availableCapacity: Math.max(0, bakery.capacity - usedCapacity),
+        isCurrent: bakery.id === order.bakeryId,
+      };
+    });
   }
 
   async finalizeData(orderId: string, data: FinalizeOrderDto): Promise<FinalizeOrderResponseDto> {
@@ -1771,10 +2424,61 @@ export class OrderService {
     }
   }
 
+  /**
+   * Admin financials view (all bakeries, optionally scoped by bakeryId).
+   * Includes orders from "ready" through "delivered" and filters the
+   * from/to range on createdAt, since not-yet-delivered orders have no
+   * deliveredAt yet.
+   */
   async getOrdersFinancials(
     dto: GetOrdersFinancialsDto,
   ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
     const { bakeryId, from, to, page, limit } = dto;
+    return this.computeFinancials({
+      bakeryId,
+      from,
+      to,
+      page,
+      limit,
+      statuses: ['ready', 'out_for_delivery', 'delivered'],
+      dateField: 'createdAt',
+    });
+  }
+
+  /**
+   * Bakery-scoped financials for the bakery manager view.
+   * Includes orders from "ready" through "delivered" and filters the
+   * from/to range on createdAt, since not-yet-delivered orders have no
+   * deliveredAt yet.
+   */
+  async getBakeryFinancials(
+    bakeryId: string,
+    dto: GetOrdersFinancialsDto,
+  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
+    const { from, to, page, limit } = dto;
+    return this.computeFinancials({
+      bakeryId,
+      from,
+      to,
+      page,
+      limit,
+      statuses: ['ready', 'out_for_delivery', 'delivered'],
+      dateField: 'createdAt',
+    });
+  }
+
+  private async computeFinancials(opts: {
+    bakeryId?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+    statuses: (typeof orders.orderStatus.enumValues)[number][];
+    dateField: 'deliveredAt' | 'createdAt';
+  }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
+    const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
+    const dateColumn =
+      dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
 
     try {
       const conditions: SQL[] = [];
@@ -1800,21 +2504,21 @@ export class OrderService {
 
       if (from) {
         const fromCondition = and(
-          isNotNull(orders.deliveredAt),
-          gte(orders.deliveredAt, new Date(from)),
+          isNotNull(dateColumn),
+          gte(dateColumn, new Date(from)),
         );
         if (fromCondition) conditions.push(fromCondition);
       }
 
       if (to) {
         const toCondition = and(
-          isNotNull(orders.deliveredAt),
-          lte(orders.deliveredAt, new Date(to)),
+          isNotNull(dateColumn),
+          lte(dateColumn, new Date(to)),
         );
         if (toCondition) conditions.push(toCondition);
       }
 
-      conditions.push(eq(orders.orderStatus, 'delivered'));
+      conditions.push(inArray(orders.orderStatus, statuses));
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -1833,16 +2537,19 @@ export class OrderService {
           addonsTotal: orders.addonsTotal,
           bastiPercentage: orders.bastiPercentage,
           deliveryAmount: orders.deliveryAmount,
+          bastiDeliveryAmount: orders.bastiDeliveryAmount,
           totalPrice: orders.totalPrice,
           discountAmount: orders.discountAmount,
           finalPrice: orders.finalPrice,
+          orderStatus: orders.orderStatus,
           deliveredAt: orders.deliveredAt,
+          createdAt: orders.createdAt,
           bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
         })
         .from(orders)
         .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
         .where(whereClause)
-        .orderBy(desc(orders.deliveredAt));
+        .orderBy(desc(dateColumn));
 
       if (!ordersTotalList || ordersTotalList.length === 0) {
         this.logger.log('No orders matched the financials filters; returning empty result');
@@ -1854,6 +2561,7 @@ export class OrderService {
               bastiTotal: 0,
               bakeryTotal: 0,
               deliveryAmount: 0,
+              bastiDeliveryAmount: 0,
               totalPrice: 0,
               discountAmount: 0,
               finalPrice: 0,
@@ -1877,16 +2585,19 @@ export class OrderService {
           addonsTotal: orders.addonsTotal,
           bastiPercentage: orders.bastiPercentage,
           deliveryAmount: orders.deliveryAmount,
+          bastiDeliveryAmount: orders.bastiDeliveryAmount,
           totalPrice: orders.totalPrice,
           discountAmount: orders.discountAmount,
           finalPrice: orders.finalPrice,
+          orderStatus: orders.orderStatus,
           deliveredAt: orders.deliveredAt,
+          createdAt: orders.createdAt,
           bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
         })
         .from(orders)
         .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
         .where(whereClause)
-        .orderBy(desc(orders.deliveredAt))
+        .orderBy(desc(dateColumn))
         .limit(resolvedLimit)
         .offset(offset);
 
@@ -1900,6 +2611,7 @@ export class OrderService {
           bastiPercentage,
           bastiAmount,
           deliveryAmount: Number(order.deliveryAmount) || 0,
+          bastiDeliveryAmount: Number(order.bastiDeliveryAmount) || 0,
           totalPrice,
           discountAmount: Number(order.discountAmount) || 0,
           finalPrice: Number(order.finalPrice) || 0,
@@ -1907,7 +2619,9 @@ export class OrderService {
           bakeryName: order.bakeryName || '',
           orderId: order.orderId,
           referenceNumber: order.referenceNumber || '',
+          orderStatus: order.orderStatus,
           deliveredAt: order.deliveredAt,
+          createdAt: order.createdAt,
         };
       });
 
@@ -1916,9 +2630,12 @@ export class OrderService {
           addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
           bastiTotal:
             acc.bastiTotal +
-            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0),
+            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0) +
+            (Number(order.bastiDeliveryAmount) || 0),
           bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
           deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
+          bastiDeliveryAmount:
+            acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
           totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
           discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
           finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
@@ -1928,6 +2645,7 @@ export class OrderService {
           bastiTotal: 0,
           bakeryTotal: 0,
           deliveryAmount: 0,
+          bastiDeliveryAmount: 0,
           totalPrice: 0,
           discountAmount: 0,
           finalPrice: 0,
@@ -2050,6 +2768,25 @@ export class OrderService {
     }, {});
   }
 
+  /**
+   * Order columns that are safe to send to clients. Strips the internal delivery
+   * code hash, and (for customer-facing responses) hides driver details until the
+   * order is actually out for delivery.
+   */
+  private exposeOrderFields(
+    order: typeof orders.$inferSelect,
+    audience: 'admin' | 'user' = 'admin',
+  ) {
+    const { deliveryCheckCodeHash, ...rest } = order;
+    const driverVisibleToUser =
+      order.orderStatus === 'out_for_delivery' || order.orderStatus === 'delivered';
+
+    return {
+      ...rest,
+      driverData: audience === 'user' && !driverVisibleToUser ? null : rest.driverData,
+    };
+  }
+
   private buildBasicOrderResponse(order: typeof orders.$inferSelect): OrderResponseDto {
     return {
       addons: [],
@@ -2057,7 +2794,7 @@ export class OrderService {
       featuredCakes: [],
       predesignedCakes: [],
       customCakes: [],
-      ...order,
+      ...this.exposeOrderFields(order),
       bakeryId: order.bakeryId || undefined,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',
@@ -2083,7 +2820,7 @@ export class OrderService {
       featuredCakes: formattedItems.featuredCakeItems,
       predesignedCakes: formattedItems.predesignedCakeItems,
       customCakes: formattedItems.customCakeItems,
-      ...order,
+      ...this.exposeOrderFields(order),
       bakeryId: order.bakeryId || undefined,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',

@@ -5,7 +5,9 @@ import { OrderStatusEnum } from './get.dto';
 
 /**
  * Query params for GET /orders/assigned — Kanban view feed.
- * Returns active orders grouped by bakeryId. Not paginated for now.
+ * Returns orders grouped by bakeryId. Not paginated for now.
+ * Defaults to active orders; pass explicit statuses (e.g. delivered,cancelled)
+ * to pull assigned-order history.
  */
 export class GetAssignedOrdersQueryDto {
   @ApiPropertyOptional({

@@ -26,7 +26,10 @@ import {
   GetUnassignedOrdersQueryDto,
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
+  GetDispatchOrdersQueryDto,
   GetBakeryOrdersQueryDto,
+  AssignDriverDto,
+  VerifyDeliveryCodeDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -43,6 +46,10 @@ import {
   GetBakeryOrdersDecorator,
   FinalizeOrderDecorator,
   GetOrdersFinancialsDecorator,
+  GetBakeryFinancialsDecorator,
+  AssignDriverDecorator,
+  VerifyDeliveryCodeDecorator,
+  GenerateDeliveryCheckCodeDecorator,
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { SchedulerService } from '../services/scheduler.service';
@@ -134,6 +141,17 @@ export class OrderController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('dispatch')
+  async getDispatchOrders(@Query() query: GetDispatchOrdersQueryDto) {
+    this.logger.debug(
+      `getting dispatch orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, bakery=${query.bakeryId ?? '-'}, driverState=${query.driverState ?? '-'}, q=${query.q ?? '-'})`,
+    );
+    const result = await this.orderService.getForDispatch(query);
+    return successResponse(result, 'routes.orders.list_retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin', 'manager')
   @Get('bakery/:bakeryId')
   @GetBakeryOrdersDecorator()
@@ -180,6 +198,27 @@ export class OrderController {
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin', 'manager')
+  @Get('bakery/:bakeryId/financials')
+  @GetBakeryFinancialsDecorator()
+  async getBakeryFinancials(
+    @Param('bakeryId', ParseUUIDPipe) bakeryId: string,
+    @Query() dto: GetOrdersFinancialsDto,
+  ) {
+    this.logger.debug(`getting financials for bakery: ${bakeryId}`);
+    return this.orderService.getBakeryFinancials(bakeryId, dto);
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get(':id/available-bakeries')
+  async getAvailableBakeries(@Param('id', ParseUUIDPipe) id: string) {
+    this.logger.debug(`getting available bakeries for order: ${id}`);
+    const result = await this.orderService.getAvailableBakeriesForOrder(id);
+    return successResponse(result, 'routes.bakery.available_bakeries_fetched');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin', 'manager')
   @Get(':id')
   @GetOrderByIdDecorator()
   async getOrderById(
@@ -212,6 +251,50 @@ export class OrderController {
     return successResponse(result, 'routes.orders.refused');
   }
 
+  @Post(':orderId/delivery-code')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('driver')
+  @GenerateDeliveryCheckCodeDecorator()
+  async generateDeliveryCheckCode(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') driverId: string,
+  ) {
+    this.logger.debug(`Driver ${driverId} generating delivery code for order: ${orderId}`);
+    return this.orderService.generateDeliveryCheckCode(orderId, driverId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/verify-delivery-code')
+  @VerifyDeliveryCodeDecorator()
+  async verifyDeliveryCode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') userId: string,
+    @Body() verifyDeliveryCodeDto: VerifyDeliveryCodeDto,
+  ) {
+    this.logger.debug(`verifying delivery code for order: ${id}`);
+    const result = await this.orderService.verifyDeliveryCheckCode(
+      id,
+      userId,
+      verifyDeliveryCodeDto,
+    );
+    this.logger.debug(`delivery code verified for order: ${id}`);
+    return successResponse(result, 'routes.orders.delivered');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Patch(':id/assign-driver')
+  @AssignDriverDecorator()
+  async assignToDriver(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() assignDriverDto: AssignDriverDto,
+  ) {
+    this.logger.debug(`updating driver assignment for order: ${id}`);
+    const result = await this.orderService.assignToDriver(id, assignDriverDto);
+    this.logger.debug(`driver assignment updated for order: ${id}`);
+    return successResponse(result, 'routes.orders.driver_assignment_updated');
+  }
+
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
   @Patch(':id/assign-bakery')
@@ -232,10 +315,16 @@ export class OrderController {
   @UnassignBakeryDecorator()
   async unassignBakery(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('role') role: string,
     @Body() unassignBakeryDto?: UnassignBakeryDto,
   ) {
-    this.logger.debug(`unassigning order from bakery: ${id}`);
-    const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason);
+    // Platform admins can pull a still-pending order back to the unassigned pool
+    // at any time; a bakery manager declining stays bound to the 1-hour window.
+    const bypassTimeLimit = role === 'super_admin' || role === 'admin';
+    this.logger.debug(`unassigning order from bakery: ${id} (bypassTimeLimit=${bypassTimeLimit})`);
+    const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason, {
+      bypassTimeLimit,
+    });
     this.logger.debug(`order unassigned from bakery: ${id}`);
     return successResponse(result, 'routes.orders.unassigned_from_bakery');
   }

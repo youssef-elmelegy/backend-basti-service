@@ -22,6 +22,8 @@ import { TranslationService } from '@/common';
 
 export type RecipientKind = 'user' | 'admin';
 
+type AdminRole = 'super_admin' | 'admin' | 'manager' | 'driver';
+
 export interface PushNotificationParams {
   title: string;
   body: string;
@@ -542,14 +544,34 @@ export class NotificationService {
     dto: BroadcastNotificationDto,
   ): Promise<SuccessResponse<{ totalUsers: number; pushedCount: number; failedCount: number }>> {
     const { title, body, type, redirectId, data } = dto;
+    const audience = dto.audience ?? 'all';
 
     try {
+      // Resolve which recipient groups this audience targets.
+      // Bakery owners = managers, drivers = role 'driver', admins = platform admins only.
+      const includeUsers = audience === 'all' || audience === 'users';
+      const includeAdmins = audience !== 'users';
+      const adminRolesByAudience: Record<string, AdminRole[] | null> = {
+        all: null, // every non-blocked admin, regardless of role
+        admins: ['super_admin', 'admin'],
+        bakery_owners: ['manager'],
+        drivers: ['driver'],
+      };
+      const adminRoleFilter = adminRolesByAudience[audience] ?? null;
+      const adminWhere = adminRoleFilter
+        ? and(eq(admins.isBlocked, false), inArray(admins.role, adminRoleFilter))
+        : eq(admins.isBlocked, false);
+
+      const emptyRecipients = Promise.resolve(
+        [] as { id: string; fcmToken: string | null }[],
+      );
       const [allUsers, allAdmins] = await Promise.all([
-        db.select({ id: users.id, fcmToken: users.fcmToken }).from(users),
-        db
-          .select({ id: admins.id, fcmToken: admins.fcmToken })
-          .from(admins)
-          .where(eq(admins.isBlocked, false)),
+        includeUsers
+          ? db.select({ id: users.id, fcmToken: users.fcmToken }).from(users)
+          : emptyRecipients,
+        includeAdmins
+          ? db.select({ id: admins.id, fcmToken: admins.fcmToken }).from(admins).where(adminWhere)
+          : emptyRecipients,
       ]);
 
       if (allUsers.length === 0 && allAdmins.length === 0) {
@@ -588,7 +610,7 @@ export class NotificationService {
       }
 
       this.logger.log(
-        `Broadcast notification stored for ${allUsers.length} users + ${allAdmins.length} admins (type=${type})`,
+        `Broadcast notification stored for ${allUsers.length} users + ${allAdmins.length} admins (type=${type}, audience=${audience})`,
       );
 
       const usersWithToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
@@ -715,7 +737,7 @@ export class NotificationService {
     recipientKind: RecipientKind,
     recipientId: string,
     pagination: PaginationDto,
-    filters: { isRead?: boolean; type?: NotificationType },
+    filters: { isRead?: boolean; types?: NotificationType[] },
   ) {
     try {
       const page = pagination.page ?? 1;
@@ -731,8 +753,8 @@ export class NotificationService {
       if (filters.isRead !== undefined) {
         conditions.push(eq(notifications.isRead, filters.isRead));
       }
-      if (filters.type !== undefined) {
-        conditions.push(eq(notifications.type, filters.type));
+      if (filters.types && filters.types.length > 0) {
+        conditions.push(inArray(notifications.type, filters.types));
       }
 
       const whereExpr = conditions.length === 1 ? conditions[0] : and(...conditions);

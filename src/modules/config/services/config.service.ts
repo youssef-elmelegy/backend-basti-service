@@ -1,4 +1,10 @@
-import { Injectable, InternalServerErrorException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  BadRequestException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { db } from '@/db';
 import { appConfig } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -41,6 +47,17 @@ export class ConfigService {
         [config] = await db.insert(appConfig).values({}).returning();
       }
 
+      // Basti's slice of the delivery fee can never exceed the delivery fee itself.
+      // Validate against the effective values (incoming override falling back to stored).
+      const effectiveDeliveryAmount = updateDto.deliveryAmount ?? config.deliveryAmount;
+      const effectiveBastiDeliveryAmount =
+        updateDto.bastiDeliveryAmount ?? config.bastiDeliveryAmount;
+      if (effectiveBastiDeliveryAmount > effectiveDeliveryAmount) {
+        throw new BadRequestException(
+          errorResponse('routes.config.basti_delivery_exceeds', HttpStatus.BAD_REQUEST, 'BadRequest'),
+        );
+      }
+
       const [updated] = await db
         .update(appConfig)
         .set({
@@ -64,6 +81,9 @@ export class ConfigService {
           ...(updateDto.deliveryAmount !== undefined && {
             deliveryAmount: updateDto.deliveryAmount,
           }),
+          ...(updateDto.bastiDeliveryAmount !== undefined && {
+            bastiDeliveryAmount: updateDto.bastiDeliveryAmount,
+          }),
           ...(updateDto.minMiniCakesRequired !== undefined && {
             minMiniCakesRequired: updateDto.minMiniCakesRequired,
           }),
@@ -76,6 +96,10 @@ export class ConfigService {
 
       return this.mapToResponse(updated);
     } catch (error) {
+      // Preserve client-facing HTTP exceptions (e.g. the basti-delivery validation guard).
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       const errMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to update config: ${errMsg}`);
       throw new InternalServerErrorException(
@@ -102,6 +126,7 @@ export class ConfigService {
       closureMessage: config.closureMessage || '',
       bastiPercentage: parseFloat(config.bastiPercentage),
       deliveryAmount: config.deliveryAmount,
+      bastiDeliveryAmount: config.bastiDeliveryAmount,
       minMiniCakesRequired: config.minMiniCakesRequired,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,

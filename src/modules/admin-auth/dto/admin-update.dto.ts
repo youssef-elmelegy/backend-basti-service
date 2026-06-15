@@ -15,6 +15,23 @@ export class UpdateAdminDto {
   role?: 'super_admin' | 'admin' | 'manager';
 
   @ApiProperty({
+    description: 'Admin name',
+    example: 'New Admin',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: 'Admin/Driver phone number',
+    example: '+1234567890',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
+  @ApiProperty({
     description: 'Associated bakery ID (UUID)',
     example: '550e8400-e29b-41d4-a716-446655440000',
     required: false,
@@ -22,6 +39,15 @@ export class UpdateAdminDto {
   @IsOptional()
   @IsUUID('4', { message: 'Bakery ID must be a valid UUID' })
   bakeryId?: string;
+
+  @ApiProperty({
+    description: 'Associated region ID (UUID) — used for drivers',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Region ID must be a valid UUID' })
+  regionId?: string;
 
   @ApiProperty({
     description: 'Admin profile image URL',

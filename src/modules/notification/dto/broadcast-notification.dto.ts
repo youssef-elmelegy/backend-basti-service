@@ -1,6 +1,15 @@
-import { IsString, IsEnum, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { IsString, IsEnum, MinLength, MaxLength, IsOptional, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { NOTIFICATION_TYPES, NotificationType } from './send-notification.dto';
+
+export const BROADCAST_AUDIENCES = [
+  'all',
+  'users',
+  'admins',
+  'bakery_owners',
+  'drivers',
+] as const;
+export type BroadcastAudience = (typeof BROADCAST_AUDIENCES)[number];
 
 export class BroadcastNotificationDto {
   @ApiProperty({
@@ -32,6 +41,22 @@ export class BroadcastNotificationDto {
     message: `Type must be one of: ${NOTIFICATION_TYPES.join(', ')}`,
   })
   type: NotificationType;
+
+  @ApiProperty({
+    description:
+      'Which audience to broadcast to. "all" = every user + every non-blocked admin. ' +
+      '"users" = app customers only. "admins" = platform admins (admin + super_admin). ' +
+      '"bakery_owners" = bakery managers. "drivers" = delivery drivers. Defaults to "all".',
+    enum: BROADCAST_AUDIENCES,
+    example: 'all',
+    required: false,
+    default: 'all',
+  })
+  @IsOptional()
+  @IsIn(BROADCAST_AUDIENCES, {
+    message: `audience must be one of: ${BROADCAST_AUDIENCES.join(', ')}`,
+  })
+  audience?: BroadcastAudience;
 
   @ApiProperty({
     description:

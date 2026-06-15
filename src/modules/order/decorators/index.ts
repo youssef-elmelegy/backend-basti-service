@@ -1,4 +1,5 @@
 export * from './assign-bakery.decorator';
+export * from './assign-driver.decorator';
 export * from './unassign-bakery.decorator';
 export * from './cancel-order.decorator';
 export * from './change-order-status.decorator';
@@ -8,7 +9,10 @@ export * from './get-delivery-time.decorator';
 export * from './get-my-orders.decorator';
 export * from './get-order-by-id.decorator';
 export * from './get-orders-financials.decorator';
+export * from './get-bakery-financials.decorator';
 export * from './refuse-order.decorator';
 export * from './place-order.decorator';
 export * from './finalize-order.decorator';
+export * from './verify-delivery-code.decorator';
+export * from './generate-delivery-check-code.decorator';
 export { SortDecorator, PaginationDecorator } from '@/common/decorators';
