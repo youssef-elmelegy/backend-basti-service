@@ -1,4 +1,13 @@
-import { pgTable, timestamp, uuid, integer, decimal, jsonb, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  timestamp,
+  uuid,
+  integer,
+  decimal,
+  jsonb,
+  index,
+  boolean,
+} from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { regions, chefs, orders, reviews, admins, bakeryItemStores } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
@@ -27,6 +36,10 @@ export const bakeries = pgTable(
 
     averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
     totalReviews: integer('total_reviews').default(0).notNull(),
+
+    // Soft-delete flag. Deleted bakeries are hidden from all listings/lookups but
+    // remain referenced by their historical (completed/cancelled) orders.
+    isDeleted: boolean('is_deleted').default(false).notNull(),
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

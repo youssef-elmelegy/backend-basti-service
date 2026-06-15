@@ -3,6 +3,8 @@ export * from './get-one-driver-endpoint.decorator';
 export * from './report-driver-endpoint.decorator';
 export * from './delete-driver-report-endpoint.decorator';
 export * from './get-all-reports-endpoint.decorator';
+export * from './get-reports-list-endpoint.decorator';
+export * from './get-driver-orders-history-endpoint.decorator';
 export * from './driver-create-endpoint.decorator';
 export * from './driver-block-endpoint.decorator';
 export * from './driver-update-endpoint.decorator';

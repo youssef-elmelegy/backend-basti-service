@@ -7,8 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { bakeries, regions } from '@/db/schema';
-import { eq, desc, asc, sql, getTableColumns } from 'drizzle-orm';
+import { bakeries, regions, orders } from '@/db/schema';
+import { eq, desc, asc, sql, getTableColumns, and, inArray } from 'drizzle-orm';
 import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
@@ -86,8 +86,11 @@ export class BakeryService {
     try {
       const offset = (page - 1) * limit;
 
-      // Get total count
-      const [{ count }] = await db.select({ count: sql<string>`COUNT(*)` }).from(bakeries);
+      // Get total count (excluding soft-deleted bakeries)
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(bakeries)
+        .where(eq(bakeries.isDeleted, false));
       const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       const sortOrder = sort.order === 'desc' ? desc : asc;
@@ -102,6 +105,7 @@ export class BakeryService {
           ),
         })
         .from(bakeries)
+        .where(eq(bakeries.isDeleted, false))
         .orderBy(sort.sort === 'alpha' ? sortOrder(bakeries.name) : sortOrder(bakeries.createdAt))
         .limit(limit)
         .offset(offset);
@@ -151,7 +155,7 @@ export class BakeryService {
         ),
       })
       .from(bakeries)
-      .where(eq(bakeries.id, id))
+      .where(and(eq(bakeries.id, id), eq(bakeries.isDeleted, false)))
       .limit(1);
 
     if (!bakery) {
@@ -251,7 +255,11 @@ export class BakeryService {
   }
 
   async remove(id: string): Promise<SuccessResponse<{ message: string }>> {
-    const [existingBakery] = await db.select().from(bakeries).where(eq(bakeries.id, id)).limit(1);
+    const [existingBakery] = await db
+      .select()
+      .from(bakeries)
+      .where(and(eq(bakeries.id, id), eq(bakeries.isDeleted, false)))
+      .limit(1);
 
     if (!existingBakery) {
       this.logger.warn(`Bakery deletion failed: Not found - ${id}`);
@@ -260,10 +268,45 @@ export class BakeryService {
       );
     }
 
-    try {
-      await db.delete(bakeries).where(eq(bakeries.id, id));
+    // A bakery can't be deleted while it still owns in-flight orders — anything
+    // pending / confirmed / preparing must be reassigned or completed first.
+    const [{ count }] = await db
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.bakeryId, id),
+          inArray(orders.orderStatus, [
+            'pending',
+            'confirmed',
+            'preparing',
+          ] as (typeof orders.orderStatus.enumValues)[number][]),
+        ),
+      );
+    const activeOrders = typeof count === 'string' ? parseInt(count, 10) : count;
 
-      this.logger.log(`Bakery deleted: ${id}`);
+    if (activeOrders > 0) {
+      this.logger.warn(
+        `Bakery deletion blocked: ${id} still has ${activeOrders} active order(s)`,
+      );
+      throw new BadRequestException(
+        errorResponse(
+          'routes.bakery.has_active_orders',
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          undefined,
+          { count: activeOrders },
+        ),
+      );
+    }
+
+    try {
+      await db
+        .update(bakeries)
+        .set({ isDeleted: true, updatedAt: new Date() })
+        .where(eq(bakeries.id, id));
+
+      this.logger.log(`Bakery soft-deleted: ${id}`);
 
       return successResponse(
         { message: 'routes.bakery.deleted' },

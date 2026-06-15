@@ -12,5 +12,6 @@ export * from './get-orders-financials-response.dto';
 export * from './get-unassigned-orders-query.dto';
 export * from './get-assigned-orders-query.dto';
 export * from './get-completed-orders-query.dto';
+export * from './get-dispatch-orders-query.dto';
 export * from './get-bakery-orders-query.dto';
 export * from './verify-delivery-code.dto';

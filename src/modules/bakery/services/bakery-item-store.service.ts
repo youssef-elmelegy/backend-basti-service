@@ -16,7 +16,7 @@ import {
   sweets,
   featuredCakes,
 } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { OptionsStockDto } from '../dto';
 import { TranslationService } from '@/common/translation/translation.service';
@@ -47,11 +47,11 @@ export class BakeryItemStoreService {
    */
   async createStoresForRegionItemPrice(regionItemPriceId: string, regionId: string) {
     try {
-      // Get all bakeries in the region
+      // Get all active (non-deleted) bakeries in the region
       const bakeriesInRegion = await db
         .select()
         .from(bakeries)
-        .where(eq(bakeries.regionId, regionId));
+        .where(and(eq(bakeries.regionId, regionId), eq(bakeries.isDeleted, false)));
 
       if (bakeriesInRegion.length === 0) {
         this.logger.log(`No bakeries found in region ${regionId}`);

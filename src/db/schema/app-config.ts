@@ -35,6 +35,7 @@ export const appConfig = pgTable('app_config', {
     .notNull()
     .default('0.20'),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
+  bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
   minMiniCakesRequired: integer('min_mini_cakes_required').notNull().default(1),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

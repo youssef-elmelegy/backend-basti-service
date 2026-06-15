@@ -1,17 +1,16 @@
-import { IsArray, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderStatusEnum } from './get.dto';
+import { Transform, Type } from 'class-transformer';
+import { IsArray, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
+import { PaginationDto } from '@/common/dto/pagination.dto';
+import { OrderStatusEnum } from '@/modules/order/dto/get.dto';
 
 /**
- * Query params for GET /orders/assigned — Kanban view feed.
- * Returns orders grouped by bakeryId. Not paginated for now.
- * Defaults to active orders; pass explicit statuses (e.g. delivered,cancelled)
- * to pull assigned-order history.
+ * Query params for GET /drivers/:id/orders — admin view of a driver's order
+ * history across all statuses (paginated). Optional status/search/sort filters.
  */
-export class GetAssignedOrdersQueryDto {
+export class GetDriverOrdersHistoryQueryDto extends PaginationDto {
   @ApiPropertyOptional({
-    description: 'Search query — matches reference number (substring, case-insensitive).',
+    description: 'Search by reference number (case-insensitive substring).',
   })
   @IsOptional()
   @IsString()
@@ -19,7 +18,7 @@ export class GetAssignedOrdersQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Order statuses to include (comma-separated or repeated query param). Default: all active.',
+      'Statuses to include (comma-separated or repeated query param). Defaults to all statuses.',
     isArray: true,
     enum: OrderStatusEnum,
   })
@@ -40,7 +39,7 @@ export class GetAssignedOrdersQueryDto {
   status?: OrderStatusEnum[];
 
   @ApiPropertyOptional({
-    description: 'Sort by orderedAt (createdAt). asc = oldest first, desc = newest first.',
+    description: 'Sort by createdAt. asc = oldest first, desc = newest first.',
     enum: ['asc', 'desc'],
     default: 'desc',
   })

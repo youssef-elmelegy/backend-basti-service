@@ -73,6 +73,12 @@ export class ConfigResponseDto {
   deliveryAmount: number;
 
   @ApiProperty({
+    description: 'Portion of the delivery amount kept by Basti (the rest goes to the bakery/driver)',
+    example: 3,
+  })
+  bastiDeliveryAmount: number;
+
+  @ApiProperty({
     description: 'Minimum number of mini cakes required for an order',
     example: 10,
   })

@@ -19,7 +19,14 @@ import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CreateReportDto } from '../dto';
-import { CreateDriverDto, GetDriverOrdersQueryDto, UpdateDriverDto } from '../dto';
+import {
+  CreateDriverDto,
+  GetDriverOrdersHistoryQueryDto,
+  GetDriverOrdersQueryDto,
+  GetDriversQueryDto,
+  GetReportsQueryDto,
+  UpdateDriverDto,
+} from '../dto';
 import { UpdateDriverDueAmountDto } from '../dto';
 import {
   BlockDriverEndpoint,
@@ -35,6 +42,8 @@ import {
   ReportDriverDecorator,
   DeleteDriverReportDecorator,
   GetAllReportsDecorator,
+  GetReportsListDecorator,
+  GetDriverOrdersHistoryDecorator,
 } from '../decorators';
 import { AdminAuthService } from '@/modules/admin-auth/services/admin-auth.service';
 import { BlockAdminDto } from '@/modules/admin-auth/dto';
@@ -71,9 +80,9 @@ export class DriverController {
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
   @GetAllDriversDecorator()
-  async findAll() {
-    this.logger.debug('Retrieving all drivers');
-    return this.driverService.findAll();
+  async findAll(@Query() query: GetDriversQueryDto) {
+    this.logger.debug('Retrieving drivers');
+    return this.driverService.findAll(query);
   }
 
   @Get('orders')
@@ -112,11 +121,32 @@ export class DriverController {
     return this.driverService.refuseOrder(orderId, driverId);
   }
 
+  @Get('reports')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @GetReportsListDecorator()
+  async getReportsList(@Query() query: GetReportsQueryDto) {
+    this.logger.debug('Retrieving all driver reports');
+    return this.driverService.getAllReports(query);
+  }
+
   @Get(':id')
   @GetOneDriverDecorator()
   async findOne(@Param('id') id: string) {
     this.logger.debug(`Retrieving driver: ${id}`);
     return this.driverService.findOne(id);
+  }
+
+  @Get(':id/orders')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @GetDriverOrdersHistoryDecorator()
+  async getDriverOrdersHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: GetDriverOrdersHistoryQueryDto,
+  ) {
+    this.logger.debug(`Retrieving order history for driver: ${id}`);
+    return this.driverService.getDriverOrdersHistory(id, query);
   }
 
   @Post(':id/report')
@@ -206,8 +236,11 @@ export class DriverController {
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
   @GetAllReportsDecorator()
-  async getAllReports(@Param('id') driverId: string) {
-    this.logger.debug(`Retrieving all reports for driver: ${driverId}`);
-    return this.driverService.getAllReports(driverId);
+  async getDriverReports(
+    @Param('id', ParseUUIDPipe) driverId: string,
+    @Query() query: GetReportsQueryDto,
+  ) {
+    this.logger.debug(`Retrieving reports for driver: ${driverId}`);
+    return this.driverService.getDriverReports(driverId, query);
   }
 }

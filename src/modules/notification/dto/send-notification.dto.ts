@@ -15,6 +15,18 @@ export const NOTIFICATION_TYPES = [
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
+/**
+ * Notification types that represent an action the admin needs to handle.
+ * Used by the `actionRequired` list filter (e.g. the admin home feed).
+ *
+ * Only the types that currently exist are listed. Extend this as the
+ * matching notification types are added and emitted, e.g.:
+ *   order refund, report, low stock.
+ */
+export const ACTION_REQUIRED_NOTIFICATION_TYPES = [
+  'order_cancelled_by_bakery',
+] as const satisfies readonly NotificationType[];
+
 export const NOTIFICATION_RECIPIENT_TYPES = ['user', 'admin'] as const;
 export type NotificationRecipientType = (typeof NOTIFICATION_RECIPIENT_TYPES)[number];
 

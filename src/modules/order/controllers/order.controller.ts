@@ -26,6 +26,7 @@ import {
   GetUnassignedOrdersQueryDto,
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
+  GetDispatchOrdersQueryDto,
   GetBakeryOrdersQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
@@ -45,6 +46,7 @@ import {
   GetBakeryOrdersDecorator,
   FinalizeOrderDecorator,
   GetOrdersFinancialsDecorator,
+  GetBakeryFinancialsDecorator,
   AssignDriverDecorator,
   VerifyDeliveryCodeDecorator,
   GenerateDeliveryCheckCodeDecorator,
@@ -139,6 +141,17 @@ export class OrderController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('dispatch')
+  async getDispatchOrders(@Query() query: GetDispatchOrdersQueryDto) {
+    this.logger.debug(
+      `getting dispatch orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, bakery=${query.bakeryId ?? '-'}, driverState=${query.driverState ?? '-'}, q=${query.q ?? '-'})`,
+    );
+    const result = await this.orderService.getForDispatch(query);
+    return successResponse(result, 'routes.orders.list_retrieved');
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin', 'manager')
   @Get('bakery/:bakeryId')
   @GetBakeryOrdersDecorator()
@@ -181,6 +194,27 @@ export class OrderController {
   async getOrdersFinancials(@Query() dto: GetOrdersFinancialsDto) {
     this.logger.debug('getting orders financials');
     return this.orderService.getOrdersFinancials(dto);
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin', 'manager')
+  @Get('bakery/:bakeryId/financials')
+  @GetBakeryFinancialsDecorator()
+  async getBakeryFinancials(
+    @Param('bakeryId', ParseUUIDPipe) bakeryId: string,
+    @Query() dto: GetOrdersFinancialsDto,
+  ) {
+    this.logger.debug(`getting financials for bakery: ${bakeryId}`);
+    return this.orderService.getBakeryFinancials(bakeryId, dto);
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get(':id/available-bakeries')
+  async getAvailableBakeries(@Param('id', ParseUUIDPipe) id: string) {
+    this.logger.debug(`getting available bakeries for order: ${id}`);
+    const result = await this.orderService.getAvailableBakeriesForOrder(id);
+    return successResponse(result, 'routes.bakery.available_bakeries_fetched');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -281,10 +315,16 @@ export class OrderController {
   @UnassignBakeryDecorator()
   async unassignBakery(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('role') role: string,
     @Body() unassignBakeryDto?: UnassignBakeryDto,
   ) {
-    this.logger.debug(`unassigning order from bakery: ${id}`);
-    const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason);
+    // Platform admins can pull a still-pending order back to the unassigned pool
+    // at any time; a bakery manager declining stays bound to the 1-hour window.
+    const bypassTimeLimit = role === 'super_admin' || role === 'admin';
+    this.logger.debug(`unassigning order from bakery: ${id} (bypassTimeLimit=${bypassTimeLimit})`);
+    const result = await this.orderService.unassignFromBakery(id, unassignBakeryDto?.reason, {
+      bypassTimeLimit,
+    });
     this.logger.debug(`order unassigned from bakery: ${id}`);
     return successResponse(result, 'routes.orders.unassigned_from_bakery');
   }

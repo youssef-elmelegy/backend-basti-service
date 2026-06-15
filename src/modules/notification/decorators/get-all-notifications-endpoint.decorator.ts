@@ -25,6 +25,13 @@ export function GetAllNotificationsDecorator() {
       enum: NOTIFICATION_TYPES,
       description: 'Filter by notification type',
     }),
+    ApiQuery({
+      name: 'actionRequired',
+      required: false,
+      type: Boolean,
+      description:
+        'When true, returns only notifications that need admin action. Takes precedence over `type`.',
+    }),
     ApiResponse({
       status: HttpStatus.OK,
       description: 'Notifications retrieved successfully',

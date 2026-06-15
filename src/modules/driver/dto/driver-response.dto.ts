@@ -38,12 +38,20 @@ export class DriverDataDto {
   profileImage?: string | null;
 
   @ApiProperty({
-    example: '990e8400-e29b-41d4-a716-446655440001',
-    description: 'Assigned bakery identifier',
+    example: null,
+    description: 'Assigned bakery identifier (optional for drivers)',
     required: false,
     nullable: true,
   })
   bakeryId?: string | null;
+
+  @ApiProperty({
+    example: '990e8400-e29b-41d4-a716-446655440002',
+    description: 'Region the driver is scoped to',
+    required: false,
+    nullable: true,
+  })
+  regionId?: string | null;
 
   @ApiProperty({
     example: false,

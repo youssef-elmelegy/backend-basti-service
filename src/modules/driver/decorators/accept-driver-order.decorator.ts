@@ -8,13 +8,13 @@ export function AcceptDriverOrderDecorator() {
     ApiOperation({
       summary: 'Accept assigned order',
       description:
-        'Driver accepts an assigned order within 30 minutes from driverAssignedAt. Sets driverData and marks order out_for_delivery.',
+        'Driver accepts an assigned order. Records driverData. If the order is already ready it goes out_for_delivery immediately; otherwise the status is unchanged and it flips to out_for_delivery once the bakery marks it ready.',
     }),
     ApiParam({ name: 'orderId', type: String, description: 'Order ID (UUID)' }),
     ApiResponse({ status: HttpStatus.OK, description: 'Order accepted successfully' }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
-      description: 'Assignment expired or invalid state',
+      description: 'Order not assigned to driver or invalid state',
       type: ErrorResponseDto,
     }),
     ApiResponse({

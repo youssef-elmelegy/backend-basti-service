@@ -15,7 +15,7 @@ export function VerifyDeliveryCodeDecorator() {
     ApiResponse({ status: HttpStatus.OK, description: 'Order marked as delivered successfully' }),
     ApiResponse({
       status: HttpStatus.BAD_REQUEST,
-      description: 'Invalid or expired code',
+      description: 'Invalid code',
       type: ErrorResponseDto,
     }),
     ApiResponse({

@@ -9,7 +9,7 @@ import {
   decimal,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { adminRoleEnum, bakeries, notifications, orders, reports } from '.';
+import { adminRoleEnum, bakeries, notifications, orders, regions, reports } from '.';
 
 export const admins = pgTable(
   'admins',
@@ -24,6 +24,7 @@ export const admins = pgTable(
     profileImage: text('profile_image'),
     phoneNumber: varchar('phone_number', { length: 20 }),
     bakeryId: uuid('bakery_id'),
+    regionId: uuid('region_id').references(() => regions.id),
     fcmToken: text('fcm_token'),
 
     otpCode: varchar('otp_code', { length: 10 }),
@@ -42,6 +43,7 @@ export const admins = pgTable(
     emailIdx: index('admins_email_idx').on(table.email),
     isBlockedIdx: index('admins_is_blocked_idx').on(table.isBlocked),
     bakeryIdIdx: index('admins_bakery_id_idx').on(table.bakeryId),
+    regionIdIdx: index('admins_region_id_idx').on(table.regionId),
   }),
 );
 
@@ -49,6 +51,10 @@ export const adminsRelations = relations(admins, ({ one, many }) => ({
   bakery: one(bakeries, {
     fields: [admins.bakeryId],
     references: [bakeries.id],
+  }),
+  region: one(regions, {
+    fields: [admins.regionId],
+    references: [regions.id],
   }),
   orders: many(orders),
   notifications: many(notifications),

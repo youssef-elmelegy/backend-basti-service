@@ -1,17 +1,16 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { SuccessReportsResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
 
-export function GetAllReportsDecorator() {
+export function GetReportsListDecorator() {
   return applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Get reports for a driver',
+      summary: 'Get all driver reports',
       description:
-        'Paginated, sorted reports for a specific driver with reporter info. Returns { items, pagination }.',
+        'Paginated, sorted list of reports across all drivers, with reporter and driver info. Returns { items, pagination }.',
     }),
-    ApiParam({ name: 'id', type: String, description: 'Driver ID (UUID)' }),
     ApiQuery({ name: 'page', required: false, type: Number, example: 1 }),
     ApiQuery({ name: 'limit', required: false, type: Number, example: 10 }),
     ApiQuery({ name: 'q', required: false, type: String, description: 'Search report body' }),

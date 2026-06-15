@@ -14,6 +14,7 @@ export class I18nExceptionFilter implements ExceptionFilter {
       message?: string;
       args?: Record<string, unknown>;
       error?: string;
+      data?: unknown;
     };
 
     // Default to standard message
@@ -37,6 +38,9 @@ export class I18nExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message: translatedMessage,
       error: exceptionResponse.error || exception.name,
+      // Surface any structured error payload (e.g. stock issues for a blocked
+      // reassign) so the client can act on it, not just show the message.
+      ...(exceptionResponse.data !== undefined ? { data: exceptionResponse.data } : {}),
     });
   }
 }

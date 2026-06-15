@@ -64,6 +64,15 @@ export class CreateAdminDto {
   bakeryId?: string;
 
   @ApiProperty({
+    description: 'Associated region ID (UUID) — used for drivers',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Region ID must be a valid UUID' })
+  regionId?: string;
+
+  @ApiProperty({
     description: 'Admin profile image URL',
     example: 'https://example.com/images/admin.jpg',
     required: false,

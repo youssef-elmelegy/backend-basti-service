@@ -111,6 +111,8 @@
       "updated": "Bakery updated successfully",
       "failed_update": "Failed to update bakery",
       "assigned_to_order": "Bakery assigned to order successfully",
+      "available_bakeries_fetched": "Available bakeries retrieved successfully",
+      "has_active_orders": "This bakery still has active orders (pending, confirmed or preparing) and cannot be deleted. Reassign or complete them first.",
       "not_found": "Bakery not found",
       "failed_create_item_stores": "Failed to create bakery item stores",
       "failed_delete_item_stores": "Failed to delete bakery item stores",
@@ -154,7 +156,8 @@
       "retrieved": "Config retrieved successfully",
       "updated": "Config updated successfully",
       "failed_update": "Failed to update config",
-      "failed_retrieve": "Failed to retrieve config"
+      "failed_retrieve": "Failed to retrieve config",
+      "basti_delivery_exceeds": "Basti delivery amount cannot exceed the delivery amount"
     },
 
     "coupons": {
@@ -455,6 +458,8 @@
       "failed_unassign_from_bakery": "Failed to unassign order from bakery",
       "failed_change_status": "Failed to change order status",
       "not_pending": "Order with id: {orderId} must be in pending status to be assigned to a bakery. Current status: {status}",
+      "not_reassignable": "Order with id: {orderId} can no longer be reassigned. Current status: {status}",
+      "bakery_stock_issue": "This bakery cannot fully stock some of this order's items. You can reassign anyway to move it without reserving stock.",
       "not_preparing": "Order with id: {orderId} must be in preparing status to be finalized. Current status: {status}",
       "not_same_region": "Bakery with id: {bakeryId} does not belong to the same region as the order",
       "unassigned_from_bakery": "Order unassigned from bakery successfully",
@@ -473,7 +478,13 @@
       "not_assined_to_this_bakery": "Order with id: {orderId} is not assigned to bakery {bakeryId}. Current bakery: {currentBakeryId}",
       "financials_retrieved": "Orders financials retrieved successfully",
       "failed_financials": "Failed to retrieve orders financials",
-      "no_financials": "No financials found"
+      "no_financials": "No financials found",
+      "driver_region_mismatch": "This driver belongs to a different region than the order"
+    },
+
+    "driver": {
+      "not_found": "Driver not found",
+      "blocked": "This driver is blocked and cannot be assigned orders"
     },
 
     "Stock": {

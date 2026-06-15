@@ -6,3 +6,7 @@ export * from './create-driver.dto';
 export * from './update-driver.dto';
 export * from './update-driver-due-amount.dto';
 export * from './get-driver-orders-query.dto';
+export * from './get-drivers-query.dto';
+export * from './get-reports-query.dto';
+export * from './get-driver-orders-history-query.dto';
+export * from './pagination-meta.dto';

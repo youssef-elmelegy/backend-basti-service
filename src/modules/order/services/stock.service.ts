@@ -10,6 +10,7 @@ export class StockService {
     regionItemPriceId: string,
     quantity: number,
     optionId?: string | null,
+    force = false,
   ) {
     if (quantity <= 0) {
       throw new BadRequestException('routes.Stock.invalid_quantity');
@@ -31,6 +32,11 @@ export class StockService {
         .limit(1);
 
       if (!currentStock) {
+        // Releasing stock should never block an order move: if the bakery has no
+        // record for this item there is simply nothing to credit back.
+        if (force) {
+          return;
+        }
         throw new BadRequestException('routes.Stock.item_store_not_found');
       }
 
@@ -90,6 +96,7 @@ export class StockService {
     regionItemPriceId: string,
     quantity: number,
     optionId?: string | null,
+    force = false,
   ) {
     if (quantity <= 0) {
       throw new BadRequestException('routes.Stock.invalid_quantity');
@@ -111,46 +118,66 @@ export class StockService {
         .limit(1);
 
       if (!currentStock) {
+        // Forced (admin override) moves tolerate a bakery that has no stock record
+        // for this item — there's nothing to reserve, so just skip it.
+        if (force) {
+          return;
+        }
         throw new BadRequestException('routes.Stock.item_store_not_found');
       }
 
-      if (currentStock.stock < quantity) {
+      if (currentStock.stock < quantity && !force) {
         throw new BadRequestException('routes.Stock.not_enough_stock');
       }
 
       if (optionId) {
         const optionsStock = currentStock.optionsStock;
+        const targetOption = optionsStock?.find((option) => option.optionId === optionId);
 
-        if (!optionsStock) {
+        if (!optionsStock || !targetOption) {
+          if (force) {
+            // The option isn't tracked here; clamp the aggregate stock and move on.
+            await db
+              .update(bakeryItemStores)
+              .set({ stock: Math.max(0, currentStock.stock - quantity) })
+              .where(
+                and(
+                  eq(bakeryItemStores.bakeryId, bakeryId),
+                  eq(bakeryItemStores.regionItemPriceId, regionItemPriceId),
+                ),
+              );
+            return;
+          }
           throw new BadRequestException('routes.Stock.option_not_in_stock');
         }
 
-        const targetOption = optionsStock.find((option) => option.optionId === optionId);
-
-        if (!targetOption) {
-          throw new BadRequestException('routes.Stock.option_not_in_stock');
-        }
-
-        if (targetOption.stock < quantity) {
+        if (targetOption.stock < quantity && !force) {
           throw new BadRequestException('routes.Stock.not_enough_stock');
         }
 
-        const newOptionStock = optionsStock.map((option) => {
-          if (option.optionId === optionId) {
-            return {
-              ...option,
-              stock: option.stock - quantity,
-            };
-          }
-          return option;
-        });
+        const newOptionStock = optionsStock.map((option) =>
+          option.optionId === optionId
+            ? { ...option, stock: Math.max(0, option.stock - quantity) }
+            : option,
+        );
 
         await db
           .update(bakeryItemStores)
           .set({
             optionsStock: newOptionStock,
-            stock: currentStock.stock - quantity,
+            stock: Math.max(0, currentStock.stock - quantity),
           })
+          .where(
+            and(
+              eq(bakeryItemStores.bakeryId, bakeryId),
+              eq(bakeryItemStores.regionItemPriceId, regionItemPriceId),
+            ),
+          );
+      } else if (force) {
+        // Best-effort: never drive aggregate stock below zero.
+        await db
+          .update(bakeryItemStores)
+          .set({ stock: sql`GREATEST(${bakeryItemStores.stock} - ${quantity}, 0)` })
           .where(
             and(
               eq(bakeryItemStores.bakeryId, bakeryId),

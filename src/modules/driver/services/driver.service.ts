@@ -5,19 +5,64 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, desc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { SQL, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { admins } from '@/db/schema';
 import { successResponse, SuccessResponse } from '@/utils';
-import { DriverDataDto } from '../dto';
+import {
+  CreateReportDto,
+  DriverDataDto,
+  GetDriverOrdersHistoryQueryDto,
+  GetDriversQueryDto,
+  GetReportsQueryDto,
+} from '../dto';
 import { orders, reports, users } from '@/db/schema';
-import { CreateReportDto } from '../dto';
+import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import { NotificationService } from '@/modules/notification/services/notification.service';
+
+export interface PaginationMeta {
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
 
 @Injectable()
 export class DriverService {
   private readonly logger = new Logger(DriverService.name);
 
-  async findAll(): Promise<SuccessResponse<DriverDataDto[]>> {
+  constructor(private readonly notificationService: NotificationService) {}
+
+  async findAll(
+    query: GetDriversQueryDto,
+  ): Promise<SuccessResponse<{ items: DriverDataDto[]; pagination: PaginationMeta }>> {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const offset = (page - 1) * limit;
+
+    const conditions: SQL[] = [eq(admins.role, 'driver')];
+
+    if (typeof query.isBlocked === 'boolean') {
+      conditions.push(eq(admins.isBlocked, query.isBlocked));
+    }
+    if (query.regionId) {
+      conditions.push(eq(admins.regionId, query.regionId));
+    }
+    if (query.q && query.q.trim()) {
+      const term = `%${query.q.trim()}%`;
+      conditions.push(
+        or(ilike(admins.name, term), ilike(admins.email, term), ilike(admins.phoneNumber, term)),
+      );
+    }
+
+    const where = and(...conditions);
+
+    const [{ count }] = await db
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(admins)
+      .where(where);
+    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
     const drivers = await db
       .select({
         id: admins.id,
@@ -28,19 +73,30 @@ export class DriverService {
         dueAmount: admins.dueAmount,
         profileImage: admins.profileImage,
         bakeryId: admins.bakeryId,
+        regionId: admins.regionId,
         isBlocked: admins.isBlocked,
         blockedAt: admins.blockedAt,
         createdAt: admins.createdAt,
         updatedAt: admins.updatedAt,
       })
       .from(admins)
-      .where(eq(admins.role, 'driver'))
-      .orderBy(asc(admins.createdAt));
+      .where(where)
+      .orderBy(asc(admins.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-    this.logger.debug(`Retrieved ${drivers.length} drivers`);
+    this.logger.debug(`Retrieved ${drivers.length}/${total} drivers (page ${page})`);
 
     return successResponse(
-      drivers.map((driver) => this.mapDriverData(driver)),
+      {
+        items: drivers.map((driver) => this.mapDriverData(driver)),
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      },
       'Drivers retrieved successfully',
       HttpStatus.OK,
     );
@@ -99,15 +155,92 @@ export class DriverService {
     return successResponse({ message: 'Report deleted' }, 'Report deleted', HttpStatus.OK);
   }
 
-  async getAllReports(driverId: string) {
-    const all = await db
+  async getAllReports(query: GetReportsQueryDto) {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const offset = (page - 1) * limit;
+    const sortDir = query.sort ?? 'desc';
+
+    const where =
+      query.q && query.q.trim() ? ilike(reports.reportBody, `%${query.q.trim()}%`) : undefined;
+
+    const [{ count }] = await db
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(reports)
+      .where(where);
+    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+    const rows = await db
+      .select({ report: reports, user: users, driver: admins })
+      .from(reports)
+      .innerJoin(users, eq(reports.userId, users.id))
+      .innerJoin(admins, eq(reports.driverId, admins.id))
+      .where(where)
+      .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const items = rows.map((r) => ({
+      id: r.report.id,
+      user: {
+        firstName: r.user.firstName,
+        lastName: r.user.lastName,
+        phoneNumber: r.user.phoneNumber,
+      },
+      driver: {
+        id: r.driver.id,
+        name: r.driver.name,
+        phoneNumber: r.driver.phoneNumber,
+      },
+      driverId: r.report.driverId,
+      reportBody: r.report.reportBody,
+      createdAt: r.report.createdAt,
+      updatedAt: r.report.updatedAt,
+    }));
+
+    return successResponse(
+      {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      },
+      'Reports retrieved successfully',
+      HttpStatus.OK,
+    );
+  }
+
+  async getDriverReports(driverId: string, query: GetReportsQueryDto) {
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const offset = (page - 1) * limit;
+    const sortDir = query.sort ?? 'desc';
+
+    const conditions: SQL[] = [eq(reports.driverId, driverId)];
+    if (query.q && query.q.trim()) {
+      conditions.push(ilike(reports.reportBody, `%${query.q.trim()}%`));
+    }
+    const where = and(...conditions);
+
+    const [{ count }] = await db
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(reports)
+      .where(where);
+    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+    const rows = await db
       .select({ report: reports, user: users })
       .from(reports)
       .innerJoin(users, eq(reports.userId, users.id))
-      .where(eq(reports.driverId, driverId))
-      .orderBy(asc(reports.createdAt));
+      .where(where)
+      .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
+      .limit(limit)
+      .offset(offset);
 
-    const mapped = all.map((r) => ({
+    const items = rows.map((r) => ({
       id: r.report.id,
       user: {
         firstName: r.user.firstName,
@@ -120,7 +253,19 @@ export class DriverService {
       updatedAt: r.report.updatedAt,
     }));
 
-    return successResponse(mapped, 'Reports retrieved successfully', HttpStatus.OK);
+    return successResponse(
+      {
+        items,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      },
+      'Reports retrieved successfully',
+      HttpStatus.OK,
+    );
   }
 
   async getDriversOrders(driverId: string, isAssigned?: boolean) {
@@ -155,6 +300,81 @@ export class DriverService {
     return successResponse(driverOrders, 'Driver orders retrieved successfully', HttpStatus.OK);
   }
 
+  /**
+   * Admin view of a driver's full order history across all statuses (paginated).
+   * Optional status/search/sort filters.
+   */
+  async getDriverOrdersHistory(driverId: string, query: GetDriverOrdersHistoryQueryDto) {
+    const [driver] = await db
+      .select({ id: admins.id, role: admins.role })
+      .from(admins)
+      .where(eq(admins.id, driverId))
+      .limit(1);
+
+    if (!driver || driver.role !== 'driver') {
+      throw new NotFoundException('routes.driver.not_found');
+    }
+
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const offset = (page - 1) * limit;
+    const sortDir = query.sort ?? 'desc';
+
+    const conditions: SQL[] = [eq(orders.driverId, driverId)];
+    if (query.status && query.status.length > 0) {
+      conditions.push(
+        inArray(
+          orders.orderStatus,
+          query.status as (typeof orders.orderStatus.enumValues)[number][],
+        ),
+      );
+    }
+    if (query.q && query.q.trim()) {
+      conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+    }
+    const where = and(...conditions);
+
+    const [{ count }] = await db
+      .select({ count: sql<string>`COUNT(*)` })
+      .from(orders)
+      .where(where);
+    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+    const driverOrders = await db
+      .select({
+        id: orders.id,
+        referenceNumber: orders.referenceNumber,
+        orderStatus: orders.orderStatus,
+        driverId: orders.driverId,
+        driverAssignedAt: orders.driverAssignedAt,
+        driverData: orders.driverData,
+        userData: orders.userData,
+        locationData: orders.locationData,
+        willDeliverAt: orders.willDeliverAt,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+      })
+      .from(orders)
+      .where(where)
+      .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return successResponse(
+      {
+        items: driverOrders,
+        pagination: {
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+          page,
+          limit,
+        },
+      },
+      'Driver orders retrieved successfully',
+      HttpStatus.OK,
+    );
+  }
+
   async acceptOrder(orderId: string, driverId: string) {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
@@ -170,9 +390,12 @@ export class DriverService {
       throw new BadRequestException('routes.orders.driver_assignment_missing');
     }
 
-    const assignmentAgeMs = Date.now() - new Date(order.driverAssignedAt).getTime();
-    if (assignmentAgeMs > 30 * 60 * 1000) {
-      throw new BadRequestException('routes.orders.driver_assignment_expired');
+    if (
+      order.orderStatus === 'delivered' ||
+      order.orderStatus === 'cancelled' ||
+      order.orderStatus === 'out_for_delivery'
+    ) {
+      throw new BadRequestException('routes.orders.accept_invalid_state');
     }
 
     const [driver] = await db
@@ -191,6 +414,14 @@ export class DriverService {
       throw new NotFoundException('routes.driver.not_found');
     }
 
+    /*
+      Acceptance always records driverData (admins see the assigned driver right away).
+      If the order is already 'ready', accepting sends it out for delivery immediately.
+      Otherwise the status is left untouched; the order flips to 'out_for_delivery'
+      automatically once the bakery marks it 'ready' (see OrderService.changeStatus).
+    */
+    const isReady = order.orderStatus === 'ready';
+
     const [updatedOrder] = await db
       .update(orders)
       .set({
@@ -199,7 +430,7 @@ export class DriverService {
           profileImage: driver.profileImage || '',
           phoneNumber: driver.phoneNumber || '',
         },
-        orderStatus: 'out_for_delivery',
+        ...(isReady ? { orderStatus: 'out_for_delivery' as const } : {}),
       })
       .where(eq(orders.id, orderId))
       .returning({
@@ -209,6 +440,20 @@ export class DriverService {
         driverData: orders.driverData,
         orderStatus: orders.orderStatus,
       });
+
+    // Only the order going out for delivery now warrants notifying the customer.
+    // The driver took this action themselves, so they don't need a notification.
+    if (isReady && order.userId) {
+      await this.notificationService.pushNotificationSafe({
+        title: 'Out for delivery',
+        body: `Your order ${order.referenceNumber ? `#${order.referenceNumber}` : ''} is on the way!`,
+        type: 'order_status',
+        recipientType: 'user',
+        recipientId: order.userId,
+        redirectId: orderId,
+        data: { orderId, status: 'out_for_delivery' },
+      });
+    }
 
     return successResponse(updatedOrder, 'Order accepted successfully', HttpStatus.OK);
   }
@@ -242,6 +487,16 @@ export class DriverService {
         orderStatus: orders.orderStatus,
       });
 
+    // The order just lost its driver — alert admins so they can reassign it
+    // instead of letting it sit driver-less. Fire-and-forget.
+    await this.notificationService.pushToPlatformAdmins({
+      title: 'Order needs a new driver',
+      body: `Order ${order.referenceNumber ? `#${order.referenceNumber}` : orderId} was refused by the driver and needs reassignment.`,
+      type: 'order_update',
+      redirectId: orderId,
+      data: { orderId, event: 'driver_refused' },
+    });
+
     return successResponse(updatedOrder, 'Order refused successfully', HttpStatus.OK);
   }
 
@@ -270,11 +525,23 @@ export class DriverService {
         dueAmount: admins.dueAmount,
         profileImage: admins.profileImage,
         bakeryId: admins.bakeryId,
+        regionId: admins.regionId,
         isBlocked: admins.isBlocked,
         blockedAt: admins.blockedAt,
         createdAt: admins.createdAt,
         updatedAt: admins.updatedAt,
       });
+
+    // Let the driver know their balance changed. Fire-and-forget: a failed push
+    // must never fail the update itself.
+    await this.notificationService.pushNotificationSafe({
+      title: 'Due amount updated',
+      body: `Your due amount has been updated to ${dueAmount}.`,
+      type: 'system',
+      recipientType: 'admin',
+      recipientId: updatedDriver.id,
+      data: { dueAmount: String(dueAmount) },
+    });
 
     return successResponse(
       this.mapDriverData(updatedDriver),
@@ -292,6 +559,7 @@ export class DriverService {
     dueAmount: string;
     profileImage: string | null;
     bakeryId: string | null;
+    regionId: string | null;
     isBlocked: boolean;
     blockedAt: Date | null;
     createdAt: Date;
@@ -306,6 +574,7 @@ export class DriverService {
       role: driver.role as 'driver',
       profileImage: driver.profileImage,
       bakeryId: driver.bakeryId,
+      regionId: driver.regionId,
       isBlocked: driver.isBlocked,
       createdAt: driver.createdAt,
       updatedAt: driver.updatedAt,

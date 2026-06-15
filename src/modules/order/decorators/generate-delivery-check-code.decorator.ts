@@ -8,7 +8,7 @@ export function GenerateDeliveryCheckCodeDecorator() {
     ApiOperation({
       summary: 'Generate delivery check code',
       description:
-        'Generate a short-lived code for the assigned order. The driver shares it with the user.',
+        'Generate a delivery check code for the assigned order. The driver shares it with the user.',
     }),
     ApiParam({ name: 'orderId', type: String, description: 'Order ID (UUID)' }),
     ApiResponse({

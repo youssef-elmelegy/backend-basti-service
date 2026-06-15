@@ -341,7 +341,8 @@ export class AdminAuthService {
   }
 
   async createAdmin(createAdminDto: CreateAdminDto) {
-    const { email, password, role, bakeryId, profileImage, name, phoneNumber } = createAdminDto;
+    const { email, password, role, bakeryId, regionId, profileImage, name, phoneNumber } =
+      createAdminDto;
 
     // Check if admin with email already exists
     const existingAdmin = await db.query.admins.findFirst({
@@ -373,6 +374,7 @@ export class AdminAuthService {
         password: hashedPassword,
         role: role,
         bakeryId: bakeryId || null,
+        regionId: regionId || null,
         profileImage: profileImage || null,
       })
       .returning();
@@ -385,6 +387,7 @@ export class AdminAuthService {
         role: newAdmin.role,
         profileImage: newAdmin.profileImage || null,
         bakeryId: newAdmin.bakeryId || undefined,
+        regionId: newAdmin.regionId || undefined,
         createdAt: newAdmin.createdAt,
         updatedAt: newAdmin.updatedAt,
       },
@@ -422,6 +425,7 @@ export class AdminAuthService {
         role: updatedAdmin.role,
         profileImage: updatedAdmin.profileImage || null,
         bakeryId: updatedAdmin.bakeryId || undefined,
+        regionId: updatedAdmin.regionId || undefined,
         isBlocked: updatedAdmin.isBlocked,
         createdAt: updatedAdmin.createdAt,
         updatedAt: updatedAdmin.updatedAt,
@@ -432,7 +436,7 @@ export class AdminAuthService {
   }
 
   async updateAdmin(adminId: string, updateAdminDto: UpdateAdminDto) {
-    const { role, bakeryId, profileImage, name, phoneNumber } = updateAdminDto;
+    const { role, bakeryId, regionId, profileImage, name, phoneNumber } = updateAdminDto;
 
     // Check if admin exists
     const admin = await db.query.admins.findFirst({
@@ -448,6 +452,7 @@ export class AdminAuthService {
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (role !== undefined) updateData.role = role;
     if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
+    if (regionId !== undefined) updateData.regionId = regionId;
     if (profileImage !== undefined) updateData.profileImage = profileImage;
 
     const [updatedAdmin] = await db
@@ -465,6 +470,7 @@ export class AdminAuthService {
         role: updatedAdmin.role,
         profileImage: updatedAdmin.profileImage || null,
         bakeryId: updatedAdmin.bakeryId || undefined,
+        regionId: updatedAdmin.regionId || undefined,
         createdAt: updatedAdmin.createdAt,
         updatedAt: updatedAdmin.updatedAt,
       },
