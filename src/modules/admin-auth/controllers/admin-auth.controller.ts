@@ -10,6 +10,7 @@ import {
   Logger,
   Res,
   Param,
+  Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -31,6 +32,7 @@ import {
   CreateAdminDto,
   BlockAdminDto,
   UpdateAdminDto,
+  GetAdminsQueryDto,
 } from '../dto';
 import {
   AdminLoginEndpoint,
@@ -48,6 +50,7 @@ import {
   AdminDeleteEndpoint,
 } from '../decorators';
 import { JwtAuthGuard, Public, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common';
+import { PaginationDecorator } from '@/common/decorators';
 
 @ApiTags('admin-auth')
 @Controller('admin-auth')
@@ -442,11 +445,13 @@ export class AdminAuthController {
   @AdminRoles('super_admin')
   @ApiBearerAuth('access-token')
   @AdminGetAllEndpoint()
-  async getAllAdmins(@Res() res: Response) {
-    this.logger.debug('Fetching all admins');
-    const result = await this.adminAuthService.getAllAdmins();
-    const { data } = result as { data: { admins: unknown[]; total: number } };
-    this.logger.log(`Fetched admins: ${data.total}`);
+  @PaginationDecorator()
+  async getAllAdmins(@Query() query: GetAdminsQueryDto, @Res() res: Response) {
+    const { page = 1, limit = 10 } = query;
+    this.logger.debug(`Fetching admins: page ${page}, limit ${limit}`);
+    const result = await this.adminAuthService.getAllAdmins(query);
+    const { data } = result as { data: { items: unknown[]; pagination: { total: number } } };
+    this.logger.log(`Fetched admins: ${data.pagination.total}`);
     return res.json({
       ...result,
       timestamp: new Date().toISOString(),

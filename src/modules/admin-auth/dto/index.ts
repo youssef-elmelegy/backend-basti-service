@@ -9,3 +9,4 @@ export * from './admin-response-wrapper.dto';
 export * from './admin-create.dto';
 export * from './admin-block.dto';
 export * from './admin-update.dto';
+export * from './get-admins-query.dto';

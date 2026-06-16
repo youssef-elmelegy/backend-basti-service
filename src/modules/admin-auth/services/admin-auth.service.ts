@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { admins } from '@/db/schema';
 import { env } from '@/env';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   AdminLoginDto,
   AdminForgotPasswordDto,
@@ -21,9 +21,11 @@ import {
   CreateAdminDto,
   BlockAdminDto,
   UpdateAdminDto,
+  GetAdminsQueryDto,
 } from '../dto';
 import { EmailService } from '@/common/services';
 import { successResponse } from '@/utils';
+import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
 @Injectable()
 export class AdminAuthService {
@@ -57,6 +59,11 @@ export class AdminAuthService {
     const passwordMatch = await bcrypt.compare(password, admin.password);
     if (!passwordMatch) {
       throw new UnauthorizedException('routes.auth.invalid_credentials');
+    }
+
+    // Drivers are not allowed to sign in to the admin dashboard; they use the dedicated mobile app.
+    if (admin.role === 'driver') {
+      throw new UnauthorizedException('routes.admin.driver_login_not_allowed');
     }
 
     const accessToken = this.jwtService.sign(
@@ -493,8 +500,20 @@ export class AdminAuthService {
     return successResponse(null, 'routes.admin.deleted', HttpStatus.OK);
   }
 
-  async getAllAdmins() {
-    const adminsList = await db.query.admins.findMany();
+  async getAllAdmins(query: GetAdminsQueryDto) {
+    const { page = PAGINATION_DEFAULTS.PAGE, limit = PAGINATION_DEFAULTS.LIMIT } = query;
+
+    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(admins);
+
+    const total = Number(count);
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+
+    const adminsList = await db.query.admins.findMany({
+      limit,
+      offset,
+      orderBy: (adminColumns, { desc }) => [desc(adminColumns.createdAt)],
+    });
 
     const formattedAdmins = adminsList.map((admin) => ({
       id: admin.id,
@@ -511,8 +530,13 @@ export class AdminAuthService {
 
     return successResponse(
       {
-        admins: formattedAdmins,
-        total: formattedAdmins.length,
+        items: formattedAdmins,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
       },
       'routes.admin.list_retrieved',
       HttpStatus.OK,
