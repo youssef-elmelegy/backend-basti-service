@@ -94,6 +94,7 @@
       "blocked": "Admin blocked successfully",
       "unblocked": "Admin unblocked successfully",
       "account_blocked": "Admin account is blocked",
+      "driver_login_not_allowed": "Drivers cannot sign in here. Please use the driver mobile app.",
       "email_exists": "Admin with this email already exists",
       "email_not_found": "Admin with this email not found",
       "list_retrieved": "Admins retrieved successfully",
