@@ -46,10 +46,8 @@ const envSchema = z.object({
         : [],
     ),
 
-  // Email / AWS SES
-  AWS_REGION: z.string().min(1, 'AWS_REGION is required'),
-  AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS_ACCESS_KEY_ID is required'),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS_SECRET_ACCESS_KEY is required'),
+  // Email / Brevo HTTP API
+  BREVO_API_KEY: z.string().min(1, 'BREVO_API_KEY is required'),
   MAIL_FROM_NAME: z.string().min(1, 'MAIL_FROM_NAME is required'),
   MAIL_FROM: z.string().email('MAIL_FROM must be a valid email'),
   MAIL_REPLY_TO: z.string().email().optional(),
