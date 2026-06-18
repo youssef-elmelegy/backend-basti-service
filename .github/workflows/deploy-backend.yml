@@ -52,9 +52,7 @@ jobs:
             BCRYPT_SALT_ROUNDS=12
             CORS_ORIGINS=https://dashboard.basty.ly
 
-            AWS_REGION=${{ secrets.AWS_REGION }}
-            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}
             MAIL_FROM_NAME=${{ secrets.MAIL_FROM_NAME }}
             MAIL_FROM=${{ secrets.MAIL_FROM }}
             MAIL_REPLY_TO=${{ secrets.MAIL_REPLY_TO }}

@@ -1,21 +1,21 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { BrevoClient, BrevoError } from '@getbrevo/brevo';
 import {
   verifyOtpTemplate,
   welcomeTemplate,
   passwordResetOtpTemplate,
 } from '@/common/email-templates';
 import { env } from '@/env';
-import { SES_CLIENT } from './ses-client.provider';
+import { MAIL_CLIENT } from './mail-client.provider';
 
 type EmailKind = 'otp' | 'welcome' | 'password-reset';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly source = `"${env.MAIL_FROM_NAME}" <${env.MAIL_FROM}>`;
+  private readonly sender = { name: env.MAIL_FROM_NAME, email: env.MAIL_FROM };
 
-  constructor(@Inject(SES_CLIENT) private readonly ses: SESv2Client) {}
+  constructor(@Inject(MAIL_CLIENT) private readonly mail: BrevoClient) {}
 
   generateOtp(length: number = 6): string {
     const otp = Math.floor(Math.random() * Math.pow(10, length))
@@ -57,37 +57,23 @@ export class EmailService {
   }
 
   private async send(to: string, subject: string, html: string, kind: EmailKind): Promise<void> {
-    const command = new SendEmailCommand({
-      FromEmailAddress: this.source,
-      Destination: { ToAddresses: [to] },
-      ...(env.MAIL_REPLY_TO ? { ReplyToAddresses: [env.MAIL_REPLY_TO] } : {}),
-      Content: {
-        Simple: {
-          Subject: { Data: subject, Charset: 'UTF-8' },
-          Body: { Html: { Data: html, Charset: 'UTF-8' } },
-        },
-      },
-    });
-
     try {
-      await this.ses.send(command);
+      await this.mail.transactionalEmails.sendTransacEmail({
+        sender: this.sender,
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        ...(env.MAIL_REPLY_TO ? { replyTo: { email: env.MAIL_REPLY_TO } } : {}),
+      });
       if (kind === 'otp') this.logger.log(`OTP email sent to ${to}`);
       else if (kind === 'welcome') this.logger.log(`Welcome email sent to ${to}`);
       else this.logger.log(`Password reset OTP email sent to ${to}`);
     } catch (error) {
-      const name = (error as { name?: string })?.name;
       const label = this.label(kind);
-      if (name === 'MessageRejected') {
+      if (error instanceof BrevoError) {
         this.logger.error(
-          `SES rejected ${label} email to ${to} (likely sandbox/unverified recipient or invalid From):`,
-          error,
-        );
-      } else if (name === 'ThrottlingException' || name === 'Throttling') {
-        this.logger.error(`SES throttled ${label} email to ${to} - sending rate exceeded:`, error);
-      } else if (name === 'MailFromDomainNotVerifiedException') {
-        this.logger.error(
-          `SES MAIL FROM domain not verified for ${env.MAIL_FROM} - verify domain in SES console:`,
-          error,
+          `Brevo rejected ${label} email to ${to} (status ${error.statusCode ?? 'unknown'}): ${JSON.stringify(error.body)}`,
+          error.stack,
         );
       } else {
         this.logger.error(`Failed to send ${label} email to ${to}:`, error);
