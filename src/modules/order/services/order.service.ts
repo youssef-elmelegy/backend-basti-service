@@ -493,8 +493,12 @@ export class OrderService {
       );
 
       await this.notificationService.pushToPlatformAdmins({
-        title: 'New order placed',
-        body: `Order ${newOrder.referenceNumber} was placed by ${user.firstName ?? 'a customer'}.`,
+        titleKey: 'notification_templates.new_order.title',
+        bodyKey: 'notification_templates.new_order.body',
+        args: {
+          ref: newOrder.referenceNumber ?? '',
+          customer: user.firstName ?? { en: 'a customer', ar: 'أحد العملاء' },
+        },
         type: 'new_order',
         redirectId: newOrder.id,
         data: { orderId: newOrder.id, referenceNumber: newOrder.referenceNumber ?? '' },
@@ -1348,8 +1352,9 @@ export class OrderService {
       this.logger.log(`Order ${orderId} cancelled successfully`);
 
       await this.notificationService.pushNotificationSafe({
-        title: 'Order cancelled',
-        body: `Your order ${order.referenceNumber ?? ''} has been cancelled.`,
+        titleKey: 'notification_templates.order_status.cancelled.title',
+        bodyKey: 'notification_templates.order_status.cancelled.body',
+        args: { ref: order.referenceNumber ?? '' },
         type: 'order_status',
         recipientType: 'user',
         recipientId: userId,
@@ -1358,8 +1363,9 @@ export class OrderService {
       });
 
       await this.notificationService.pushToPlatformAdmins({
-        title: 'Order cancelled by customer',
-        body: `Order ${order.referenceNumber ?? orderId} was cancelled by the customer.`,
+        titleKey: 'notification_templates.cancelled_by_customer.title',
+        bodyKey: 'notification_templates.cancelled_by_customer.body',
+        args: { ref: order.referenceNumber ?? orderId },
         type: 'order_status',
         redirectId: orderId,
         data: { orderId, status: 'cancelled' },
@@ -1367,8 +1373,9 @@ export class OrderService {
 
       if (order.bakeryId) {
         await this.notificationService.pushToBakeryStaff(order.bakeryId, {
-          title: 'Order cancelled by customer',
-          body: `Order ${order.referenceNumber ?? orderId} was cancelled by the customer.`,
+          titleKey: 'notification_templates.cancelled_by_customer.title',
+          bodyKey: 'notification_templates.cancelled_by_customer.body',
+          args: { ref: order.referenceNumber ?? orderId },
           type: 'order_status',
           redirectId: orderId,
           data: { orderId, status: 'cancelled' },
@@ -1417,8 +1424,9 @@ export class OrderService {
 
       if (order.userId) {
         await this.notificationService.pushNotificationSafe({
-          title: 'Order refused',
-          body: `We were unable to fulfil your order ${order.referenceNumber ?? ''}. Please contact support.`,
+          titleKey: 'notification_templates.order_refused.title',
+          bodyKey: 'notification_templates.order_refused.body',
+          args: { ref: order.referenceNumber ?? '' },
           type: 'order_status',
           recipientType: 'user',
           recipientId: order.userId,
@@ -1429,8 +1437,9 @@ export class OrderService {
 
       if (order.bakeryId) {
         await this.notificationService.pushToBakeryStaff(order.bakeryId, {
-          title: 'Order refused by admin',
-          body: `Order ${order.referenceNumber ?? orderId} was refused by an admin.`,
+          titleKey: 'notification_templates.refused_by_admin.title',
+          bodyKey: 'notification_templates.refused_by_admin.body',
+          args: { ref: order.referenceNumber ?? orderId },
           type: 'order_status',
           redirectId: orderId,
           data: { orderId, status: 'cancelled', reason: 'refused' },
@@ -1489,13 +1498,11 @@ export class OrderService {
       this.logger.log(`Order ${orderId} status changed to ${effectiveStatus} successfully`);
 
       if (order.userId && effectiveStatus) {
-        const { title, body } = this.buildStatusMessage(
-          effectiveStatus,
-          order.referenceNumber ?? '',
-        );
+        const statusKey = this.statusNotificationKey(effectiveStatus);
         await this.notificationService.pushNotificationSafe({
-          title,
-          body,
+          titleKey: `notification_templates.order_status.${statusKey}.title`,
+          bodyKey: `notification_templates.order_status.${statusKey}.body`,
+          args: { ref: order.referenceNumber ?? '' },
           type: 'order_status',
           recipientType: 'user',
           recipientId: order.userId,
@@ -1508,8 +1515,9 @@ export class OrderService {
       // let the driver know the order is ready to be picked up.
       if (flipsToDelivery && order.driverId) {
         await this.notificationService.pushNotificationSafe({
-          title: 'Order ready for delivery',
-          body: `Order ${order.referenceNumber ?? orderId} is ready. Please start the delivery.`,
+          titleKey: 'notification_templates.ready_for_delivery.title',
+          bodyKey: 'notification_templates.ready_for_delivery.body',
+          args: { ref: order.referenceNumber ?? orderId },
           type: 'order_status',
           recipientType: 'admin',
           recipientId: order.driverId,
@@ -1520,8 +1528,14 @@ export class OrderService {
 
       if (order.bakeryId && effectiveStatus) {
         await this.notificationService.pushToBakeryStaff(order.bakeryId, {
-          title: 'Order status updated',
-          body: `Order ${order.referenceNumber ?? orderId} is now ${effectiveStatus}.`,
+          titleKey: 'notification_templates.status_updated.title',
+          bodyKey: 'notification_templates.status_updated.body',
+          args: {
+            ref: order.referenceNumber ?? orderId,
+            statusLabel: this.translationService.buildTranslationObject(
+              `notification_templates.status_label.${effectiveStatus}`,
+            ),
+          },
           type: 'order_status',
           redirectId: orderId,
           data: { orderId, status: effectiveStatus },
@@ -1534,10 +1548,15 @@ export class OrderService {
           status as 'ready' | 'delivered' | 'cancelled',
         )
       ) {
-        const statusLabel = status === 'cancelled' ? 'canceled' : status;
         await this.notificationService.pushToSuperAdmins({
-          title: `Order ${statusLabel} by bakery`,
-          body: `Order ${order.referenceNumber ?? orderId} was marked as ${statusLabel} by the bakery.`,
+          titleKey: 'notification_templates.status_by_bakery.title',
+          bodyKey: 'notification_templates.status_by_bakery.body',
+          args: {
+            ref: order.referenceNumber ?? orderId,
+            statusLabel: this.translationService.buildTranslationObject(
+              `notification_templates.status_label.${status}`,
+            ),
+          },
           type: 'order_status',
           redirectId: orderId,
           data: { orderId, status },
@@ -1753,10 +1772,15 @@ export class OrderService {
         `Order with id: ${orderId} cannot be assigned to a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
-          orderId,
-          status: order.orderStatus,
-        }),
+        errorResponse(
+          `routes.orders.not_reassignable`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          {
+            orderId,
+            status: order.orderStatus,
+          },
+        ),
       );
     }
 
@@ -1850,8 +1874,9 @@ export class OrderService {
       );
 
       await this.notificationService.pushToBakeryStaff(bakeryId, {
-        title: 'New order assigned',
-        body: `Order ${order.referenceNumber ?? orderId} has been assigned to your bakery.`,
+        titleKey: 'notification_templates.order_assigned.title',
+        bodyKey: 'notification_templates.order_assigned.body',
+        args: { ref: order.referenceNumber ?? orderId },
         type: 'new_order',
         redirectId: orderId,
         data: { orderId, bakeryId },
@@ -1860,8 +1885,9 @@ export class OrderService {
       // Tell the previous bakery the order has moved away from them.
       if (previousBakeryId) {
         await this.notificationService.pushToBakeryStaff(previousBakeryId, {
-          title: 'Order reassigned',
-          body: `Order ${order.referenceNumber ?? orderId} has been reassigned to another bakery.`,
+          titleKey: 'notification_templates.order_reassigned.title',
+          bodyKey: 'notification_templates.order_reassigned.body',
+          args: { ref: order.referenceNumber ?? orderId },
           type: 'order_update',
           redirectId: orderId,
           data: { orderId, bakeryId: previousBakeryId },
@@ -2114,10 +2140,15 @@ export class OrderService {
         `Order with id: ${orderId} cannot be un-assigned from a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
-          orderId,
-          status: order.orderStatus,
-        }),
+        errorResponse(
+          `routes.orders.not_reassignable`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          {
+            orderId,
+            status: order.orderStatus,
+          },
+        ),
       );
     }
 
@@ -2175,11 +2206,11 @@ export class OrderService {
       this.logger.log(`Order ${orderId} successfully unassigned from bakery`);
 
       if (order.userId) {
+        const reassignKey = bypassTimeLimit ? 'reassigning_to_user' : 'bakery_cancelled_to_user';
         await this.notificationService.pushNotificationSafe({
-          title: bypassTimeLimit ? 'Order update' : 'Bakery cancelled your order',
-          body: bypassTimeLimit
-            ? `Your order ${order.referenceNumber ?? ''} is being reassigned to another bakery.`
-            : `Your assigned bakery declined order ${order.referenceNumber ?? ''}. We're finding you another one.`,
+          titleKey: `notification_templates.${reassignKey}.title`,
+          bodyKey: `notification_templates.${reassignKey}.body`,
+          args: { ref: order.referenceNumber ?? '' },
           type: 'order_cancelled_by_bakery',
           recipientType: 'user',
           recipientId: order.userId,
@@ -2196,10 +2227,11 @@ export class OrderService {
       // backed out — an admin returning the order to the pool already knows.
       if (!bypassTimeLimit) {
         await this.notificationService.pushToPlatformAdmins({
-          title: 'Bakery declined an order',
-          body: `Bakery unassigned itself from order ${order.referenceNumber ?? orderId}${
-            reason ? ` — reason: ${reason}` : ''
-          }.`,
+          titleKey: 'notification_templates.bakery_declined_admin.title',
+          bodyKey: reason
+            ? 'notification_templates.bakery_declined_admin_reason.body'
+            : 'notification_templates.bakery_declined_admin.body',
+          args: { ref: order.referenceNumber ?? orderId, reason: reason ?? '' },
           type: 'order_cancelled_by_bakery',
           redirectId: orderId,
           data: {
@@ -2211,8 +2243,9 @@ export class OrderService {
       }
 
       await this.notificationService.pushToBakeryStaff(bakeryIdToUnassign, {
-        title: 'Order unassigned',
-        body: `Order ${order.referenceNumber ?? orderId} is no longer assigned to your bakery.`,
+        titleKey: 'notification_templates.order_unassigned.title',
+        bodyKey: 'notification_templates.order_unassigned.body',
+        args: { ref: order.referenceNumber ?? orderId },
         type: 'order_update',
         redirectId: orderId,
         data: { orderId, bakeryId: bakeryIdToUnassign },
@@ -2294,7 +2327,10 @@ export class OrderService {
         and(
           inArray(orders.bakeryId, bakeryIds),
           not(
-            inArray(orders.orderStatus, ['delivered', 'cancelled'] as (typeof orders.orderStatus.enumValues)[number][]),
+            inArray(orders.orderStatus, [
+              'delivered',
+              'cancelled',
+            ] as (typeof orders.orderStatus.enumValues)[number][]),
           ),
         ),
       )
@@ -2390,8 +2426,9 @@ export class OrderService {
 
       if (order.userId) {
         await this.notificationService.pushNotificationSafe({
-          title: 'Your order is ready for review',
-          body: `Final preview images have been uploaded for order ${order.referenceNumber ?? ''}.`,
+          titleKey: 'notification_templates.ready_for_review.title',
+          bodyKey: 'notification_templates.ready_for_review.body',
+          args: { ref: order.referenceNumber ?? '' },
           type: 'order_update',
           recipientType: 'user',
           recipientId: order.userId,
@@ -2477,8 +2514,7 @@ export class OrderService {
     dateField: 'deliveredAt' | 'createdAt';
   }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
     const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
-    const dateColumn =
-      dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
+    const dateColumn = dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
 
     try {
       const conditions: SQL[] = [];
@@ -2503,18 +2539,12 @@ export class OrderService {
       }
 
       if (from) {
-        const fromCondition = and(
-          isNotNull(dateColumn),
-          gte(dateColumn, new Date(from)),
-        );
+        const fromCondition = and(isNotNull(dateColumn), gte(dateColumn, new Date(from)));
         if (fromCondition) conditions.push(fromCondition);
       }
 
       if (to) {
-        const toCondition = and(
-          isNotNull(dateColumn),
-          lte(dateColumn, new Date(to)),
-        );
+        const toCondition = and(isNotNull(dateColumn), lte(dateColumn, new Date(to)));
         if (toCondition) conditions.push(toCondition);
       }
 
@@ -2634,8 +2664,7 @@ export class OrderService {
             (Number(order.bastiDeliveryAmount) || 0),
           bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
           deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
-          bastiDeliveryAmount:
-            acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
+          bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
           totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
           discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
           finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
@@ -2689,31 +2718,24 @@ export class OrderService {
     return `ORD-${datePart}-${randomPart}`;
   }
 
-  private buildStatusMessage(
+  /**
+   * Maps an order status to its `notification_templates.order_status.<key>`
+   * catalogue sub-key. Unknown/transitional statuses fall back to `updated`.
+   */
+  private statusNotificationKey(
     status: NonNullable<typeof orders.$inferSelect.orderStatus>,
-    referenceNumber: string,
-  ): { title: string; body: string } {
-    const ref = referenceNumber ? `#${referenceNumber}` : '';
+  ): string {
     switch (status) {
       case 'pending':
-        return { title: 'Order pending', body: `Your order ${ref} is pending confirmation.` };
       case 'confirmed':
-        return { title: 'Order confirmed', body: `Your order ${ref} has been confirmed.` };
       case 'preparing':
-        return { title: 'Order preparing', body: `Your order ${ref} is being prepared.` };
       case 'ready':
-        return { title: 'Order ready', body: `Your order ${ref} is ready for delivery.` };
       case 'out_for_delivery':
-        return {
-          title: 'Out for delivery',
-          body: `Your order ${ref} is on the way!`,
-        };
       case 'delivered':
-        return { title: 'Order delivered', body: `Your order ${ref} has been delivered. Enjoy!` };
       case 'cancelled':
-        return { title: 'Order cancelled', body: `Your order ${ref} has been cancelled.` };
+        return status;
       default:
-        return { title: 'Order updated', body: `Your order ${ref} status has changed.` };
+        return 'updated';
     }
   }
 

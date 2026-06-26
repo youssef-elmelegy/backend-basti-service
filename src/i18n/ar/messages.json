@@ -651,5 +651,134 @@
       "password_uppercase": "يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل",
       "password_digit": "يجب أن تحتوي كلمة المرور على رقم واحد على الأقل"
     }
+  },
+  "notification_templates": {
+    "order_status": {
+      "pending": {
+        "title": "طلب قيد الانتظار",
+        "body": "طلبك {ref} في انتظار التأكيد."
+      },
+      "confirmed": {
+        "title": "تم تأكيد الطلب",
+        "body": "تم تأكيد طلبك {ref}."
+      },
+      "preparing": {
+        "title": "جارٍ تحضير الطلب",
+        "body": "جارٍ تحضير طلبك {ref}."
+      },
+      "ready": {
+        "title": "الطلب جاهز",
+        "body": "طلبك {ref} جاهز للتوصيل."
+      },
+      "out_for_delivery": {
+        "title": "الطلب في الطريق",
+        "body": "طلبك {ref} في الطريق إليك!"
+      },
+      "delivered": {
+        "title": "تم توصيل الطلب",
+        "body": "تم توصيل طلبك {ref}. بالهناء والشفاء!"
+      },
+      "cancelled": {
+        "title": "تم إلغاء الطلب",
+        "body": "تم إلغاء طلبك {ref}."
+      },
+      "updated": {
+        "title": "تم تحديث الطلب",
+        "body": "تغيّرت حالة طلبك {ref}."
+      }
+    },
+    "status_label": {
+      "pending": "قيد الانتظار",
+      "confirmed": "مؤكَّد",
+      "preparing": "قيد التحضير",
+      "ready": "جاهز",
+      "out_for_delivery": "في الطريق",
+      "delivered": "تم التوصيل",
+      "cancelled": "ملغى"
+    },
+    "new_order": {
+      "title": "تم إنشاء طلب جديد",
+      "body": "تم إنشاء الطلب {ref} بواسطة {customer}."
+    },
+    "cancelled_by_customer": {
+      "title": "ألغى العميل الطلب",
+      "body": "تم إلغاء الطلب {ref} بواسطة العميل."
+    },
+    "order_refused": {
+      "title": "تم رفض الطلب",
+      "body": "تعذّر علينا تنفيذ طلبك {ref}. يرجى التواصل مع الدعم."
+    },
+    "refused_by_admin": {
+      "title": "رفض المشرف الطلب",
+      "body": "تم رفض الطلب {ref} بواسطة أحد المشرفين."
+    },
+    "ready_for_delivery": {
+      "title": "الطلب جاهز للتوصيل",
+      "body": "الطلب {ref} جاهز. يرجى بدء التوصيل."
+    },
+    "status_updated": {
+      "title": "تم تحديث حالة الطلب",
+      "body": "الطلب {ref} الآن {statusLabel}."
+    },
+    "status_by_bakery": {
+      "title": "تم تحديث حالة الطلب من المخبز",
+      "body": "تم تعيين حالة الطلب {ref} إلى {statusLabel} بواسطة المخبز."
+    },
+    "order_assigned": {
+      "title": "تم إسناد طلب جديد",
+      "body": "تم إسناد الطلب {ref} إلى مخبزك."
+    },
+    "order_reassigned": {
+      "title": "تمت إعادة إسناد الطلب",
+      "body": "تمت إعادة إسناد الطلب {ref} إلى مخبز آخر."
+    },
+    "reassigning_to_user": {
+      "title": "تحديث الطلب",
+      "body": "تتم إعادة إسناد طلبك {ref} إلى مخبز آخر."
+    },
+    "bakery_cancelled_to_user": {
+      "title": "ألغى المخبز طلبك",
+      "body": "رفض المخبز المعيّن طلبك {ref}. نبحث لك عن مخبز آخر."
+    },
+    "bakery_declined_admin": {
+      "title": "رفض المخبز طلبًا",
+      "body": "ألغى المخبز إسناد الطلب {ref} لنفسه."
+    },
+    "bakery_declined_admin_reason": {
+      "title": "رفض المخبز طلبًا",
+      "body": "ألغى المخبز إسناد الطلب {ref} لنفسه — السبب: {reason}."
+    },
+    "order_unassigned": {
+      "title": "تم إلغاء إسناد الطلب",
+      "body": "لم يعد الطلب {ref} مُسنَدًا إلى مخبزك."
+    },
+    "ready_for_review": {
+      "title": "طلبك جاهز للمراجعة",
+      "body": "تم رفع صور المعاينة النهائية للطلب {ref}."
+    },
+    "order_needs_driver": {
+      "title": "الطلب يحتاج إلى سائق جديد",
+      "body": "رفض السائق الطلب {ref} ويحتاج إلى إعادة إسناد."
+    },
+    "due_amount_updated": {
+      "title": "تم تحديث المبلغ المستحق",
+      "body": "تم تحديث مبلغك المستحق إلى {amount}."
+    },
+    "coupon": {
+      "title": "كوبون جديد: {code}",
+      "body": "استخدم الرمز {code} لتوفّر في طلبك القادم."
+    },
+    "offer": {
+      "title": "عرض جديد: {name}",
+      "body": "وفّر {percentage}% على منتجات مختارة."
+    },
+    "review_received": {
+      "title": "تم استلام تقييم جديد",
+      "body": "حصل مخبزك على تقييم بـ {rating} نجوم {stars}."
+    },
+    "review_submitted": {
+      "title": "تم إرسال تقييم جديد",
+      "body": "ترك أحد العملاء تقييمًا بـ {rating} نجوم."
+    }
   }
 }

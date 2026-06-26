@@ -686,5 +686,134 @@
       "password_uppercase": "Password must contain at least one uppercase letter",
       "password_digit": "Password must contain at least one digit"
     }
+  },
+  "notification_templates": {
+    "order_status": {
+      "pending": {
+        "title": "Order pending",
+        "body": "Your order {ref} is pending confirmation."
+      },
+      "confirmed": {
+        "title": "Order confirmed",
+        "body": "Your order {ref} has been confirmed."
+      },
+      "preparing": {
+        "title": "Order preparing",
+        "body": "Your order {ref} is being prepared."
+      },
+      "ready": {
+        "title": "Order ready",
+        "body": "Your order {ref} is ready for delivery."
+      },
+      "out_for_delivery": {
+        "title": "Out for delivery",
+        "body": "Your order {ref} is on the way!"
+      },
+      "delivered": {
+        "title": "Order delivered",
+        "body": "Your order {ref} has been delivered. Enjoy!"
+      },
+      "cancelled": {
+        "title": "Order cancelled",
+        "body": "Your order {ref} has been cancelled."
+      },
+      "updated": {
+        "title": "Order updated",
+        "body": "Your order {ref} status has changed."
+      }
+    },
+    "status_label": {
+      "pending": "pending",
+      "confirmed": "confirmed",
+      "preparing": "preparing",
+      "ready": "ready",
+      "out_for_delivery": "out for delivery",
+      "delivered": "delivered",
+      "cancelled": "cancelled"
+    },
+    "new_order": {
+      "title": "New order placed",
+      "body": "Order {ref} was placed by {customer}."
+    },
+    "cancelled_by_customer": {
+      "title": "Order cancelled by customer",
+      "body": "Order {ref} was cancelled by the customer."
+    },
+    "order_refused": {
+      "title": "Order refused",
+      "body": "We were unable to fulfil your order {ref}. Please contact support."
+    },
+    "refused_by_admin": {
+      "title": "Order refused by admin",
+      "body": "Order {ref} was refused by an admin."
+    },
+    "ready_for_delivery": {
+      "title": "Order ready for delivery",
+      "body": "Order {ref} is ready. Please start the delivery."
+    },
+    "status_updated": {
+      "title": "Order status updated",
+      "body": "Order {ref} is now {statusLabel}."
+    },
+    "status_by_bakery": {
+      "title": "Order status updated by bakery",
+      "body": "Order {ref} was marked as {statusLabel} by the bakery."
+    },
+    "order_assigned": {
+      "title": "New order assigned",
+      "body": "Order {ref} has been assigned to your bakery."
+    },
+    "order_reassigned": {
+      "title": "Order reassigned",
+      "body": "Order {ref} has been reassigned to another bakery."
+    },
+    "reassigning_to_user": {
+      "title": "Order update",
+      "body": "Your order {ref} is being reassigned to another bakery."
+    },
+    "bakery_cancelled_to_user": {
+      "title": "Bakery cancelled your order",
+      "body": "Your assigned bakery declined order {ref}. We're finding you another one."
+    },
+    "bakery_declined_admin": {
+      "title": "Bakery declined an order",
+      "body": "Bakery unassigned itself from order {ref}."
+    },
+    "bakery_declined_admin_reason": {
+      "title": "Bakery declined an order",
+      "body": "Bakery unassigned itself from order {ref} — reason: {reason}."
+    },
+    "order_unassigned": {
+      "title": "Order unassigned",
+      "body": "Order {ref} is no longer assigned to your bakery."
+    },
+    "ready_for_review": {
+      "title": "Your order is ready for review",
+      "body": "Final preview images have been uploaded for order {ref}."
+    },
+    "order_needs_driver": {
+      "title": "Order needs a new driver",
+      "body": "Order {ref} was refused by the driver and needs reassignment."
+    },
+    "due_amount_updated": {
+      "title": "Due amount updated",
+      "body": "Your due amount has been updated to {amount}."
+    },
+    "coupon": {
+      "title": "New coupon: {code}",
+      "body": "Use code {code} to save on your next order."
+    },
+    "offer": {
+      "title": "New offer: {name}",
+      "body": "Save {percentage}% on selected items."
+    },
+    "review_received": {
+      "title": "New review received",
+      "body": "Your bakery received a {rating}-star review {stars}."
+    },
+    "review_submitted": {
+      "title": "New review submitted",
+      "body": "A customer left a {rating}-star review."
+    }
   }
 }

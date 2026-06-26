@@ -300,8 +300,9 @@ export class CouponService {
 
       if (coupon.isActive) {
         await this.notificationService.broadcastToAllUsers({
-          title: `New coupon: ${coupon.code}`,
-          body: `Use code ${coupon.code} to save on your next order.`,
+          titleKey: 'notification_templates.coupon.title',
+          bodyKey: 'notification_templates.coupon.body',
+          args: { code: coupon.code },
           type: 'coupon',
           redirectId: coupon.id,
           data: { couponId: coupon.id, code: coupon.code },

@@ -68,8 +68,9 @@ export class OfferService {
 
       if (offer.isActive) {
         await this.notificationService.broadcastToAllUsers({
-          title: `New offer: ${offer.name}`,
-          body: `Save ${offer.percentage}% on selected items.`,
+          titleKey: 'notification_templates.offer.title',
+          bodyKey: 'notification_templates.offer.body',
+          args: { name: offer.name, percentage: offer.percentage },
           type: 'offer',
           redirectId: offer.id,
           data: { offerId: offer.id, percentage: String(offer.percentage) },
