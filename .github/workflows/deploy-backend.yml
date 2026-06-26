@@ -75,6 +75,15 @@ jobs:
 
             SENTRY_DSN=${{ secrets.SENTRY_DSN }}
             SENTRY_RELEASE=basti-backend@${{ github.sha }}
+
+            MASARAT_URL=${{ secrets.MASARAT_URL }}
+            MASARAT_USER_ID=${{ secrets.MASARAT_USER_ID }}
+            MASARAT_PIN=${{ secrets.MASARAT_PIN }}
+            MASARAT_PROVIDER_ID=${{ secrets.MASARAT_PROVIDER_ID }}
+
+            TADAWUL_URL=${{ secrets.TADAWUL_URL }}
+            TADAWUL_ID=${{ secrets.TADAWUL_ID }}
+            TADAWUL_WEBHOOK_URL=${{ secrets.TADAWUL_WEBHOOK_URL }}
         run: |
           printf '%s' "$ENV_BODY" > backend.env
           # sanity check that no required value rendered empty
