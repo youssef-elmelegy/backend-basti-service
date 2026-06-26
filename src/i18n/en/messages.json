@@ -648,7 +648,21 @@
       "method_deleted": "Payment method deleted successfully",
       "method_retrieved": "Payment method retrieved successfully",
       "methods_retrieved": "Payment methods retrieved successfully",
-      "method_updated": "Payment method updated successfully"
+      "method_updated": "Payment method updated successfully",
+
+      "payment_initiated": "Payment initiated successfully",
+      "failed_initiate_payment": "Failed to initiate payment",
+      "invalid_order_user": "Invalid order user. The order does not belong to the user",
+      "receipt_retrieved": "Transaction receipt retrieved successfully",
+      "failed_get_receipt": "Failed to retrieve transaction receipt",
+
+      "payment_signed_in": "Payment signed in successfully",
+      "failed_sign_in": "Failed to sign in payment",
+      "payment_session_opened": "Payment session opened successfully, an OTP has been sent",
+      "failed_open_session": "Failed to open payment session",
+      "otp_invalid": "Invalid OTP",
+      "payment_session_completed": "Payment session completed successfully",
+      "failed_complete_session": "Failed to complete payment session"
     },
 
     "item_flags": {

@@ -95,13 +95,16 @@ export const orders = pgTable(
     totalCapacity: integer('total_capacity').default(0),
 
     paymentMethodId: uuid('payment_method_id').references(() => paymentMethods.id),
-    paymentMethodType: paymentMethodTypeEnum('payment_method_type').notNull(),
+    paymentMethodType: paymentMethodTypeEnum('payment_method_type'),
     paymentData: jsonb('payment_data').$type<{
       type: string;
       cardHolderName: string;
       cardLastFourDigits: string;
       cardExpiryMonth: number;
       cardExpiryYear: number;
+      paymentGatewayName: string;
+      paymentGatewaySubName: string;
+      paymentGatewayRef: string;
     }>(),
 
     orderStatus: orderStatusEnum('order_status'),

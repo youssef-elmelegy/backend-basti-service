@@ -31,6 +31,7 @@ import { HealthModule } from './modules/health/health.module';
 import { DriverModule } from './modules/driver/driver.module';
 import { ThrottlerModule, ThrottlerGuard, minutes } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { APP_GUARD } from '@nestjs/core';
     OfferModule,
     HealthModule,
     DriverModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

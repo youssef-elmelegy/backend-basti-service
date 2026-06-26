@@ -415,23 +415,6 @@ export class OrderService {
               latitude: Number(connectedLocation?.latitude || locationData?.latitude || 0),
               longitude: Number(connectedLocation?.longitude || locationData?.longitude || 0),
             },
-            paymentMethodId: connectedPaymentMethod?.id || paymentMethodId || null,
-            paymentMethodType: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
-            paymentData: {
-              type: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
-              cardHolderName:
-                connectedPaymentMethod?.cardHolderName || paymentMethodData?.cardHolderName || '',
-              cardLastFourDigits:
-                connectedPaymentMethod?.cardLastFourDigits ||
-                paymentMethodData?.cardLastFourDigits ||
-                '',
-              cardExpiryMonth: Number(
-                connectedPaymentMethod?.cardExpiryMonth || paymentMethodData?.cardExpiryMonth || 0,
-              ),
-              cardExpiryYear: Number(
-                connectedPaymentMethod?.cardExpiryYear || paymentMethodData?.cardExpiryYear || 0,
-              ),
-            },
             cardMessage,
             deliveryNote,
             keepAnonymous,
@@ -1753,10 +1736,15 @@ export class OrderService {
         `Order with id: ${orderId} cannot be assigned to a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
-          orderId,
-          status: order.orderStatus,
-        }),
+        errorResponse(
+          `routes.orders.not_reassignable`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          {
+            orderId,
+            status: order.orderStatus,
+          },
+        ),
       );
     }
 
@@ -2114,10 +2102,15 @@ export class OrderService {
         `Order with id: ${orderId} cannot be un-assigned from a bakery in status: ${order.orderStatus}`,
       );
       throw new BadRequestException(
-        errorResponse(`routes.orders.not_reassignable`, HttpStatus.BAD_REQUEST, 'BadRequestException', {
-          orderId,
-          status: order.orderStatus,
-        }),
+        errorResponse(
+          `routes.orders.not_reassignable`,
+          HttpStatus.BAD_REQUEST,
+          'BadRequestException',
+          {
+            orderId,
+            status: order.orderStatus,
+          },
+        ),
       );
     }
 
@@ -2294,7 +2287,10 @@ export class OrderService {
         and(
           inArray(orders.bakeryId, bakeryIds),
           not(
-            inArray(orders.orderStatus, ['delivered', 'cancelled'] as (typeof orders.orderStatus.enumValues)[number][]),
+            inArray(orders.orderStatus, [
+              'delivered',
+              'cancelled',
+            ] as (typeof orders.orderStatus.enumValues)[number][]),
           ),
         ),
       )
@@ -2477,8 +2473,7 @@ export class OrderService {
     dateField: 'deliveredAt' | 'createdAt';
   }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
     const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
-    const dateColumn =
-      dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
+    const dateColumn = dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
 
     try {
       const conditions: SQL[] = [];
@@ -2503,18 +2498,12 @@ export class OrderService {
       }
 
       if (from) {
-        const fromCondition = and(
-          isNotNull(dateColumn),
-          gte(dateColumn, new Date(from)),
-        );
+        const fromCondition = and(isNotNull(dateColumn), gte(dateColumn, new Date(from)));
         if (fromCondition) conditions.push(fromCondition);
       }
 
       if (to) {
-        const toCondition = and(
-          isNotNull(dateColumn),
-          lte(dateColumn, new Date(to)),
-        );
+        const toCondition = and(isNotNull(dateColumn), lte(dateColumn, new Date(to)));
         if (toCondition) conditions.push(toCondition);
       }
 
@@ -2634,8 +2623,7 @@ export class OrderService {
             (Number(order.bastiDeliveryAmount) || 0),
           bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
           deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
-          bastiDeliveryAmount:
-            acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
+          bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
           totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
           discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
           finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
