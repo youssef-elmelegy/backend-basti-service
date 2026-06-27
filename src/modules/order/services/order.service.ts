@@ -415,23 +415,6 @@ export class OrderService {
               latitude: Number(connectedLocation?.latitude || locationData?.latitude || 0),
               longitude: Number(connectedLocation?.longitude || locationData?.longitude || 0),
             },
-            paymentMethodId: connectedPaymentMethod?.id || paymentMethodId || null,
-            paymentMethodType: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
-            paymentData: {
-              type: connectedPaymentMethod?.type || paymentMethodData?.type || 'cash',
-              cardHolderName:
-                connectedPaymentMethod?.cardHolderName || paymentMethodData?.cardHolderName || '',
-              cardLastFourDigits:
-                connectedPaymentMethod?.cardLastFourDigits ||
-                paymentMethodData?.cardLastFourDigits ||
-                '',
-              cardExpiryMonth: Number(
-                connectedPaymentMethod?.cardExpiryMonth || paymentMethodData?.cardExpiryMonth || 0,
-              ),
-              cardExpiryYear: Number(
-                connectedPaymentMethod?.cardExpiryYear || paymentMethodData?.cardExpiryYear || 0,
-              ),
-            },
             cardMessage,
             deliveryNote,
             keepAnonymous,

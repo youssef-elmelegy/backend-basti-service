@@ -73,6 +73,16 @@ const envSchema = z.object({
   // GlitchTip / Sentry error monitoring (optional — disabled if unset)
   SENTRY_DSN: z.string().url().optional(),
 
+  // payment
+  MASARAT_URL: z.string().url(),
+  MASARAT_USER_ID: z.string(),
+  MASARAT_PIN: z.string(),
+  MASARAT_PROVIDER_ID: z.string(),
+
+  TADAWUL_URL: z.string().url(),
+  TADAWUL_ID: z.string(),
+  TADAWUL_WEBHOOK_URL: z.string().url(),
+
   // Firebase Admin (FCM)
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required'),
   FIREBASE_CLIENT_EMAIL: z.string().min(1, 'FIREBASE_CLIENT_EMAIL is required'),
