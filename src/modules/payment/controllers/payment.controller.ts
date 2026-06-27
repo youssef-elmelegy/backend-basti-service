@@ -56,8 +56,13 @@ export class PaymentController {
     @CurrentUser('sub') userId: string,
     @Body() { cardNumber }: MasaratOpenSessionDto,
   ) {
-    await this.masaratService.signin();
-    return await this.masaratService.openSession(orderId, userId, cardNumber);
+    const data = await this.masaratService.signin();
+    return await this.masaratService.openSession(
+      orderId,
+      userId,
+      cardNumber,
+      data.data.content.value,
+    );
   }
 
   @ApiTags('payment - masarat')
@@ -65,9 +70,9 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   @CompleteSessionDecorator()
   async completeSession(
-    @Body() { otp }: MasaratCompleteSessionDto,
+    @Body() { otp, token }: MasaratCompleteSessionDto,
     @Param('orderId') orderId: string,
   ) {
-    return await this.masaratService.completeSession(otp, orderId);
+    return await this.masaratService.completeSession(orderId, otp, token);
   }
 }

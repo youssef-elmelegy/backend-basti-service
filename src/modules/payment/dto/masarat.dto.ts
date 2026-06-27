@@ -17,7 +17,7 @@ class ContentDto {
   @ApiProperty()
   tag!: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Session token' })
   value!: string;
 }
 
@@ -97,4 +97,8 @@ export class MasaratCompleteSessionDto {
   @ApiProperty({ description: 'Payment OTP' })
   @IsString()
   otp!: string;
+
+  @ApiProperty({ description: 'token' })
+  @IsString()
+  token!: string;
 }
