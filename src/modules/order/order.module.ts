@@ -8,10 +8,12 @@ import { SchedulerService } from './services/scheduler.service';
 import { ItemsModule } from '../items/items.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { NotificationModule } from '../notification/notification.module';
+import { FinancialsService } from './services/financials.service';
+import { FinalPriceService } from './services/final-price.service';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, StockService, SchedulerService],
+  providers: [OrderService, StockService, SchedulerService, FinancialsService, FinalPriceService],
   imports: [CartModule, ConfigModule, ItemsModule, CouponModule, NotificationModule],
   exports: [OrderService, StockService, SchedulerService],
 })

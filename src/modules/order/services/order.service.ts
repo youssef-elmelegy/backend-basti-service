@@ -19,8 +19,6 @@ import {
   AvailableBakeryDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
-  GetOrdersFinancialsDto,
-  GetOrdersFinancialsResponseDto,
   GetUnassignedOrdersQueryDto,
   GetAssignedOrdersQueryDto,
   GetCompletedOrdersQueryDto,
@@ -50,11 +48,9 @@ import {
   and,
   eq,
   getTableColumns,
-  gte,
   ilike,
   inArray,
   isNull,
-  lte,
   not,
   SQL,
   asc,
@@ -63,7 +59,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse } from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -94,18 +90,6 @@ export class OrderService {
   ) {}
 
   private readonly logger = new Logger(OrderService.name);
-
-  private getAddonQuantityKey(addonId: string, optionId?: string): string {
-    return `${addonId}::${optionId ?? ''}`;
-  }
-
-  private generateDeliveryCodeValue(): string {
-    return randomInt(100000, 1000000).toString();
-  }
-
-  private hashDeliveryCheckCode(code: string): string {
-    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
-  }
 
   async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
     const {
@@ -2420,255 +2404,16 @@ export class OrderService {
     }
   }
 
-  /**
-   * Admin financials view (all bakeries, optionally scoped by bakeryId).
-   * Includes orders from "ready" through "delivered" and filters the
-   * from/to range on createdAt, since not-yet-delivered orders have no
-   * deliveredAt yet.
-   */
-  async getOrdersFinancials(
-    dto: GetOrdersFinancialsDto,
-  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit } = dto;
-    return this.computeFinancials({
-      bakeryId,
-      from,
-      to,
-      page,
-      limit,
-      statuses: ['ready', 'out_for_delivery', 'delivered'],
-      dateField: 'createdAt',
-    });
+  private getAddonQuantityKey(addonId: string, optionId?: string): string {
+    return `${addonId}::${optionId ?? ''}`;
   }
 
-  /**
-   * Bakery-scoped financials for the bakery manager view.
-   * Includes orders from "ready" through "delivered" and filters the
-   * from/to range on createdAt, since not-yet-delivered orders have no
-   * deliveredAt yet.
-   */
-  async getBakeryFinancials(
-    bakeryId: string,
-    dto: GetOrdersFinancialsDto,
-  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { from, to, page, limit } = dto;
-    return this.computeFinancials({
-      bakeryId,
-      from,
-      to,
-      page,
-      limit,
-      statuses: ['ready', 'out_for_delivery', 'delivered'],
-      dateField: 'createdAt',
-    });
+  private generateDeliveryCodeValue(): string {
+    return randomInt(100000, 1000000).toString();
   }
 
-  private async computeFinancials(opts: {
-    bakeryId?: string;
-    from?: string;
-    to?: string;
-    page?: number;
-    limit?: number;
-    statuses: (typeof orders.orderStatus.enumValues)[number][];
-    dateField: 'deliveredAt' | 'createdAt';
-  }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
-    const dateColumn = dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
-
-    try {
-      const conditions: SQL[] = [];
-
-      if (bakeryId) {
-        const [bakery] = await db
-          .select({
-            name: this.translationService.getLocalized(bakeries.name, 'name'),
-          })
-          .from(bakeries)
-          .where(eq(bakeries.id, bakeryId))
-          .limit(1);
-
-        if (!bakery) {
-          this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-          throw new NotFoundException(
-            errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-          );
-        }
-
-        conditions.push(eq(orders.bakeryId, bakeryId));
-      }
-
-      if (from) {
-        const fromCondition = and(isNotNull(dateColumn), gte(dateColumn, new Date(from)));
-        if (fromCondition) conditions.push(fromCondition);
-      }
-
-      if (to) {
-        const toCondition = and(isNotNull(dateColumn), lte(dateColumn, new Date(to)));
-        if (toCondition) conditions.push(toCondition);
-      }
-
-      conditions.push(inArray(orders.orderStatus, statuses));
-
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-      const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
-      const resolvedLimit = Math.min(
-        limit ?? PAGINATION_DEFAULTS.LIMIT,
-        PAGINATION_DEFAULTS.MAX_LIMIT,
-      );
-      const offset = (resolvedPage - 1) * resolvedLimit;
-
-      const ordersTotalList = await db
-        .select({
-          orderId: orders.id,
-          referenceNumber: orders.referenceNumber,
-          bakeryId: orders.bakeryId,
-          addonsTotal: orders.addonsTotal,
-          bastiPercentage: orders.bastiPercentage,
-          deliveryAmount: orders.deliveryAmount,
-          bastiDeliveryAmount: orders.bastiDeliveryAmount,
-          totalPrice: orders.totalPrice,
-          discountAmount: orders.discountAmount,
-          finalPrice: orders.finalPrice,
-          orderStatus: orders.orderStatus,
-          deliveredAt: orders.deliveredAt,
-          createdAt: orders.createdAt,
-          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
-        })
-        .from(orders)
-        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
-        .where(whereClause)
-        .orderBy(desc(dateColumn));
-
-      if (!ordersTotalList || ordersTotalList.length === 0) {
-        this.logger.log('No orders matched the financials filters; returning empty result');
-        return successResponse(
-          {
-            rows: [],
-            total: {
-              addonsTotal: 0,
-              bastiTotal: 0,
-              bakeryTotal: 0,
-              deliveryAmount: 0,
-              bastiDeliveryAmount: 0,
-              totalPrice: 0,
-              discountAmount: 0,
-              finalPrice: 0,
-            },
-            pagination: {
-              total: 0,
-              limit: resolvedLimit,
-              page: resolvedPage,
-              totalPages: 0,
-            },
-          },
-          'routes.orders.financials_retrieved',
-        );
-      }
-
-      const ordersList = await db
-        .select({
-          orderId: orders.id,
-          referenceNumber: orders.referenceNumber,
-          bakeryId: orders.bakeryId,
-          addonsTotal: orders.addonsTotal,
-          bastiPercentage: orders.bastiPercentage,
-          deliveryAmount: orders.deliveryAmount,
-          bastiDeliveryAmount: orders.bastiDeliveryAmount,
-          totalPrice: orders.totalPrice,
-          discountAmount: orders.discountAmount,
-          finalPrice: orders.finalPrice,
-          orderStatus: orders.orderStatus,
-          deliveredAt: orders.deliveredAt,
-          createdAt: orders.createdAt,
-          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
-        })
-        .from(orders)
-        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
-        .where(whereClause)
-        .orderBy(desc(dateColumn))
-        .limit(resolvedLimit)
-        .offset(offset);
-
-      const rows = ordersList.map((order) => {
-        const totalPrice = Number(order.totalPrice) || 0;
-        const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
-        const bastiAmount = bastiPercentage * totalPrice;
-
-        return {
-          addonsTotal: Number(order.addonsTotal) || 0,
-          bastiPercentage,
-          bastiAmount,
-          deliveryAmount: Number(order.deliveryAmount) || 0,
-          bastiDeliveryAmount: Number(order.bastiDeliveryAmount) || 0,
-          totalPrice,
-          discountAmount: Number(order.discountAmount) || 0,
-          finalPrice: Number(order.finalPrice) || 0,
-          bakeryId: order.bakeryId || '',
-          bakeryName: order.bakeryName || '',
-          orderId: order.orderId,
-          referenceNumber: order.referenceNumber || '',
-          orderStatus: order.orderStatus,
-          deliveredAt: order.deliveredAt,
-          createdAt: order.createdAt,
-        };
-      });
-
-      const total = ordersTotalList.reduce(
-        (acc, order) => ({
-          addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
-          bastiTotal:
-            acc.bastiTotal +
-            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0) +
-            (Number(order.bastiDeliveryAmount) || 0),
-          bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
-          deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
-          bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
-          totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
-          discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
-          finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
-        }),
-        {
-          addonsTotal: 0,
-          bastiTotal: 0,
-          bakeryTotal: 0,
-          deliveryAmount: 0,
-          bastiDeliveryAmount: 0,
-          totalPrice: 0,
-          discountAmount: 0,
-          finalPrice: 0,
-        },
-      );
-
-      const totalCount = ordersTotalList.length;
-      const totalPages = Math.ceil(totalCount / resolvedLimit);
-
-      return successResponse(
-        {
-          rows,
-          total,
-          pagination: {
-            total: totalCount,
-            limit: resolvedLimit,
-            page: resolvedPage,
-            totalPages,
-          },
-        },
-        'routes.orders.financials_retrieved',
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      this.logger.error(`Failed to retrieve financials:`, error);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_financials',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
+  private hashDeliveryCheckCode(code: string): string {
+    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
   }
 
   private generateOrderReference(): string {
@@ -3045,15 +2790,3 @@ export class OrderService {
     };
   }
 }
-
-// {
-//   "offerId": "b6937c54-0122-47f8-ad7c-3ced3c31485d",
-//   "regionId": "23e2da5b-50a1-4f0e-b051-ce99a8fe620a",
-//   "addonId": "526bd77a-f133-4eca-af59-ee60e5025c43",
-//   "featuredCakeId": "471d2ceb-f00f-449e-8b24-85b7e91bb2ff",
-//   "sweetId": "cddac154-91ee-4501-87e8-dc4bd6e8859f",
-//   "predesignedCakeId": "fd35b53c-37d7-45df-ba37-07b993c856f7",
-//   "decorationId": "cf343a13-c9ac-4ce2-8081-2e2cc5f5f45d",
-//   "flavorId": "c61046b8-e329-4ad5-87da-eb035eacbd1f",
-//   "shapeId": "a64454e3-9943-4465-aa37-6ed3d95af3c2"
-// }

@@ -53,6 +53,7 @@ import {
 } from '../decorators';
 import { successResponse } from '@/utils';
 import { SchedulerService } from '../services/scheduler.service';
+import { FinancialsService } from '../services/financials.service';
 
 @ApiTags('order')
 @Controller('orders')
@@ -60,6 +61,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly schedulerService: SchedulerService,
+    private readonly financialsService: FinancialsService,
   ) {}
   private readonly logger = new Logger(OrderController.name);
 
@@ -193,7 +195,7 @@ export class OrderController {
   @GetOrdersFinancialsDecorator()
   async getOrdersFinancials(@Query() dto: GetOrdersFinancialsDto) {
     this.logger.debug('getting orders financials');
-    return this.orderService.getOrdersFinancials(dto);
+    return this.financialsService.getOrdersFinancials(dto);
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -205,7 +207,7 @@ export class OrderController {
     @Query() dto: GetOrdersFinancialsDto,
   ) {
     this.logger.debug(`getting financials for bakery: ${bakeryId}`);
-    return this.orderService.getBakeryFinancials(bakeryId, dto);
+    return this.financialsService.getBakeryFinancials(bakeryId, dto);
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
