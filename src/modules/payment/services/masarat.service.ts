@@ -60,7 +60,7 @@ export class MasaratService {
     }
   }
 
-  async openSession(orderId: string, userId: string, cardNumber: string) {
+  async openSession(orderId: string, userId: string, cardNumber: string, token: string) {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
@@ -74,7 +74,10 @@ export class MasaratService {
 
       const res = await fetch(`${env.MASARAT_URL}/OpenSession`, {
         method: 'POST',
-        headers: {},
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           amount: Number(order.finalPrice),
           identityCard: cardNumber, // 9-digit number (10-digit for Trade and Development Bank)
@@ -106,11 +109,14 @@ export class MasaratService {
     }
   }
 
-  async completeSession(otp: string, orderId: string) {
+  async completeSession(orderId: string, otp: string, token: string) {
     try {
       const res = await fetch(`${env.MASARAT_URL}/CompleteSession`, {
         method: 'POST',
-        headers: {},
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           otp: otp,
         }),
