@@ -11,7 +11,7 @@ import {
   MasaratOpenSessionResponse,
   MasaratSigninResponse,
 } from '../dto/masarat.dto';
-import { successResponse } from '@/utils';
+import { handleErrorsAndThrow, successResponse } from '@/utils';
 import { orders } from '@/db/schema/order';
 import { eq } from 'drizzle-orm/sql/expressions/conditions';
 import { db } from '@/db';
@@ -26,7 +26,6 @@ export class MasaratService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Accept: 'application/json',
         },
         body: JSON.stringify({
           userId: env.MASARAT_USER_ID,
@@ -53,10 +52,7 @@ export class MasaratService {
       this.logger.log(`Masarat sign in successful`);
       return successResponse(data, 'routes.payment.payment_signed_in');
     } catch (error) {
-      throw new InternalServerErrorException(
-        'routes.payment.failed_sign_in',
-        error instanceof Error ? error.message : String(error),
-      );
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 
@@ -102,10 +98,7 @@ export class MasaratService {
 
       return successResponse(data, 'routes.payment.payment_open_session');
     } catch (error) {
-      throw new InternalServerErrorException(
-        'routes.payment.failed_open_session',
-        error instanceof Error ? error.message : String(error),
-      );
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 
@@ -161,10 +154,7 @@ export class MasaratService {
 
       return successResponse(data, 'routes.payment.payment_complete_session');
     } catch (error) {
-      throw new InternalServerErrorException(
-        'routes.payment.failed_complete_session',
-        error instanceof Error ? error.message : String(error),
-      );
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 }

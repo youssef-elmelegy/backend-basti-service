@@ -23,10 +23,7 @@ export class CreateOrderItemResponseDto {
       name: string;
       hex: string;
     };
-    extraLayers?: {
-      layer: number;
-      flavorId: string;
-    }[];
+    extraLayers?: { ChangeOrderStatusResponseDto; layer: number; flavorId: string }[];
     message?: string;
     imageToPrint?: string;
     snapshotFront?: string;
@@ -71,22 +68,25 @@ export class CardMessageDataDto {
 }
 
 export class RecipientDataDto {
-  name: string;
-  email: string;
-  phoneNumber: string;
+  name!: string;
+  email!: string;
+  phoneNumber!: string;
 }
 
 export class WantedDeliveryTimeSlotDateDto {
-  from: string;
-  to: string;
+  from!: string;
+  to!: string;
 }
 
 export class PaymentDataDto {
-  type: string;
-  cardHolderName: string;
-  cardLastFourDigits: string;
-  cardExpiryMonth: number;
-  cardExpiryYear: number;
+  type!: string;
+  cardHolderName!: string;
+  cardLastFourDigits!: string;
+  cardExpiryMonth!: number;
+  cardExpiryYear!: number;
+  paymentGatewayName!: string;
+  paymentGatewaySubName!: string;
+  paymentGatewayRef!: string;
 }
 
 export class CreateOrderResponseDto {
@@ -94,123 +94,123 @@ export class CreateOrderResponseDto {
     description: 'Unique identifier of the order',
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
-  id: string;
+  id!: string;
 
   @ApiProperty({
     description: 'User ID who placed the order',
     example: '550e8400-e29b-41d4-a716-446655440001',
   })
-  userId: string;
+  userId!: string;
 
   @ApiProperty({
     description: 'User data snapshot at the time of order',
     type: UserDataDto,
     required: false,
   })
-  userData?: UserDataDto;
+  userData!: UserDataDto | null;
 
   @ApiProperty({
     description: 'Assigned bakery ID',
     example: '550e8400-e29b-41d4-a716-446655440002',
     required: false,
   })
-  bakeryId?: string;
+  bakeryId!: string | null;
 
   @ApiProperty({
     description: 'Region ID',
   })
-  regionId: string;
+  regionId!: string;
 
   @ApiProperty({
     description: 'Region name',
   })
-  regionName: string;
+  regionName!: string;
 
   @ApiProperty({
     description: 'Reference to the user saved location',
     example: '550e8400-e29b-41d4-a716-446655440003',
     required: false,
   })
-  locationId: string | null;
+  locationId!: string | null;
 
   @ApiProperty({
     description: 'Location data snapshot at the time of order',
     type: LocationDataDto,
     required: false,
   })
-  locationData?: LocationDataDto;
+  locationData!: LocationDataDto | null;
 
   @ApiProperty({
     description: 'Total price before discounts',
     example: 150.0,
   })
-  totalPrice: number;
+  totalPrice!: number;
 
   @ApiProperty({
     description: 'Total order items capacity',
     example: 10,
   })
-  totalCapacity: number;
+  totalCapacity!: number | null;
 
   @ApiProperty({
     description: 'Discount amount applied to the order',
     example: 10.0,
   })
-  discountAmount: number;
+  discountAmount!: number;
 
   @ApiProperty({
     description: 'Final price after discounts',
     example: 140.0,
   })
-  finalPrice: number;
+  finalPrice!: number;
 
   @ApiProperty({
     description: 'Reference to the user saved payment method',
     example: '550e8400-e29b-41d4-a716-446655440004',
     required: false,
   })
-  paymentMethodId: string | null;
+  paymentMethodId!: string | null;
 
   @ApiProperty({
     description: 'Type of payment method used',
     enum: ['credit_card', 'debit_card', 'cash', 'wallet'],
     example: 'credit_card',
   })
-  paymentMethodType: (typeof paymentMethodTypeEnum.enumValues)[number];
+  paymentMethodType!: (typeof paymentMethodTypeEnum.enumValues)[number] | null;
 
   @ApiProperty({
     description: 'Payment method data snapshot at the time of order',
     type: PaymentDataDto,
     required: false,
   })
-  paymentData: PaymentDataDto | null;
+  paymentData!: PaymentDataDto | null;
 
   @ApiProperty({
     description: 'Current status of the order',
     enum: ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'],
     example: 'pending',
   })
-  orderStatus: (typeof orderStatusEnum.enumValues)[number] | null;
+  orderStatus!: (typeof orderStatusEnum.enumValues)[number] | null;
 
   @ApiProperty({
     description: 'Special delivery instructions',
     example: 'Please ring the doorbell twice',
     required: false,
   })
-  deliveryNote?: string;
+  deliveryNote!: string | null;
 
   @ApiProperty({
     description: 'Whether to hide sender information from recipient',
     example: false,
   })
-  keepAnonymous: boolean;
+  keepAnonymous!: boolean;
 
   @ApiProperty({
     description: 'Type of cart this order was created from',
     enum: ['big_cakes', 'small_cakes', 'others'],
     example: 'big_cakes',
   })
-  cartType: (typeof CartTypeEnum.enumValues)[number];
+  cartType!: (typeof CartTypeEnum.enumValues)[number];
 
   @ApiProperty({
     description: 'Card message details if the order includes a card message',
@@ -223,7 +223,7 @@ export class CreateOrderResponseDto {
     },
     required: false,
   })
-  cardMessage: CardMessageDataDto | null;
+  cardMessage!: CardMessageDataDto | null;
 
   @ApiProperty({
     description: 'Recipient details',
@@ -235,12 +235,12 @@ export class CreateOrderResponseDto {
     },
     required: false,
   })
-  recipientData: RecipientDataDto | null;
+  recipientData!: RecipientDataDto | null;
 
   @ApiProperty({
     description: 'Recipient details',
   })
-  wantedDeliveryDate: Date | null;
+  wantedDeliveryDate!: Date | null;
 
   @ApiProperty({
     description: 'Recipient details',
@@ -251,39 +251,39 @@ export class CreateOrderResponseDto {
     },
     required: false,
   })
-  wantedDeliveryTimeSlot: WantedDeliveryTimeSlotDateDto | null;
+  wantedDeliveryTimeSlot!: WantedDeliveryTimeSlotDateDto | null;
 
   @ApiProperty({
     description: 'Expected delivery date and time',
     example: '2025-12-25T14:00:00.000Z',
   })
-  willDeliverAt: Date;
+  willDeliverAt!: Date;
 
   @ApiProperty({
     description: 'Actual delivery date and time',
     example: '2025-12-25T14:30:00.000Z',
     required: false,
   })
-  deliveredAt: Date | null;
+  deliveredAt!: Date | null;
 
   @ApiProperty({
     description: 'Order creation timestamp',
     example: '2025-12-20T10:00:00.000Z',
   })
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty({
     description: 'Order last update timestamp',
     example: '2025-12-20T10:00:00.000Z',
   })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @ApiProperty({
     description: 'List of items in the order',
     type: [CreateOrderItemResponseDto],
     example: [],
   })
-  items: CreateOrderItemResponseDto[];
+  items!: CreateOrderItemResponseDto[];
 }
 
 export class ChangeOrderStatusResponseDto {

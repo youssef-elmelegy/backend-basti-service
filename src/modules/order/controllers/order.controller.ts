@@ -30,6 +30,7 @@ import {
   GetBakeryOrdersQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
+  OrderResponseDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -90,8 +91,8 @@ export class OrderController {
   @GetMyOrdersDecorator()
   async getMyOrders(@CurrentUser('sub') userId: string, @Query() { regionId }: RegionFilterDto) {
     this.logger.debug(`getting orders for user: ${userId}`);
-    const result = await this.orderService.getAllForUser(userId, regionId);
-    return successResponse(result, 'routes.orders.list_retrieved');
+    const result = await this.orderService.getAll(userId, { regionId }, null, null, null, null);
+    return successResponse(result.items, 'routes.orders.list_retrieved');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -105,8 +106,15 @@ export class OrderController {
     this.logger.debug('getting all orders');
     // Normalize status to array format
     const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
-    const result = await this.orderService.getAll(regionId, statusArray);
-    return successResponse(result, 'routes.orders.list_retrieved');
+    const result = await this.orderService.getAll(
+      null,
+      { regionId, status: statusArray },
+      null,
+      null,
+      null,
+      null,
+    );
+    return successResponse(result.items, 'routes.orders.list_retrieved');
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
@@ -116,7 +124,7 @@ export class OrderController {
     this.logger.debug(
       `getting unassigned orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, type=${query.type ?? '-'}, q=${query.q ?? '-'})`,
     );
-    const result = await this.orderService.getUnassigned(query);
+    const result = await this.orderService.getAll(null, query, false, null, null, null);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -127,7 +135,17 @@ export class OrderController {
     this.logger.debug(
       `getting assigned orders (q=${query.q ?? '-'}, statuses=${query.status?.join(',') ?? '-'})`,
     );
-    const result = await this.orderService.getAssigned(query);
+    const ungrouped = await this.orderService.getAll(null, query, true, null, null, null);
+
+    // Group by bakeryId. `bakeryId` is non-null here thanks to the isNotNull filter.
+    const result: Record<string, OrderResponseDto[]> = {};
+    for (const order of ungrouped.items) {
+      const key = order.bakeryId;
+      if (!key) continue;
+      if (!result[key]) result[key] = [];
+      result[key].push(order);
+    }
+
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -138,7 +156,7 @@ export class OrderController {
     this.logger.debug(
       `getting completed orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, q=${query.q ?? '-'})`,
     );
-    const result = await this.orderService.getCompleted(query);
+    const result = await this.orderService.getAll(null, query, null, true, null, null);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -149,7 +167,7 @@ export class OrderController {
     this.logger.debug(
       `getting dispatch orders (page=${query.page}, limit=${query.limit}, region=${query.regionId ?? '-'}, bakery=${query.bakeryId ?? '-'}, driverState=${query.driverState ?? '-'}, q=${query.q ?? '-'})`,
     );
-    const result = await this.orderService.getForDispatch(query);
+    const result = await this.orderService.getAll(null, query, null, null, true, null);
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -164,15 +182,14 @@ export class OrderController {
     this.logger.debug(
       `getting orders for bakery: ${bakeryId} (page=${query.page}, limit=${query.limit}, q=${query.q ?? '-'})`,
     );
-    const result = await this.orderService.getAllForBakery(bakeryId, {
-      page: query.page,
-      limit: query.limit,
-      regionId: query.regionId,
-      type: query.type,
-      status: query.status,
-      q: query.q,
-      sort: query.sort,
-    });
+    const result = await this.orderService.getAll(
+      null,
+      { ...query, bakeryId },
+      null,
+      null,
+      null,
+      true,
+    );
     return successResponse(result, 'routes.orders.list_retrieved');
   }
 
@@ -185,7 +202,7 @@ export class OrderController {
     @Query() { regionId }: RegionFilterDto,
   ) {
     this.logger.debug(`getting order by id: ${id}`);
-    const result = await this.orderService.getOneForUser(id, userId, regionId);
+    const result = await this.orderService.getOne(id, regionId, userId);
     return successResponse(result, 'routes.orders.retrieved');
   }
 

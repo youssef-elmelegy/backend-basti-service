@@ -11,7 +11,9 @@ export function getErrorMessage(error: unknown): string {
   return 'unknown error';
 }
 
-// deprecated
+/**
+ * @deprecated Use handleErrorsAndThrow instead
+ */
 export function handleErrors(error: unknown): string {
   if (error instanceof HttpException) {
     throw error;
@@ -34,7 +36,7 @@ export function handleErrorsAndThrow(error: unknown, message?: string, logger?: 
     errorResponse(
       message || 'An unexpected error occurred',
       HttpStatus.INTERNAL_SERVER_ERROR,
-      //errMsg, // better not to expose to client, might contain sensitive info
+      'InternalServerError',
     ),
   );
 }

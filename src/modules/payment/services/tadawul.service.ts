@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { env } from '@/env';
 import { orders } from '@/db/schema';
 import { db } from '@/db';
@@ -17,7 +11,7 @@ import {
   GetTransactionReceiptResponse,
   ConfirmPaymentWebhookDto,
 } from '../dto/tadawul.dto';
-import { SuccessResponse, successResponse } from '@/utils';
+import { handleErrorsAndThrow, SuccessResponse, successResponse } from '@/utils';
 
 @Injectable()
 export class TadawulService {
@@ -80,10 +74,7 @@ export class TadawulService {
         'routes.payment.payment_initiated',
       );
     } catch (error) {
-      throw new InternalServerErrorException(
-        'routes.payment.failed_initiate_payment',
-        error instanceof Error ? error.message : String(error),
-      );
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 
@@ -138,9 +129,7 @@ export class TadawulService {
       this.logger.log(`Order ${custom_ref} confirmed successfully`);
       return successResponse({});
     } catch (error) {
-      const err = `Failed to confirm payment, error: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(err);
-      throw new InternalServerErrorException(err);
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 
@@ -182,10 +171,7 @@ export class TadawulService {
 
       return successResponse({ ...data }, 'routes.payment.receipt_retrieved');
     } catch (error) {
-      throw new InternalServerErrorException(
-        'routes.payment.failed_get_receipt',
-        error instanceof Error ? error.message : String(error),
-      );
+      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
   }
 }

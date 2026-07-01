@@ -1,17 +1,10 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  HttpStatus,
-  Logger,
-  NotFoundException,
-  HttpException,
-} from '@nestjs/common';
+import { Injectable, HttpStatus, Logger, NotFoundException } from '@nestjs/common';
 import { GetOrdersFinancialsDto, GetOrdersFinancialsResponseDto } from '../dto';
 import { db } from '@/db';
 import { orders, bakeries } from '@/db/schema';
 import { and, eq, gte, inArray, lte, SQL, desc, isNotNull } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, handleErrorsAndThrow } from '@/utils';
 import { TranslationService } from '@/common';
 
 @Injectable()
@@ -245,17 +238,8 @@ export class FinancialsService {
         'routes.orders.financials_retrieved',
       );
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
       this.logger.error(`Failed to retrieve financials:`, error);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_financials',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_financials');
     }
   }
 }

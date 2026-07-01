@@ -19,10 +19,7 @@ import {
   AvailableBakeryDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
-  GetUnassignedOrdersQueryDto,
-  GetAssignedOrdersQueryDto,
-  GetCompletedOrdersQueryDto,
-  GetDispatchOrdersQueryDto,
+  GetAllQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
 } from '../dto';
@@ -59,7 +56,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse } from '@/utils';
+import { errorResponse, successResponse, handleErrorsAndThrow } from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -76,6 +73,14 @@ export interface BakeryStockIssue {
   requested: number;
   available: number;
 }
+
+/* prod: 
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExODQ0LCJleHAiOjE3ODI5MTI3NDR9.aTh4TPFOEzeZlP2V_Ee9OL8yNZAuHekMJHXdoswrH70
+*/
+
+/* dev:
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExOTI4LCJleHAiOjE3ODM4MTE5Mjh9.ryqIvKE3OsB93iyFwQHPfyGUfaRuP9_Ak4vPYdAoAUw
+*/
 
 /* eslint-disable */
 @Injectable()
@@ -469,7 +474,7 @@ export class OrderService {
 
       const response: CreateOrderResponseDto = {
         ...newOrder,
-        bakeryId: undefined,
+        bakeryId: null,
         locationId: newOrder.locationId || null,
         paymentMethodId: newOrder.paymentMethodId || null,
         paymentData: newOrder.paymentData || null,
@@ -527,47 +532,25 @@ export class OrderService {
     }
   }
 
-  async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
+  async getOne(orderId: string, regionId?: string, userId?: string): Promise<OrderResponseDto> {
     try {
-      const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
+      const condition: SQL[] = [];
 
-      const validOrderIds = ordersForUser
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const response = await Promise.all(
-        validOrderIds.map((orderId) => this.getOneForUser(orderId, userId, regionId)),
-      );
-
-      this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
-      return response;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+      if (userId) {
+        await this.checkUserExists(userId);
+        condition.push(eq(orders.userId, userId));
       }
 
-      this.logger.error(`Failed to retrieve orders for user ${userId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
+      if (regionId) {
+        await this.checkRegionExists(regionId);
+        condition.push(eq(orders.regionId, regionId));
+      }
 
-  async getOneForUser(
-    orderId: string,
-    userId: string,
-    regionId?: string,
-  ): Promise<OrderResponseDto> {
-    try {
       const [order] = await db
         .select()
         .from(orders)
-        .where(and(eq(orders.id, orderId), eq(orders.userId, userId)));
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+        .where(and(...condition))
+        .limit(1);
 
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
@@ -576,9 +559,12 @@ export class OrderService {
         );
       }
 
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
       const formattedItems = await this.formatOrderItemsResponse(items, regionId ?? order.regionId);
 
       this.logger.log(`Retrieved order: ${orderId}`);
+
       return {
         addons: formattedItems.addonItems,
         sweets: formattedItems.sweetItems,
@@ -586,45 +572,153 @@ export class OrderService {
         predesignedCakes: formattedItems.predesignedCakeItems,
         customCakes: formattedItems.customCakeItems,
         ...this.exposeOrderFields(order, 'user'),
-        bakeryId: order.bakeryId || undefined,
-        totalCapacity: order.totalCapacity || 0,
-        deliveryNote: order.deliveryNote || '',
         totalPrice: parseFloat(order.totalPrice),
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Failed to retrieve order ${orderId} for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : '',
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_retrieve',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_retrieve', this.logger);
     }
   }
 
-  async getAll(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
-    try {
-      let allOrders = await db.select().from(orders);
+  async getAll(
+    userId: string | null,
+    query: GetAllQueryDto,
+    isAssigned: boolean | null,
+    isCompleted: boolean | null,
+    isDispatch: boolean | null,
+    confirmAssignedOrders: boolean | null,
+  ): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const { regionId, status, bakeryId } = query;
 
-      // Filter by status(es) if provided
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
+    try {
+      const conditions: SQL[] = [];
+
+      if (userId) {
+        await this.checkUserExists(userId);
+        conditions.push(eq(orders.userId, userId));
+      }
+
+      if (regionId) {
+        await this.checkRegionExists(regionId);
+        conditions.push(eq(orders.regionId, regionId));
+      }
+
+      if (bakeryId) {
+        await this.checkBakeryExists(bakeryId);
+        conditions.push(eq(orders.bakeryId, bakeryId));
+      }
+
+      if (query.type) {
+        conditions.push(
+          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
+        );
+      }
+
+      if (query.status && query.status.length > 0) {
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            query.status as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+
+      if (isAssigned !== null) {
+        const defaultActiveStatuses = [
+          'pending',
+          'confirmed',
+          'preparing',
+          'ready',
+          'out_for_delivery',
+        ];
+        const statusList =
+          query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
+
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            statusList as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+
+        if (isAssigned) {
+          conditions.push(isNotNull(orders.bakeryId));
+        } else {
+          conditions.push(
+            isNull(orders.bakeryId),
+            not(eq(orders.orderStatus, 'delivered')),
+            not(eq(orders.orderStatus, 'cancelled')),
+          );
+        }
+      }
+
+      if (isCompleted) {
+        const defaultCompletedStatuses = ['ready', 'out_for_delivery', 'delivered', 'cancelled'];
+        const statusList =
+          query.status && query.status.length > 0 ? query.status : defaultCompletedStatuses;
+
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            statusList as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+
+      if (isDispatch) {
+        // Active, non-terminal statuses only — delivered/cancelled orders aren't dispatched.
+        const dispatchStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
+
+        conditions.push(
+          isNotNull(orders.bakeryId),
+          inArray(
+            orders.orderStatus,
+            dispatchStatuses as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+
+        if (query.driverState === 'unassigned') {
+          conditions.push(isNull(orders.driverId));
+        } else if (query.driverState === 'assigned') {
+          conditions.push(isNotNull(orders.driverId));
+          conditions.push(isNull(orders.driverData));
+        } else if (query.driverState === 'accepted') {
+          conditions.push(isNotNull(orders.driverId));
+          conditions.push(isNotNull(orders.driverData));
+        }
+      }
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(and(...conditions));
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      let allOrders = await db
+        .select()
+        .from(orders)
+        .where(and(...conditions))
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
       if (status && status.length > 0) {
         allOrders = allOrders.filter((order) =>
           this.matchesStatusFilter(order.orderStatus, status),
         );
-      }
-
-      if (regionId) {
-        allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
       const orderIds = allOrders
@@ -638,7 +732,6 @@ export class OrderService {
 
       const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
 
-      // Process all orders concurrently with per-order fallback
       const response = await Promise.all(
         allOrders.map(async (order): Promise<OrderResponseDto> => {
           try {
@@ -656,621 +749,32 @@ export class OrderService {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
-
             return this.buildBasicOrderResponse(order);
+          } finally {
+            /* 
+              this is desinged for bakery orders retrieval, where 
+              we want to confirm assigned orders automatically if the flag is set
+            */
+            if (confirmAssignedOrders) {
+              await this.confirmAssignedOrder(order);
+            }
           }
         }),
       );
 
       this.logger.log(`Retrieved all orders, count: ${response.length}`);
-      return response;
-    } catch {
-      this.logger.error(`Failed to retrieve all orders`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of a bakery's orders. Same shape as the admin endpoints:
-   * { items, pagination: { total, totalPages, page, limit } }.
-   * Filters: regionId, q (reference search), status[], sort.
-   */
-  async getAllForBakery(
-    bakeryId: string,
-    query: {
-      page?: number;
-      limit?: number;
-      regionId?: string;
-      type?: string;
-      status?: string[];
-      q?: string;
-      sort?: 'asc' | 'desc';
-    } = {},
-  ): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    try {
-      // Verify bakery exists
-      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
-
-      if (!bakery) {
-        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-        throw new NotFoundException(
-          errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const conditions: SQL[] = [eq(orders.bakeryId, bakeryId)];
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.type) {
-        conditions.push(
-          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
-        );
-      }
-      if (query.status && query.status.length > 0) {
-        conditions.push(
-          inArray(
-            orders.orderStatus,
-            query.status as (typeof orders.orderStatus.enumValues)[number][],
-          ),
-        );
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const allOrderItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-
-      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) {
-              throw new Error('Order id is missing');
-            }
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            this.logger.warn(
-              `Failed to retrieve full details for order ${order.id}, returning basic order data`,
-            );
-            await this.confirmAssignedOrder(order);
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Bakery ${bakeryId} orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
 
       return {
-        items,
+        items: response,
         pagination: {
           total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
+          totalPages: Math.ceil(total / limit),
           page,
           limit,
         },
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of unassigned active orders for the admin sidebar.
-   * Excludes delivered/cancelled. Filters apply at the SQL layer so we don't
-   * scan the whole orders table for every keystroke.
-   */
-  async getUnassigned(query: GetUnassignedOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    // Default statuses for an "unassigned" view: everything that's still in flight.
-    const defaultActiveStatuses = [
-      'pending',
-      'confirmed',
-      'preparing',
-      'ready',
-      'out_for_delivery',
-    ];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        isNull(orders.bakeryId),
-        not(eq(orders.orderStatus, 'delivered')),
-        not(eq(orders.orderStatus, 'cancelled')),
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.type) {
-        conditions.push(
-          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
-        );
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            this.logger.warn(
-              `Failed to retrieve full details for order ${order.id}, returning basic data`,
-            );
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Unassigned orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve unassigned orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Orders that have been assigned to a bakery, grouped by bakeryId.
-   * Used by the admin Kanban view. Not paginated — usually a manageable count.
-   *
-   * By default only active (non-terminal) orders are returned. To pull history,
-   * pass explicit statuses (e.g. status=delivered,cancelled) — terminal statuses
-   * are no longer hard-excluded, so the status filter fully controls the scope.
-   */
-  async getAssigned(query: GetAssignedOrdersQueryDto): Promise<Record<string, OrderResponseDto[]>> {
-    const sortDir = query.sort ?? 'desc';
-    const defaultActiveStatuses = [
-      'pending',
-      'confirmed',
-      'preparing',
-      'ready',
-      'out_for_delivery',
-    ];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        isNotNull(orders.bakeryId),
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const allRows = await db
-        .select()
-        .from(orders)
-        .where(and(...conditions))
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt));
-
-      const orderIds = allRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const allItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(allItems);
-
-      const built = await Promise.all(
-        allRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      // Group by bakeryId. `bakeryId` is non-null here thanks to the isNotNull filter.
-      const result: Record<string, OrderResponseDto[]> = {};
-      for (const order of built) {
-        const key = order.bakeryId;
-        if (!key) continue;
-        if (!result[key]) result[key] = [];
-        result[key].push(order);
-      }
-
-      this.logger.log(
-        `Assigned orders: ${built.length} order(s) across ${Object.keys(result).length} bakery(ies)`,
-      );
-
-      return result;
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve assigned orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of completed/terminal orders for the admin completed page.
-   * Default statuses: ready / out_for_delivery / delivered / cancelled.
-   */
-  async getCompleted(query: GetCompletedOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    const defaultCompletedStatuses = ['ready', 'out_for_delivery', 'delivered', 'cancelled'];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultCompletedStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Completed orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve completed orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed for the admin driver-dispatch board. Returns orders that have
-   * been assigned to a bakery and are still active (anything except
-   * delivered/cancelled), so an admin can assign/track a delivery driver.
-   * Items carry their driver assignment state (driverId / driverData /
-   * driverAssignedAt) so the board can render the assignment chip.
-   */
-  async getForDispatch(query: GetDispatchOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    // Active, non-terminal statuses only — delivered/cancelled orders aren't dispatched.
-    const dispatchStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
-
-    try {
-      const conditions: SQL[] = [
-        isNotNull(orders.bakeryId),
-        inArray(
-          orders.orderStatus,
-          dispatchStatuses as (typeof orders.orderStatus.enumValues)[number][],
-        ),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.bakeryId) {
-        conditions.push(eq(orders.bakeryId, query.bakeryId));
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-      // driverState: unassigned = no driver; assigned = driver set but not yet
-      // accepted (driverData null); accepted = driver accepted (driverData set).
-      if (query.driverState === 'unassigned') {
-        conditions.push(isNull(orders.driverId));
-      } else if (query.driverState === 'assigned') {
-        conditions.push(isNotNull(orders.driverId));
-        conditions.push(isNull(orders.driverData));
-      } else if (query.driverState === 'accepted') {
-        conditions.push(isNotNull(orders.driverId));
-        conditions.push(isNotNull(orders.driverData));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Dispatch orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve dispatch orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  async getOne(orderId: string, regionId?: string): Promise<OrderResponseDto> {
-    try {
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-
-      this.logger.log(`Fetching order details for order ID: ${orderId} with ${items.length} items`);
-
-      if (!order) {
-        this.logger.warn(`Order with id: ${orderId} not found`);
-        throw new NotFoundException(
-          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const formattedItems = await this.formatOrderItemsResponse(items, regionId ?? order.regionId);
-
-      this.logger.log(`Retrieved order: ${orderId}`);
-      return {
-        addons: formattedItems.addonItems,
-        sweets: formattedItems.sweetItems,
-        featuredCakes: formattedItems.featuredCakeItems,
-        predesignedCakes: formattedItems.predesignedCakeItems,
-        customCakes: formattedItems.customCakeItems,
-        ...this.exposeOrderFields(order),
-        bakeryId: order.bakeryId || undefined,
-        totalCapacity: order.totalCapacity || 0,
-        deliveryNote: order.deliveryNote || '',
-        totalPrice: parseFloat(order.totalPrice),
-        discountAmount: parseFloat(order.discountAmount),
-        finalPrice: parseFloat(order.finalPrice),
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Failed to retrieve order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : '',
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_retrieve',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_list', this.logger);
     }
   }
 
@@ -1344,22 +848,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-
-      const errMsg = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Error cancelling the order: ${errMsg}`);
-      this.logger.error(`Stack trace: ${stack}`);
-
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_cancel',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_cancel', this.logger);
     }
   }
 
@@ -1406,18 +895,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(`Failed to refuse order ${orderId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_refuse',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_refuse', this.logger);
     }
   }
 
@@ -1513,18 +991,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(`Failed to change order status for order ${orderId} to ${status}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_change_status',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_change_status', this.logger);
     }
   }
 
@@ -1715,7 +1182,7 @@ export class OrderService {
     // not only while pending. Once it is ready / out for delivery / delivered /
     // cancelled it is too late to move it to another bakery.
     const reassignableStatuses: string[] = ['pending', 'confirmed', 'preparing'];
-    if (!reassignableStatuses.includes(order.orderStatus)) {
+    if (!reassignableStatuses.includes(order.orderStatus!)) {
       this.logger.warn(
         `Order with id: ${orderId} cannot be assigned to a bakery in status: ${order.orderStatus}`,
       );
@@ -2081,7 +1548,7 @@ export class OrderService {
     const returnableStatuses: string[] = bypassTimeLimit
       ? ['pending', 'confirmed', 'preparing']
       : ['pending'];
-    if (!returnableStatuses.includes(order.orderStatus)) {
+    if (!returnableStatuses.includes(order.orderStatus!)) {
       this.logger.warn(
         `Order with id: ${orderId} cannot be un-assigned from a bakery in status: ${order.orderStatus}`,
       );
@@ -2404,12 +1871,38 @@ export class OrderService {
     }
   }
 
-  private getAddonQuantityKey(addonId: string, optionId?: string): string {
-    return `${addonId}::${optionId ?? ''}`;
+  private async checkUserExists(userId: string): Promise<void> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      this.logger.warn(`User with id: ${userId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.users.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
   }
 
-  private generateDeliveryCodeValue(): string {
-    return randomInt(100000, 1000000).toString();
+  private async checkRegionExists(regionId: string): Promise<void> {
+    const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+    if (!region) {
+      this.logger.warn(`Region with id: ${regionId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+  }
+
+  private async checkBakeryExists(bakeryId: string): Promise<void> {
+    const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+    if (!bakery) {
+      this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.bakeries.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+  }
+
+  private getAddonQuantityKey(addonId: string, optionId?: string): string {
+    return `${addonId}::${optionId ?? ''}`;
   }
 
   private hashDeliveryCheckCode(code: string): string {
@@ -2528,7 +2021,7 @@ export class OrderService {
       predesignedCakes: [],
       customCakes: [],
       ...this.exposeOrderFields(order),
-      bakeryId: order.bakeryId || undefined,
+      bakeryId: order.bakeryId,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',
       totalPrice: parseFloat(order.totalPrice),
@@ -2554,7 +2047,7 @@ export class OrderService {
       predesignedCakes: formattedItems.predesignedCakeItems,
       customCakes: formattedItems.customCakeItems,
       ...this.exposeOrderFields(order),
-      bakeryId: order.bakeryId || undefined,
+      bakeryId: order.bakeryId || null,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',
       totalPrice: parseFloat(order.totalPrice),
