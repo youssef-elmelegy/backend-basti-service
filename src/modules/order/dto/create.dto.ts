@@ -27,7 +27,7 @@ export class UserDto {
     example: 'user@example.com',
   })
   @IsEmail({}, { message: 'email must be a valid email address' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'User first name',
@@ -38,7 +38,7 @@ export class UserDto {
   @IsString()
   @MinLength(2, { message: 'firstName must be at least 2 characters long' })
   @MaxLength(100, { message: 'firstName must not exceed 100 characters' })
-  firstName: string;
+  firstName!: string;
 
   @ApiProperty({
     description: 'User last name',
@@ -49,7 +49,7 @@ export class UserDto {
   @IsString()
   @MinLength(2, { message: 'lastName must be at least 2 characters long' })
   @MaxLength(100, { message: 'lastName must not exceed 100 characters' })
-  lastName: string;
+  lastName!: string;
 
   @ApiProperty({
     description: 'User phone number',
@@ -58,58 +58,58 @@ export class UserDto {
   })
   @IsOptional()
   @IsString()
-  phoneNumber: string;
+  phoneNumber!: string;
 }
 
 export class CardMessageDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  to: string;
+  to!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  from: string;
+  from!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  message: string;
+  message!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsUrl()
-  link: string;
+  link!: string;
 }
 
 export class RecipientDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsEmail({}, { message: 'email must be a valid email address' })
-  email: string;
+  email!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  name: string;
+  name!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  phoneNumber: string;
+  phoneNumber!: string;
 }
 
 export class WantedDeliveryTimeSlotDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  from: string;
+  from!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  to: string;
+  to!: string;
 }
 
 export class ColorConfigDto {
@@ -119,7 +119,7 @@ export class ColorConfigDto {
     example: 'Red',
   })
   @IsString()
-  name: string;
+  name!: string;
 
   @ApiProperty({
     name: 'hex',
@@ -127,7 +127,7 @@ export class ColorConfigDto {
     example: '#FF0000',
   })
   @IsString()
-  hex: string;
+  hex!: string;
 }
 
 export class ExtraLayerConfigDto {
@@ -138,14 +138,14 @@ export class ExtraLayerConfigDto {
   })
   @IsNumber()
   @Min(1, { message: 'Layer number must be at least 1' })
-  layer: number;
+  layer!: number;
 
   @ApiProperty({
     name: 'flavorId',
     description: 'Flavor ID for the extra layer',
   })
   @IsUUID()
-  flavorId: string;
+  flavorId!: string;
 }
 
 export class CustomCakeConfigDto {
@@ -154,21 +154,21 @@ export class CustomCakeConfigDto {
     description: 'Shape ID for the custom cake',
   })
   @IsUUID()
-  shapeId: string;
+  shapeId!: string;
 
   @ApiProperty({
     name: 'flavorId',
     description: 'Flavor ID for the custom cake',
   })
   @IsUUID()
-  flavorId: string;
+  flavorId!: string;
 
   @ApiProperty({
     name: 'decorationId',
     description: 'Decoration ID for the custom cake',
   })
   @IsUUID()
-  decorationId: string;
+  decorationId!: string;
 
   @ApiProperty({
     name: 'message',
@@ -186,7 +186,7 @@ export class CustomCakeConfigDto {
   })
   @ValidateNested()
   @Type(() => ColorConfigDto)
-  color: ColorConfigDto;
+  color!: ColorConfigDto;
 
   @ApiProperty({
     name: 'extraLayers',
@@ -220,6 +220,15 @@ export class CustomCakeConfigDto {
   @IsOptional()
   @IsUrl()
   snapshotSliced?: string;
+
+  @ApiProperty({
+    description: "Type of printing: 'paper' or 'suger'",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['paper', 'suger'])
+  printingType?: 'paper' | 'suger';
 }
 
 export class OrderItemOptionDto {
@@ -227,25 +236,25 @@ export class OrderItemOptionDto {
     description: 'The unique identifier of the option',
   })
   @IsString()
-  optionId: string;
+  optionId!: string;
 
   @ApiProperty({
     description: 'The type of the option',
   })
   @IsString()
-  type: string;
+  type!: string;
 
   @ApiProperty({
     description: 'The label of the option',
   })
   @IsString()
-  label: string;
+  label!: string;
 
   @ApiProperty({
     description: 'The value of the option',
   })
   @IsString()
-  value: string;
+  value!: string;
 }
 
 export class OrderItemDto {
@@ -322,7 +331,7 @@ export class OrderItemDto {
   @ApiProperty()
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 
   @ApiProperty()
   @IsOptional()
@@ -413,7 +422,7 @@ export class CreateOrderDto {
     description: 'region ID',
   })
   @IsUUID()
-  regionId: string;
+  regionId!: string;
 
   @ApiProperty({
     description: 'The discount amount to be applied to the order.',
@@ -486,7 +495,7 @@ export class CreateOrderDto {
     enum: allowedTypes,
   })
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
-  type: ItemType;
+  type!: ItemType;
 }
 
 export class GetDeliveryDateDto {
@@ -497,7 +506,7 @@ export class GetDeliveryDateDto {
     enum: allowedTypes,
   })
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
-  type: ItemType;
+  type!: ItemType;
 
   @ApiProperty({
     description: 'Number of the featured cakes in the order',

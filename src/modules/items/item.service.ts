@@ -31,15 +31,19 @@ import {
   shapeVariantImages,
   offers,
 } from '@/db/schema/';
-import { errorResponse } from '@/utils';
+import { errorResponse, handleErrorsAndThrow } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
+import { ConfigService } from '../config/services/config.service';
 
 @Injectable()
 export class ItemService {
   private readonly logger = new Logger(ItemService.name);
 
-  constructor(private readonly translationService: TranslationService) {}
+  constructor(
+    private readonly translationService: TranslationService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async getAddonOptions(addonId: string, addonOptionId: string): Promise<AddonOptionData[]> {
     try {
@@ -58,31 +62,23 @@ export class ItemService {
         updatedAt: option.updatedAt,
       }));
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve addon options: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.addons.options.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.addons.options.failed_list', this.logger);
     }
   }
 
   async getAddons(
-    addonIds: { id: string; option?: string }[],
+    addonsIdsAndQnt: { id: string; option?: string; quantity?: number }[],
     regionId?: string,
   ): Promise<AddonData[]> {
     try {
       const res: AddonData[] = [];
 
-      if (!addonIds.length) {
+      if (!addonsIdsAndQnt.length) {
         return res;
       }
 
-      const uniqueAddonIds = Array.from(new Set(addonIds.map((addon) => addon.id)));
+      // separate id from quntity
+      const flattenedIds = Array.from(new Set(addonsIdsAndQnt.map((addon) => addon.id)));
 
       if (regionId) {
         const addonsData = await db
@@ -105,22 +101,25 @@ export class ItemService {
           )
           .leftJoin(tags, eq(addons.tagId, tags.id))
           .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
-          .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
-          .limit(uniqueAddonIds.length);
+          .where(and(eq(addons.isActive, true), inArray(addons.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
+        // a map to quickly access addon data by id
         const addonById = new Map(addonsData.map((addon) => [addon.id, addon]));
 
-        for (const addonRequest of addonIds) {
+        for (const addonRequest of addonsIdsAndQnt) {
           const addon = addonById.get(addonRequest.id);
-
-          if (!addon) {
-            continue;
-          }
+          if (!addon) continue;
 
           const selectedOptionId = addonRequest.option;
           const options = selectedOptionId
             ? await this.getAddonOptions(addon.id, selectedOptionId)
             : [];
+
+          let finalPrice = parseFloat(addon.price);
+          if (addon.offer) {
+            finalPrice -= (finalPrice * addon.offer.percentage) / 100;
+          }
 
           res.push({
             ...addon,
@@ -128,8 +127,10 @@ export class ItemService {
             tagId: addon.tagId ?? '',
             tagName: addon.tagName ?? '',
             options,
-            price: addon.price,
+            price: finalPrice.toFixed(2),
+            listPrice: addon.price,
             offer: addon.offer,
+            quantity: addonRequest.quantity ?? 1,
             sizesPrices: addon.sizesPrices ?? undefined,
             selectedOptionId,
           });
@@ -144,17 +145,15 @@ export class ItemService {
           })
           .from(addons)
           .leftJoin(tags, eq(addons.tagId, tags.id))
-          .where(and(eq(addons.isActive, true), inArray(addons.id, uniqueAddonIds)))
-          .limit(uniqueAddonIds.length);
+          .where(and(eq(addons.isActive, true), inArray(addons.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
         const addonById = new Map(addonsData.map((addon) => [addon.id, addon]));
 
-        for (const addonRequest of addonIds) {
+        for (const addonRequest of addonsIdsAndQnt) {
           const addon = addonById.get(addonRequest.id);
 
-          if (!addon) {
-            continue;
-          }
+          if (!addon) continue;
 
           const selectedOptionId = addonRequest.option;
           const options = selectedOptionId
@@ -168,6 +167,7 @@ export class ItemService {
             tagName: addon.tagName ?? '',
             options,
             offer: null,
+            quantity: addonRequest.quantity ?? 1,
             selectedOptionId,
           });
         }
@@ -175,26 +175,23 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve addons: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.addons.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.addons.failed_list', this.logger);
     }
   }
 
-  async getSweets(sweetIds: string[], regionId?: string): Promise<SweetData[]> {
+  async getSweets(
+    sweetsIdsAndQnt: { id: string; quantity?: number }[],
+    regionId?: string,
+  ): Promise<SweetData[]> {
     try {
       const res: SweetData[] = [];
 
-      if (!sweetIds.length) {
+      if (!sweetsIdsAndQnt.length) {
         return res;
       }
+
+      // separate id from quntity
+      const flattenedIds = Array.from(new Set(sweetsIdsAndQnt.map((sweet) => sweet.id)));
 
       if (regionId) {
         const sweetsData = await db
@@ -217,12 +214,26 @@ export class ItemService {
           )
           .leftJoin(tags, eq(sweets.tagId, tags.id))
           .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
-          .where(and(eq(sweets.isActive, true), inArray(sweets.id, sweetIds)))
-          .limit(sweetIds.length);
+          .where(and(eq(sweets.isActive, true), inArray(sweets.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
-        for (const sweet of sweetsData) {
+        // a map to quickly access sweet data by id
+        const sweetById = new Map(sweetsData.map((sweet) => [sweet.id, sweet]));
+
+        for (const sweetRequest of sweetsIdsAndQnt) {
+          const sweet = sweetById.get(sweetRequest.id);
+          if (!sweet) continue;
+
+          let finalPrice = parseFloat(sweet.price);
+          if (sweet.offer) {
+            finalPrice -= (finalPrice * sweet.offer.percentage) / 100;
+          }
+
           res.push({
             ...sweet,
+            price: finalPrice.toFixed(2),
+            listPrice: sweet.price,
+            quantity: sweetRequest.quantity ?? 1,
             description: sweet.description ?? '',
             tagId: sweet.tagId ?? '',
             tagName: sweet.tagName ?? '',
@@ -239,45 +250,45 @@ export class ItemService {
           })
           .from(sweets)
           .leftJoin(tags, eq(sweets.tagId, tags.id))
-          .where(and(eq(sweets.isActive, true), inArray(sweets.id, sweetIds)))
-          .limit(sweetIds.length);
+          .where(and(eq(sweets.isActive, true), inArray(sweets.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
-        for (const sweet of sweetsData) {
+        const sweetById = new Map(sweetsData.map((sweet) => [sweet.id, sweet]));
+
+        for (const sweetRequest of sweetsIdsAndQnt) {
+          const sweet = sweetById.get(sweetRequest.id);
+          if (!sweet) continue;
+
           res.push({
             ...sweet,
             description: sweet.description ?? '',
             tagId: sweet.tagId ?? '',
             tagName: sweet.tagName ?? '',
             offer: null,
+            quantity: sweetRequest.quantity ?? 1,
           });
         }
       }
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve sweets: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.sweet.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.sweet.failed_list', this.logger);
     }
   }
 
   async getFeaturedCakes(
-    featuredCakeIds: string[],
+    featuredCakesIdsAndQnt: { id: string; quantity?: number }[],
     regionId?: string,
   ): Promise<FeaturedCakeData[]> {
     try {
       const res: FeaturedCakeData[] = [];
 
-      if (!featuredCakeIds.length) {
+      if (!featuredCakesIdsAndQnt.length) {
         return res;
       }
+
+      // separate id from quntity
+      const flattenedIds = Array.from(new Set(featuredCakesIdsAndQnt.map((cake) => cake.id)));
 
       if (regionId) {
         const featuredCakesData = await db
@@ -306,16 +317,30 @@ export class ItemService {
           )
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
           .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
-          .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, featuredCakeIds)))
-          .limit(featuredCakeIds.length);
+          .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
-        for (const featuredCake of featuredCakesData) {
+        // a map to quickly access featured cake data by id
+        const featuredCakesById = new Map(featuredCakesData.map((cake) => [cake.id, cake]));
+
+        for (const featuredCakeRequest of featuredCakesIdsAndQnt) {
+          const featuredCake = featuredCakesById.get(featuredCakeRequest.id);
+          if (!featuredCake) continue;
+
+          let finalPrice = parseFloat(featuredCake.price ?? '0');
+          if (featuredCake.offer) {
+            finalPrice -= (finalPrice * featuredCake.offer.percentage) / 100;
+          }
+
           res.push({
             ...featuredCake,
             description: featuredCake.description ?? '',
             tagId: featuredCake.tagId ?? '',
             tagName: featuredCake.tagName ?? '',
             sizesPrices: featuredCake.sizesPrices ?? undefined,
+            quantity: featuredCakeRequest.quantity ?? 1,
+            price: finalPrice.toFixed(2),
+            listPrice: featuredCake.price,
           });
         }
       } else {
@@ -331,10 +356,15 @@ export class ItemService {
           })
           .from(featuredCakes)
           .leftJoin(tags, eq(featuredCakes.tagId, tags.id))
-          .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, featuredCakeIds)))
-          .limit(featuredCakeIds.length);
+          .where(and(eq(featuredCakes.isActive, true), inArray(featuredCakes.id, flattenedIds)))
+          .limit(flattenedIds.length);
 
-        for (const featuredCake of featuredCakesData) {
+        const featuredCakesById = new Map(featuredCakesData.map((cake) => [cake.id, cake]));
+
+        for (const featuredCakeRequest of featuredCakesIdsAndQnt) {
+          const featuredCake = featuredCakesById.get(featuredCakeRequest.id);
+          if (!featuredCake) continue;
+
           res.push({
             ...featuredCake,
             description: featuredCake.description ?? '',
@@ -347,16 +377,7 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve featured cakes: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.featured_cakes.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.featured_cakes.failed_list', this.logger);
     }
   }
 
@@ -390,9 +411,15 @@ export class ItemService {
           .limit(flavorIds.length);
 
         for (const flavor of flavorsData) {
+          let finalPrice = parseFloat(flavor.price ?? '0');
+          if (flavor.offer) {
+            finalPrice -= (finalPrice * flavor.offer.percentage) / 100;
+          }
+
           res.push({
             ...flavor,
-            price: flavor.price ?? '0',
+            price: finalPrice.toFixed(2),
+            listPrice: flavor.price ?? undefined,
             description: flavor.description ?? '',
             shapeVariantImages: [],
           });
@@ -420,16 +447,7 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve flavors: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.flavors.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.flavors.failed_list', this.logger);
     }
   }
 
@@ -463,9 +481,15 @@ export class ItemService {
           .limit(shapeIds.length);
 
         for (const shape of shapesData) {
+          let finalPrice = parseFloat(shape.price ?? '0');
+          if (shape.offer) {
+            finalPrice -= (finalPrice * shape.offer.percentage) / 100;
+          }
+
           res.push({
             ...shape,
-            price: shape.price ?? '0',
+            price: finalPrice.toFixed(2),
+            listPrice: shape.price ?? undefined,
             description: shape.description ?? '',
             capacity: shape.capacity ?? 0,
           });
@@ -493,16 +517,7 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve shapes: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.shapes.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.shapes.failed_list', this.logger);
     }
   }
 
@@ -544,9 +559,15 @@ export class ItemService {
           .limit(decorationIds.length);
 
         for (const decoration of decorationsData) {
+          let finalPrice = parseFloat(decoration.price ?? '0');
+          if (decoration.offer) {
+            finalPrice = (finalPrice * decoration.offer.percentage) / 100;
+          }
+
           res.push({
             ...decoration,
-            price: decoration.price ?? '0',
+            price: finalPrice.toFixed(2),
+            listPrice: decoration.price ?? undefined,
             description: decoration.description ?? '',
             tagId: decoration.tagId ?? '',
             tagName: decoration.tagName ?? '',
@@ -583,29 +604,23 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve decorations: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.decorations.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.decorations.failed_list', this.logger);
     }
   }
 
   async getPredesignedCakes(
-    predesignedCakeIds: string[],
+    predesignedCakeIdsAndQnt: { id: string; quantity?: number }[],
     regionId?: string,
   ): Promise<PredesignedCakeData[]> {
     try {
       const res: PredesignedCakeData[] = [];
 
-      if (!predesignedCakeIds.length) {
+      if (!predesignedCakeIdsAndQnt.length) {
         return res;
       }
+
+      // separate id from quntity
+      const flattenedIds = Array.from(new Set(predesignedCakeIdsAndQnt.map((cake) => cake.id)));
 
       if (regionId) {
         const predesignedCakeData = await db
@@ -635,18 +650,27 @@ export class ItemService {
           .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
           .leftJoin(offers, and(eq(regionItemPrices.offerId, offers.id), isOfferActive(offers)))
           .where(
-            and(
-              eq(predesignedCakes.isActive, true),
-              inArray(predesignedCakes.id, predesignedCakeIds),
-            ),
+            and(eq(predesignedCakes.isActive, true), inArray(predesignedCakes.id, flattenedIds)),
           )
-          .limit(predesignedCakeIds.length);
+          .limit(flattenedIds.length);
 
-        for (const predesignedCake of predesignedCakeData) {
+        // a map to quickly access predesigned cake data by id
+        const predesignedCakesById = new Map(predesignedCakeData.map((cake) => [cake.id, cake]));
+
+        for (const predesignedCakeRequest of predesignedCakeIdsAndQnt) {
+          const predesignedCake = predesignedCakesById.get(predesignedCakeRequest.id);
+          if (!predesignedCake) continue;
+
           const configs = await this.getConfigsData(predesignedCake.id);
           const totalCapacity = this.getTotalCapacity(configs);
           const totalMinPrepHours = this.getTotalMinPrepHours(configs);
           const totalPrice = await this.getConfigsPrice(predesignedCake.id, regionId);
+
+          let finalPrice = totalPrice;
+          if (predesignedCake.offer) {
+            finalPrice -= (totalPrice * predesignedCake.offer.percentage) / 100;
+          }
+
           res.push({
             ...predesignedCake,
             configs: configs.map((config) => ({
@@ -665,7 +689,7 @@ export class ItemService {
             sizesPrices: predesignedCake.sizesPrices ?? undefined,
             totalCapacity: totalCapacity ?? 0,
             totalMinPrepHours: totalMinPrepHours ?? 0,
-            price: totalPrice.toFixed(2),
+            price: finalPrice.toFixed(2),
           });
         }
       } else {
@@ -682,12 +706,9 @@ export class ItemService {
           .from(predesignedCakes)
           .leftJoin(tags, eq(predesignedCakes.tagId, tags.id))
           .where(
-            and(
-              eq(predesignedCakes.isActive, true),
-              inArray(predesignedCakes.id, predesignedCakeIds),
-            ),
+            and(eq(predesignedCakes.isActive, true), inArray(predesignedCakes.id, flattenedIds)),
           )
-          .limit(predesignedCakeIds.length);
+          .limit(flattenedIds.length);
 
         for (const predesignedCake of predesignedCakeData) {
           const configs = await this.getConfigsData(predesignedCake.id);
@@ -717,31 +738,23 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve featured cakes: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.predesigned_cakes.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.predesigned_cakes.failed_list', this.logger);
     }
   }
 
   async getCustomCakes(
-    customCakesConfigs: CustomCakeFlattenData[],
+    customCakesConfigsAndQnt: { config: CustomCakeFlattenData; quantity?: number }[],
     regionId?: string,
   ): Promise<CustomCakeData[]> {
     try {
       const res: CustomCakeData[] = [];
 
-      if (!Array.isArray(customCakesConfigs) || !customCakesConfigs.length) {
+      if (!Array.isArray(customCakesConfigsAndQnt) || !customCakesConfigsAndQnt.length) {
         return res;
       }
 
-      for (const [customCakeIndex, customCake] of customCakesConfigs.entries()) {
+      for (const [customCakeIndex, customCakeRequest] of customCakesConfigsAndQnt.entries()) {
+        const { config: customCake, quantity } = customCakeRequest;
         if (
           !customCake ||
           !customCake.flavorId ||
@@ -766,10 +779,25 @@ export class ItemService {
         }
 
         const extraLayers: ExtraLayerData[] = [];
-        let totalPrice =
-          this.parsePrice(flavor.price) +
-          this.parsePrice(decoration.price) +
-          this.parsePrice(shape.price);
+        let totalPrice = 0;
+
+        if (flavor.offer) {
+          totalPrice += (this.parsePrice(flavor.price) * flavor.offer.percentage) / 100;
+        } else {
+          totalPrice += this.parsePrice(flavor.price);
+        }
+
+        if (decoration.offer) {
+          totalPrice += (this.parsePrice(decoration.price) * decoration.offer.percentage) / 100;
+        } else {
+          totalPrice += this.parsePrice(decoration.price);
+        }
+
+        if (shape.offer) {
+          totalPrice += (this.parsePrice(shape.price) * shape.offer.percentage) / 100;
+        } else {
+          totalPrice += this.parsePrice(shape.price);
+        }
 
         const customCakeExtraLayers = Array.isArray(customCake.extraLayers)
           ? customCake.extraLayers
@@ -779,6 +807,20 @@ export class ItemService {
           this.logger.warn(
             `Invalid custom cake extraLayers at index=${customCakeIndex}: expected array`,
           );
+        }
+
+        // apply printing fee
+        let printingFee = 0;
+        if (customCake.imageToPrint && customCake.printingType) {
+          const appConfig = await this.configService.get();
+
+          if (customCake.printingType === 'paper') {
+            printingFee = appConfig.printingFee.paper;
+          } else if (customCake.printingType === 'suger') {
+            printingFee = appConfig.printingFee.suger;
+          }
+
+          totalPrice += printingFee;
         }
 
         for (const [extraLayerIndex, extraLayer] of customCakeExtraLayers.entries()) {
@@ -822,12 +864,15 @@ export class ItemService {
           color,
           extraLayers: extraLayers ?? [],
           imageToPrint: customCake.imageToPrint ?? '',
+          printingType: customCake.printingType ?? undefined,
+          printingFee: printingFee ?? 0,
           snapshotFront: customCake.snapshotFront ?? '',
           snapshotTop: customCake.snapshotTop ?? '',
           snapshotSliced: customCake.snapshotSliced ?? '',
           totalCapacity: totalCapacity ?? 0,
           totalMinPrepHours: totalMinPrepHours ?? 0,
           price: regionId ? totalPrice.toFixed(2) : undefined,
+          quantity: quantity ?? 1,
           id: this.getCustomCakeId(
             customCake.shapeId,
             customCake.flavorId,
@@ -839,16 +884,7 @@ export class ItemService {
 
       return res;
     } catch (error) {
-      this.logger.error(
-        `Failed to retrieve custom cakes: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.custom_cakes.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.custom_cakes.failed_list', this.logger);
     }
   }
 

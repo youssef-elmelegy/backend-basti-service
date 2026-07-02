@@ -43,6 +43,17 @@ export const orderItems = pgTable(
     size: varchar('size', { length: 50 }),
     flavor: varchar('flavor', { length: 100 }),
     price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    /**
+     * @description The price of the item before applying any offer.
+     * If the item has no offer, this will be the same as the price property.
+     */
+    listPrice: decimal('list_price', { precision: 10, scale: 2 }),
+    offer: jsonb('offer').$type<{
+      id: string;
+      name: string;
+      percentage: number;
+      expiryDate: Date | null;
+    }>(),
 
     selectedOptions: jsonb('selected_options').$type<
       Array<{

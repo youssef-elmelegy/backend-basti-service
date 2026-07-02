@@ -12,7 +12,6 @@ import {
   OrderResponseDto,
   ChangeOrderStatusResponseDto,
   ChangeOrderStatusDto,
-  CustomCakeConfigDto,
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
@@ -27,7 +26,6 @@ import { db } from '@/db';
 import {
   orders,
   locations,
-  paymentMethods,
   orderItems,
   cartItems,
   bakeries,
@@ -65,6 +63,7 @@ import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 import { env } from '@/env';
+import { CouponResponse } from '@/modules/coupon/dto';
 
 /** A stockable order item the target bakery can't fully reserve when reassigning. */
 export interface BakeryStockIssue {
@@ -100,12 +99,10 @@ export class OrderService {
     const {
       locationId,
       locationData,
-      paymentMethodId,
-      paymentMethodData,
       orderItemsData,
       deliveryNote = '',
       keepAnonymous = false,
-      discountAmount = 0,
+      couponCode,
       regionId,
       type,
       cardMessage,
@@ -116,7 +113,6 @@ export class OrderService {
 
     try {
       let connectedLocation: typeof locations.$inferInsert;
-      let connectedPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[] = [];
 
       const [region] = await db
@@ -164,28 +160,6 @@ export class OrderService {
           );
         }
         connectedLocation = location;
-      }
-
-      if (paymentMethodId) {
-        const [paymentMethod] = await db
-          .select()
-          .from(paymentMethods)
-          .where(and(eq(paymentMethods.id, paymentMethodId), eq(paymentMethods.userId, userId)))
-          .limit(1);
-
-        if (!paymentMethod) {
-          this.logger.warn(
-            `Payment method ID ${paymentMethodId} is invalid or does not belong to the user ${userId}`,
-          );
-          throw new BadRequestException(
-            errorResponse(
-              'routes.orders.invalid_payment_method',
-              HttpStatus.BAD_REQUEST,
-              'BadRequestException',
-            ),
-          );
-        }
-        connectedPaymentMethod = paymentMethod;
       }
 
       if (!orderItemsData || orderItemsData.length === 0) {
@@ -237,27 +211,29 @@ export class OrderService {
 
       let totalPrice = 0;
       let totalCapacity = 0;
+      let addonsTotal = 0;
+      let miniCakesTotal = 0;
       let requiredMinPrepHours = 0;
 
-      const quantityCash: Record<string, number> = {};
-
       // addons processing
-      addonsItems.forEach((item) => {
-        const addonQuantityKey = this.getAddonQuantityKey(item.addonId, item.addonOption);
-        quantityCash[addonQuantityKey] = (quantityCash[addonQuantityKey] ?? 0) + item.quantity;
-      });
       const addonsData = await this.itemService.getAddons(
-        addonsItems.map((item) => ({ id: item.addonId, option: item.addonOption })),
+        addonsItems.map((item) => ({
+          id: item.addonId,
+          option: item.addonOption,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const addon of addonsData) {
-        const addonQuantityKey = this.getAddonQuantityKey(addon.id, addon.selectedOptionId);
-        const qnt = quantityCash[addonQuantityKey] ?? 0;
+        const qnt = addon.quantity ?? 1;
         totalPrice += parseFloat(addon.price ?? '0') * qnt;
+        addonsTotal += parseFloat(addon.price ?? '0') * qnt;
         orderItemsDetails.push({
           addon: addon,
           price: addon.price ?? '0',
-          quantity: qnt,
+          listPrice: addon.listPrice,
+          offer: addon.offer,
+          quantity: addon.quantity,
           selectedOptions: addon.options.map((option) => ({
             optionId: option.id,
             type: option.type,
@@ -269,115 +245,151 @@ export class OrderService {
       }
 
       // sweets processing
-      sweetsItems.forEach((item) => {
-        quantityCash[item.sweetId] = item.quantity;
-      });
       const sweetsData = await this.itemService.getSweets(
-        sweetsItems.map((item) => item.sweetId),
+        sweetsItems.map((item) => ({
+          id: item.sweetId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const sweet of sweetsData) {
-        const qnt = quantityCash[sweet.id] ?? 0;
+        const qnt = sweet.quantity ?? 1;
         totalPrice += parseFloat(sweet.price ?? '0') * qnt;
         orderItemsDetails.push({
           sweet: sweet,
           price: sweet.price ?? '0',
+          listPrice: sweet.listPrice,
+          offer: sweet.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // featured cakes processing
-      featuredCakesItems.forEach((item) => {
-        quantityCash[item.featuredCakeId] = item.quantity;
-      });
       const featuredCakesData = await this.itemService.getFeaturedCakes(
-        featuredCakesItems.map((item) => item.featuredCakeId),
+        featuredCakesItems.map((item) => ({
+          id: item.featuredCakeId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const featuredCake of featuredCakesData) {
-        const qnt = quantityCash[featuredCake.id] ?? 0;
+        const qnt = featuredCake.quantity ?? 1;
         totalPrice += parseFloat(featuredCake.price ?? '0') * qnt;
         totalCapacity += featuredCake.capacity ?? 0;
         requiredMinPrepHours = Math.max(requiredMinPrepHours, featuredCake.minPrepHours ?? 0);
         orderItemsDetails.push({
           featuredCake: featuredCake,
           price: featuredCake.price ?? '0',
+          listPrice: featuredCake.listPrice,
+          offer: featuredCake.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // predesigned cakes processing
-      predesignedCakesItems.forEach((item) => {
-        quantityCash[item.predesignedCakeId] = item.quantity;
-      });
       const predesignedCakesData = await this.itemService.getPredesignedCakes(
-        predesignedCakesItems.map((item) => item.predesignedCakeId),
+        predesignedCakesItems.map((item) => ({
+          id: item.predesignedCakeId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const predesignedCake of predesignedCakesData) {
-        const qnt = quantityCash[predesignedCake.id] ?? 0;
+        const qnt = predesignedCake.quantity ?? 1;
         totalPrice += parseFloat(predesignedCake.price ?? '0') * qnt;
         totalCapacity += predesignedCake.totalCapacity ?? 0;
         requiredMinPrepHours = Math.max(
           requiredMinPrepHours,
           predesignedCake.totalMinPrepHours ?? 0,
         );
+
+        // save mini cakes total separately
+        if (
+          predesignedCake.configs.length === 1 &&
+          predesignedCake.configs[0].shape.size === 'mini'
+        ) {
+          miniCakesTotal += parseFloat(predesignedCake.price ?? '0') * qnt;
+        }
+
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
+          listPrice: predesignedCake.listPrice,
+          offer: predesignedCake.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // custom cakes processing
-      customCakesItems.forEach((item) => {
-        const customCakeConfig = 'customCake' in item ? item.customCake : item.customCakeConfig;
-        const uniqueid = this.itemService.getCustomCakeId(
-          customCakeConfig.shapeId,
-          customCakeConfig.flavorId,
-          customCakeConfig.decorationId,
-          customCakeConfig.color.hex,
-        );
-        quantityCash[uniqueid] = item.quantity;
-      });
       const customCakesData = await this.itemService.getCustomCakes(
-        customCakesItems
-          .map((item) => ('customCake' in item ? item.customCake : item.customCakeConfig))
-          .filter((customCake): customCake is CustomCakeConfigDto => Boolean(customCake)),
+        customCakesItems.map((item) => ({
+          config: 'customCake' in item ? item.customCake : item.customCakeConfig,
+          quantity: item.quantity,
+        })),
         regionId,
       );
+
       for (const customCake of customCakesData) {
-        const qnt = customCake.id ? (quantityCash[customCake.id] ?? 0) : 0;
-        console.log(customCake.id, qnt);
+        const qnt = customCake.quantity ?? 1;
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
         totalCapacity += customCake.totalCapacity ?? 0;
         requiredMinPrepHours = Math.max(requiredMinPrepHours, customCake.totalMinPrepHours ?? 0);
         orderItemsDetails.push({
           customCake: customCake,
           price: customCake.price ?? '0',
+          listPrice: customCake.listPrice,
+          offer: null,
           quantity: qnt,
           selectedOptions: [],
         });
       }
-
-      let finalPrice = 0;
-      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
-        type,
-        wantedDeliveryDate,
-        requiredMinPrepHours,
-        totalCapacity,
-      );
-
-      finalPrice = totalPrice - discountAmount;
 
       // Snapshot pricing config at order time so financial reports reflect the
       // config that was in effect when the order was placed, not the column defaults.
       // Note: config stores bastiPercentage as 0-100 while the order column (and the
       // financials calc) expect a 0-1 fraction, so we divide by 100 here.
       const [liveConfig] = await db.select().from(appConfig).limit(1);
+
+      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
+        type,
+        wantedDeliveryDate,
+        requiredMinPrepHours,
+      );
+
+      let finalPrice = 0;
+      let discountAmount = 0;
+      let deliveryAmount = liveConfig.deliveryAmount;
+      let couponData: CouponResponse;
+
+      if (couponCode) {
+        const res = await this.couponservice.verify({
+          code: couponCode,
+          regionId,
+          userId,
+          cartTotal: totalPrice,
+        });
+        couponData = res.data;
+
+        if (couponData.discountType === 'percentage') {
+          const maxDiscountValue = couponData.maxDiscountValue ?? Number.POSITIVE_INFINITY;
+          discountAmount = Math.min(
+            (totalPrice * couponData.discountValue) / 100,
+            maxDiscountValue,
+          );
+        } else if (couponData.discountType === 'fixed_amount') {
+          discountAmount = couponData.discountValue;
+        } else if (couponData.discountType === 'free_shipping') {
+          discountAmount = 0;
+          deliveryAmount = 0;
+        }
+
+        await this.couponservice.consume(couponData.id, userId);
+      }
+
+      finalPrice = totalPrice - discountAmount;
 
       const referenceNumber = this.generateOrderReference();
 
@@ -415,9 +427,14 @@ export class OrderService {
             discountAmount: discountAmount.toFixed(2),
             ...(liveConfig && {
               bastiPercentage: (parseFloat(liveConfig.bastiPercentage) / 100).toFixed(2),
+              miniCakePercentage: (parseFloat(liveConfig.miniCakePercentage) / 100).toFixed(2),
               deliveryAmount: liveConfig.deliveryAmount,
               bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
             }),
+            couponData: couponData || null,
+            addonsTotal: addonsTotal,
+            deliveryAmount: deliveryAmount,
+            miniCakesTotal: miniCakesTotal,
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
@@ -440,6 +457,8 @@ export class OrderService {
           flavor: item.flavor,
           size: item.size,
           price: item.price,
+          listPrice: item.listPrice,
+          offer: item.offer,
           selectedOptions: item.selectedOptions,
         }));
 
@@ -504,6 +523,8 @@ export class OrderService {
           size: item.size,
           flavor: item.flavor,
           price: item.price,
+          listPrice: item.listPrice,
+          offer: item.offer,
           selectedOptions: item.selectedOptions || [],
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
@@ -512,23 +533,7 @@ export class OrderService {
 
       return response;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-
-      const errMsg = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Error placing the order: ${errMsg}`);
-      this.logger.error(`Stack trace: ${stack}`);
-
-      throw new InternalServerErrorException(
-        errorResponse(
-          `routes.orders.failed_place`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-          { error: errMsg },
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_create', this.logger);
     }
   }
 
@@ -915,7 +920,7 @@ export class OrderService {
 
       /*
         If a driver has already accepted this order (driverData is set), marking it
-        'ready' sends it straight to 'out_for_delivery' instead — the driver was just
+   {}     'ready' sends it straight to 'out_for_delivery' instead — the driver was just
         waiting on the bakery. driverData is already populated, so it shows immediately.
       */
       const driverAlreadyAccepted = !!order.driverData;
@@ -2121,7 +2126,7 @@ export class OrderService {
         });
       } else if (item.predesignedCakeId) {
         const [pdc] = await this.itemService.getPredesignedCakes(
-          [item.predesignedCakeId],
+          [{ id: item.predesignedCakeId }],
           regionId,
         );
         if (pdc) {
@@ -2183,7 +2188,10 @@ export class OrderService {
           });
         }
       } else if (item.featuredCakeId) {
-        const [fc] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
+        const [fc] = await this.itemService.getFeaturedCakes(
+          [{ id: item.featuredCakeId }],
+          regionId,
+        );
         if (fc) {
           featuredCakeItems.push({
             data: {
@@ -2243,7 +2251,7 @@ export class OrderService {
           });
         }
       } else if (item.sweetId) {
-        const [sweet] = await this.itemService.getSweets([item.sweetId], regionId);
+        const [sweet] = await this.itemService.getSweets([{ id: item.sweetId }], regionId);
         if (sweet) {
           sweetItems.push({
             data: {

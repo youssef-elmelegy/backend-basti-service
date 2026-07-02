@@ -224,7 +224,7 @@ export class OrderController {
     @Query() dto: GetOrdersFinancialsDto,
   ) {
     this.logger.debug(`getting financials for bakery: ${bakeryId}`);
-    return this.financialsService.getBakeryFinancials(bakeryId, dto);
+    return this.financialsService.getOrdersFinancials({ ...dto, bakeryId });
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)

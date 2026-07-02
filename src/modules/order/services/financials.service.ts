@@ -28,22 +28,6 @@ export class FinancialsService {
     });
   }
 
-  async getBakeryFinancials(
-    bakeryId: string,
-    dto: GetOrdersFinancialsDto,
-  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { from, to, page, limit } = dto;
-    return this.computeFinancials({
-      bakeryId,
-      from,
-      to,
-      page,
-      limit,
-      statuses: ['ready', 'out_for_delivery', 'delivered'],
-      dateField: 'createdAt',
-    });
-  }
-
   private async computeFinancials(opts: {
     bakeryId?: string;
     from?: string;
@@ -60,13 +44,7 @@ export class FinancialsService {
       const conditions: SQL[] = [];
 
       if (bakeryId) {
-        const [bakery] = await db
-          .select({
-            name: this.translationService.getLocalized(bakeries.name, 'name'),
-          })
-          .from(bakeries)
-          .where(eq(bakeries.id, bakeryId))
-          .limit(1);
+        const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
 
         if (!bakery) {
           this.logger.warn(`Bakery with id: ${bakeryId} not found`);
@@ -105,6 +83,8 @@ export class FinancialsService {
           referenceNumber: orders.referenceNumber,
           bakeryId: orders.bakeryId,
           addonsTotal: orders.addonsTotal,
+          miniCakesTotal: orders.miniCakesTotal,
+          miniCakePercentage: orders.miniCakePercentage,
           bastiPercentage: orders.bastiPercentage,
           deliveryAmount: orders.deliveryAmount,
           bastiDeliveryAmount: orders.bastiDeliveryAmount,
@@ -132,6 +112,9 @@ export class FinancialsService {
               bakeryTotal: 0,
               deliveryAmount: 0,
               bastiDeliveryAmount: 0,
+              miniCakesTotal: 0,
+              miniCakePercentage: 0,
+              bastiPercentage: 0,
               totalPrice: 0,
               discountAmount: 0,
               finalPrice: 0,
@@ -154,6 +137,8 @@ export class FinancialsService {
           bakeryId: orders.bakeryId,
           addonsTotal: orders.addonsTotal,
           bastiPercentage: orders.bastiPercentage,
+          miniCakePercentage: orders.miniCakePercentage,
+          miniCakesTotal: orders.miniCakesTotal,
           deliveryAmount: orders.deliveryAmount,
           bastiDeliveryAmount: orders.bastiDeliveryAmount,
           totalPrice: orders.totalPrice,
@@ -177,11 +162,13 @@ export class FinancialsService {
         const bastiAmount = bastiPercentage * totalPrice;
 
         return {
-          addonsTotal: Number(order.addonsTotal) || 0,
+          addonsTotal: order.addonsTotal,
+          miniCakesTotal: order.miniCakesTotal,
           bastiPercentage,
+          miniCakePercentage: parseFloat(order.miniCakePercentage) || 0,
           bastiAmount,
-          deliveryAmount: Number(order.deliveryAmount) || 0,
-          bastiDeliveryAmount: Number(order.bastiDeliveryAmount) || 0,
+          deliveryAmount: order.deliveryAmount,
+          bastiDeliveryAmount: order.bastiDeliveryAmount,
           totalPrice,
           discountAmount: Number(order.discountAmount) || 0,
           finalPrice: Number(order.finalPrice) || 0,
@@ -197,11 +184,16 @@ export class FinancialsService {
 
       const total = ordersTotalList.reduce(
         (acc, order) => ({
-          addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
+          addonsTotal: acc.addonsTotal + order.addonsTotal,
+          miniCakesTotal:
+            acc.miniCakesTotal + Number(order.miniCakePercentage) * order.miniCakesTotal,
           bastiTotal:
             acc.bastiTotal +
-            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0) +
-            (Number(order.bastiDeliveryAmount) || 0),
+            (parseFloat(order.bastiPercentage) || 0) *
+              ((Number(order.finalPrice) || 0) -
+                order.miniCakesTotal +
+                (Number(order.bastiDeliveryAmount) || 0)),
+          miniCakePercentage: parseFloat(order.miniCakePercentage) || 0,
           bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
           deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
           bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
@@ -211,6 +203,7 @@ export class FinancialsService {
         }),
         {
           addonsTotal: 0,
+          miniCakesTotal: 0,
           bastiTotal: 0,
           bakeryTotal: 0,
           deliveryAmount: 0,
@@ -238,8 +231,7 @@ export class FinancialsService {
         'routes.orders.financials_retrieved',
       );
     } catch (error) {
-      this.logger.error(`Failed to retrieve financials:`, error);
-      handleErrorsAndThrow(error, 'routes.orders.failed_financials');
+      handleErrorsAndThrow(error, 'routes.orders.failed_financials', this.logger);
     }
   }
 }

@@ -52,6 +52,9 @@ class OrderFinancialsTotalDto {
   addonsTotal!: number;
 
   @ApiProperty()
+  miniCakesTotal!: number;
+
+  @ApiProperty()
   bastiTotal!: number;
 
   @ApiProperty()
