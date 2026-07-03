@@ -15,7 +15,13 @@ import {
   GetFeaturedCakesQueryDto,
   CreateRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, SuccessResponse, successResponse, validateCakeExists } from '@/utils';
+import {
+  errorResponse,
+  SuccessResponse,
+  successResponse,
+  validateCakeExists,
+  buildSearchPattern,
+} from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common';
 import { getErrorMessage } from '@/utils';
@@ -157,7 +163,7 @@ export class FeaturedCakeService {
           );
         }
         if (search) {
-          const searchPattern = `%${search}%`;
+          const searchPattern = buildSearchPattern(search);
           whereConditions.push(
             sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
           );
@@ -202,7 +208,7 @@ export class FeaturedCakeService {
           eq(this.translationService.getLocalized(tags.name, null, 'en'), tag),
         ];
         if (search) {
-          const searchPattern = `%${search}%`;
+          const searchPattern = buildSearchPattern(search);
           whereConditions.push(
             sql`LOWER(${this.translationService.getLocalized(featuredCakes.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
           );
@@ -235,7 +241,7 @@ export class FeaturedCakeService {
           .limit(limit)
           .offset(offset);
       } else if (search) {
-        const searchPattern = `%${search}%`;
+        const searchPattern = buildSearchPattern(search);
         const [{ count: searchCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${featuredCakes.id})` })
           .from(featuredCakes)

@@ -2,3 +2,4 @@ export type { SuccessResponse, ErrorResponse, ApiResponse, PaginatedResponse } f
 export { successResponse, errorResponse } from './response.handler';
 export * from './validators.util';
 export * from './errors.util';
+export * from './search.util';

@@ -90,6 +90,20 @@ export class CustomCakeConfig {
   @ApiProperty({ description: 'Cloudinary URL for the printed image' })
   imageToPrint: string;
 
+  @ApiProperty({
+    description: "Type of printing applied to the printed image: 'paper' or 'suger'",
+    enum: ['paper', 'suger'],
+    required: false,
+  })
+  printingType?: 'paper' | 'suger';
+
+  @ApiProperty({
+    description: 'Printing fee applied to the custom cake (0 when no printing)',
+    example: 10,
+    required: false,
+  })
+  printingFee?: number;
+
   @ApiProperty({ description: 'Cloudinary URL for the front snapshot' })
   snapshotFront: string;
 

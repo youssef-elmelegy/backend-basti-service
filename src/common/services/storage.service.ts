@@ -238,7 +238,7 @@ export class StorageService {
   }
 
   private buildKey(folder: string, originalFilename: string): string {
-    const cleanFolder = folder.replace(/^\/+|\/+$/g, '');
+    const cleanFolder = this.sanitizeFolder(folder);
     const ext = this.extractExtension(originalFilename);
     const base = originalFilename.substring(
       0,
@@ -256,6 +256,30 @@ export class StorageService {
 
     const filename = ext ? `${Date.now()}-${sanitized}.${ext}` : `${Date.now()}-${sanitized}`;
     return cleanFolder ? `${cleanFolder}/${filename}` : filename;
+  }
+
+  /**
+   * Normalizes a caller-supplied folder into a safe object-key prefix.
+   *
+   * The upload endpoint accepts `folder` from the client, so this strips any
+   * attempt to traverse or inject into the key: only `[a-zA-Z0-9-_]` survive
+   * per segment, `.`/`..` and empty segments are dropped, and both depth and
+   * length are bounded. Falls back to `basti` when nothing usable remains.
+   */
+  private sanitizeFolder(folder: string): string {
+    const segments = folder
+      .split('/')
+      .map((segment) =>
+        segment
+          .replace(/[^a-zA-Z0-9-_]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 40),
+      )
+      .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+      .slice(0, 5);
+
+    return segments.length > 0 ? segments.join('/') : 'basti';
   }
 
   private buildPublicUrl(key: string): string {

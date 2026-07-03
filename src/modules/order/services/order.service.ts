@@ -54,7 +54,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse, handleErrorsAndThrow } from '@/utils';
+import { errorResponse, successResponse, handleErrorsAndThrow, buildSearchPattern } from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -539,7 +539,9 @@ export class OrderService {
 
   async getOne(orderId: string, regionId?: string, userId?: string): Promise<OrderResponseDto> {
     try {
-      const condition: SQL[] = [];
+      // Always scope to the requested order; userId/regionId are extra guards
+      // (ownership / region), never the sole filter.
+      const condition: SQL[] = [eq(orders.id, orderId)];
 
       if (userId) {
         await this.checkUserExists(userId);
@@ -638,7 +640,7 @@ export class OrderService {
       }
 
       if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+        conditions.push(ilike(orders.referenceNumber, buildSearchPattern(query.q)));
       }
 
       if (isAssigned !== null) {
@@ -2110,6 +2112,8 @@ export class OrderService {
             shape: item.customCake.shape,
             message: item.customCake.message,
             imageToPrint: item.customCake.imageToPrint,
+            printingType: item.customCake.printingType,
+            printingFee: item.customCake.printingFee,
             snapshotFront: item.customCake.snapshotFront,
             snapshotTop: item.customCake.snapshotTop,
             snapshotSliced: item.customCake.snapshotSliced,

@@ -8,7 +8,7 @@ import {
 import { SQL, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { admins } from '@/db/schema';
-import { successResponse, SuccessResponse } from '@/utils';
+import { successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import {
   CreateReportDto,
   DriverDataDto,
@@ -49,7 +49,7 @@ export class DriverService {
       conditions.push(eq(admins.regionId, query.regionId));
     }
     if (query.q && query.q.trim()) {
-      const term = `%${query.q.trim()}%`;
+      const term = buildSearchPattern(query.q);
       conditions.push(
         or(ilike(admins.name, term), ilike(admins.email, term), ilike(admins.phoneNumber, term)),
       );
@@ -162,7 +162,9 @@ export class DriverService {
     const sortDir = query.sort ?? 'desc';
 
     const where =
-      query.q && query.q.trim() ? ilike(reports.reportBody, `%${query.q.trim()}%`) : undefined;
+      query.q && query.q.trim()
+        ? ilike(reports.reportBody, buildSearchPattern(query.q))
+        : undefined;
 
     const [{ count }] = await db
       .select({ count: sql<string>`COUNT(*)` })
@@ -221,7 +223,7 @@ export class DriverService {
 
     const conditions: SQL[] = [eq(reports.driverId, driverId)];
     if (query.q && query.q.trim()) {
-      conditions.push(ilike(reports.reportBody, `%${query.q.trim()}%`));
+      conditions.push(ilike(reports.reportBody, buildSearchPattern(query.q)));
     }
     const where = and(...conditions);
 
@@ -330,7 +332,7 @@ export class DriverService {
       );
     }
     if (query.q && query.q.trim()) {
-      conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      conditions.push(ilike(orders.referenceNumber, buildSearchPattern(query.q)));
     }
     const where = and(...conditions);
 

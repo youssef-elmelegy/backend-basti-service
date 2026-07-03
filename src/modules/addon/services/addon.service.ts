@@ -15,7 +15,7 @@ import {
   GetAddonsQueryDto,
   CreateAddonRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, SuccessResponse, successResponse } from '@/utils';
+import { errorResponse, SuccessResponse, successResponse, buildSearchPattern } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '../../../common/translation/translation.service';
 import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
@@ -132,7 +132,10 @@ export class AddonService {
       }
       if (search) {
         conditions.push(
-          ilike(this.translationService.getLocalized(addons.name, null, 'en'), `%${search}%`),
+          ilike(
+            this.translationService.getLocalized(addons.name, null, 'en'),
+            buildSearchPattern(search),
+          ),
         );
       }
       if (regionId) {

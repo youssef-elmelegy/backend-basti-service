@@ -25,7 +25,7 @@ import {
   offers,
 } from '@/db/schema';
 import { eq, asc, sql, and, inArray, gte, gt, lt, lte, SQL, getTableColumns } from 'drizzle-orm';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 
@@ -177,7 +177,7 @@ export class ShapeService {
 
         // If search is also provided, combine both filters
         if (query.search) {
-          const searchPattern = `%${query.search}%`;
+          const searchPattern = buildSearchPattern(query.search);
           const searchCondition = sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
           whereConditions.push(searchCondition);
 
@@ -229,7 +229,7 @@ export class ShapeService {
       }
       // Search by title if provided
       else if (query.search) {
-        const searchPattern = `%${query.search}%`;
+        const searchPattern = buildSearchPattern(query.search);
         whereConditions.push(
           sql`LOWER(${this.translationService.getLocalized(shapes.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
         );
