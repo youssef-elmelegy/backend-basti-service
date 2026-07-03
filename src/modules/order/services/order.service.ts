@@ -12,19 +12,13 @@ import {
   OrderResponseDto,
   ChangeOrderStatusResponseDto,
   ChangeOrderStatusDto,
-  CustomCakeConfigDto,
   CreateOrderResponseDto,
   AssignBakeryDto,
   AssignBakeryResponseDto,
   AvailableBakeryDto,
   FinalizeOrderDto,
   FinalizeOrderResponseDto,
-  GetOrdersFinancialsDto,
-  GetOrdersFinancialsResponseDto,
-  GetUnassignedOrdersQueryDto,
-  GetAssignedOrdersQueryDto,
-  GetCompletedOrdersQueryDto,
-  GetDispatchOrdersQueryDto,
+  GetAllQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
 } from '../dto';
@@ -32,7 +26,6 @@ import { db } from '@/db';
 import {
   orders,
   locations,
-  paymentMethods,
   orderItems,
   cartItems,
   bakeries,
@@ -50,11 +43,9 @@ import {
   and,
   eq,
   getTableColumns,
-  gte,
   ilike,
   inArray,
   isNull,
-  lte,
   not,
   SQL,
   asc,
@@ -63,7 +54,7 @@ import {
   sql,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, handleErrorsAndThrow } from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -72,6 +63,7 @@ import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 import { env } from '@/env';
+import { CouponResponse } from '@/modules/coupon/dto';
 
 /** A stockable order item the target bakery can't fully reserve when reassigning. */
 export interface BakeryStockIssue {
@@ -80,6 +72,14 @@ export interface BakeryStockIssue {
   requested: number;
   available: number;
 }
+
+/* prod: 
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExODQ0LCJleHAiOjE3ODI5MTI3NDR9.aTh4TPFOEzeZlP2V_Ee9OL8yNZAuHekMJHXdoswrH70
+*/
+
+/* dev:
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExOTI4LCJleHAiOjE3ODM4MTE5Mjh9.ryqIvKE3OsB93iyFwQHPfyGUfaRuP9_Ak4vPYdAoAUw
+*/
 
 /* eslint-disable */
 @Injectable()
@@ -95,28 +95,14 @@ export class OrderService {
 
   private readonly logger = new Logger(OrderService.name);
 
-  private getAddonQuantityKey(addonId: string, optionId?: string): string {
-    return `${addonId}::${optionId ?? ''}`;
-  }
-
-  private generateDeliveryCodeValue(): string {
-    return randomInt(100000, 1000000).toString();
-  }
-
-  private hashDeliveryCheckCode(code: string): string {
-    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
-  }
-
   async create(orderData: CreateOrderDto, userId: string): Promise<CreateOrderResponseDto> {
     const {
       locationId,
       locationData,
-      paymentMethodId,
-      paymentMethodData,
       orderItemsData,
       deliveryNote = '',
       keepAnonymous = false,
-      discountAmount = 0,
+      couponCode,
       regionId,
       type,
       cardMessage,
@@ -127,7 +113,6 @@ export class OrderService {
 
     try {
       let connectedLocation: typeof locations.$inferInsert;
-      let connectedPaymentMethod: typeof paymentMethods.$inferInsert;
       let cart: (typeof cartItems.$inferSelect)[] = [];
 
       const [region] = await db
@@ -175,28 +160,6 @@ export class OrderService {
           );
         }
         connectedLocation = location;
-      }
-
-      if (paymentMethodId) {
-        const [paymentMethod] = await db
-          .select()
-          .from(paymentMethods)
-          .where(and(eq(paymentMethods.id, paymentMethodId), eq(paymentMethods.userId, userId)))
-          .limit(1);
-
-        if (!paymentMethod) {
-          this.logger.warn(
-            `Payment method ID ${paymentMethodId} is invalid or does not belong to the user ${userId}`,
-          );
-          throw new BadRequestException(
-            errorResponse(
-              'routes.orders.invalid_payment_method',
-              HttpStatus.BAD_REQUEST,
-              'BadRequestException',
-            ),
-          );
-        }
-        connectedPaymentMethod = paymentMethod;
       }
 
       if (!orderItemsData || orderItemsData.length === 0) {
@@ -248,27 +211,29 @@ export class OrderService {
 
       let totalPrice = 0;
       let totalCapacity = 0;
+      let addonsTotal = 0;
+      let miniCakesTotal = 0;
       let requiredMinPrepHours = 0;
 
-      const quantityCash: Record<string, number> = {};
-
       // addons processing
-      addonsItems.forEach((item) => {
-        const addonQuantityKey = this.getAddonQuantityKey(item.addonId, item.addonOption);
-        quantityCash[addonQuantityKey] = (quantityCash[addonQuantityKey] ?? 0) + item.quantity;
-      });
       const addonsData = await this.itemService.getAddons(
-        addonsItems.map((item) => ({ id: item.addonId, option: item.addonOption })),
+        addonsItems.map((item) => ({
+          id: item.addonId,
+          option: item.addonOption,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const addon of addonsData) {
-        const addonQuantityKey = this.getAddonQuantityKey(addon.id, addon.selectedOptionId);
-        const qnt = quantityCash[addonQuantityKey] ?? 0;
+        const qnt = addon.quantity ?? 1;
         totalPrice += parseFloat(addon.price ?? '0') * qnt;
+        addonsTotal += parseFloat(addon.price ?? '0') * qnt;
         orderItemsDetails.push({
           addon: addon,
           price: addon.price ?? '0',
-          quantity: qnt,
+          listPrice: addon.listPrice,
+          offer: addon.offer,
+          quantity: addon.quantity,
           selectedOptions: addon.options.map((option) => ({
             optionId: option.id,
             type: option.type,
@@ -280,115 +245,151 @@ export class OrderService {
       }
 
       // sweets processing
-      sweetsItems.forEach((item) => {
-        quantityCash[item.sweetId] = item.quantity;
-      });
       const sweetsData = await this.itemService.getSweets(
-        sweetsItems.map((item) => item.sweetId),
+        sweetsItems.map((item) => ({
+          id: item.sweetId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const sweet of sweetsData) {
-        const qnt = quantityCash[sweet.id] ?? 0;
+        const qnt = sweet.quantity ?? 1;
         totalPrice += parseFloat(sweet.price ?? '0') * qnt;
         orderItemsDetails.push({
           sweet: sweet,
           price: sweet.price ?? '0',
+          listPrice: sweet.listPrice,
+          offer: sweet.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // featured cakes processing
-      featuredCakesItems.forEach((item) => {
-        quantityCash[item.featuredCakeId] = item.quantity;
-      });
       const featuredCakesData = await this.itemService.getFeaturedCakes(
-        featuredCakesItems.map((item) => item.featuredCakeId),
+        featuredCakesItems.map((item) => ({
+          id: item.featuredCakeId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const featuredCake of featuredCakesData) {
-        const qnt = quantityCash[featuredCake.id] ?? 0;
+        const qnt = featuredCake.quantity ?? 1;
         totalPrice += parseFloat(featuredCake.price ?? '0') * qnt;
         totalCapacity += featuredCake.capacity ?? 0;
         requiredMinPrepHours = Math.max(requiredMinPrepHours, featuredCake.minPrepHours ?? 0);
         orderItemsDetails.push({
           featuredCake: featuredCake,
           price: featuredCake.price ?? '0',
+          listPrice: featuredCake.listPrice,
+          offer: featuredCake.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // predesigned cakes processing
-      predesignedCakesItems.forEach((item) => {
-        quantityCash[item.predesignedCakeId] = item.quantity;
-      });
       const predesignedCakesData = await this.itemService.getPredesignedCakes(
-        predesignedCakesItems.map((item) => item.predesignedCakeId),
+        predesignedCakesItems.map((item) => ({
+          id: item.predesignedCakeId,
+          quantity: item.quantity,
+        })),
         regionId,
       );
       for (const predesignedCake of predesignedCakesData) {
-        const qnt = quantityCash[predesignedCake.id] ?? 0;
+        const qnt = predesignedCake.quantity ?? 1;
         totalPrice += parseFloat(predesignedCake.price ?? '0') * qnt;
         totalCapacity += predesignedCake.totalCapacity ?? 0;
         requiredMinPrepHours = Math.max(
           requiredMinPrepHours,
           predesignedCake.totalMinPrepHours ?? 0,
         );
+
+        // save mini cakes total separately
+        if (
+          predesignedCake.configs.length === 1 &&
+          predesignedCake.configs[0].shape.size === 'mini'
+        ) {
+          miniCakesTotal += parseFloat(predesignedCake.price ?? '0') * qnt;
+        }
+
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
+          listPrice: predesignedCake.listPrice,
+          offer: predesignedCake.offer,
           quantity: qnt,
           selectedOptions: [],
         });
       }
 
       // custom cakes processing
-      customCakesItems.forEach((item) => {
-        const customCakeConfig = 'customCake' in item ? item.customCake : item.customCakeConfig;
-        const uniqueid = this.itemService.getCustomCakeId(
-          customCakeConfig.shapeId,
-          customCakeConfig.flavorId,
-          customCakeConfig.decorationId,
-          customCakeConfig.color.hex,
-        );
-        quantityCash[uniqueid] = item.quantity;
-      });
       const customCakesData = await this.itemService.getCustomCakes(
-        customCakesItems
-          .map((item) => ('customCake' in item ? item.customCake : item.customCakeConfig))
-          .filter((customCake): customCake is CustomCakeConfigDto => Boolean(customCake)),
+        customCakesItems.map((item) => ({
+          config: 'customCake' in item ? item.customCake : item.customCakeConfig,
+          quantity: item.quantity,
+        })),
         regionId,
       );
+
       for (const customCake of customCakesData) {
-        const qnt = customCake.id ? (quantityCash[customCake.id] ?? 0) : 0;
-        console.log(customCake.id, qnt);
+        const qnt = customCake.quantity ?? 1;
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
         totalCapacity += customCake.totalCapacity ?? 0;
         requiredMinPrepHours = Math.max(requiredMinPrepHours, customCake.totalMinPrepHours ?? 0);
         orderItemsDetails.push({
           customCake: customCake,
           price: customCake.price ?? '0',
+          listPrice: customCake.listPrice,
+          offer: null,
           quantity: qnt,
           selectedOptions: [],
         });
       }
-
-      let finalPrice = 0;
-      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
-        type,
-        wantedDeliveryDate,
-        requiredMinPrepHours,
-        totalCapacity,
-      );
-
-      finalPrice = totalPrice - discountAmount;
 
       // Snapshot pricing config at order time so financial reports reflect the
       // config that was in effect when the order was placed, not the column defaults.
       // Note: config stores bastiPercentage as 0-100 while the order column (and the
       // financials calc) expect a 0-1 fraction, so we divide by 100 here.
       const [liveConfig] = await db.select().from(appConfig).limit(1);
+
+      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
+        type,
+        wantedDeliveryDate,
+        requiredMinPrepHours,
+      );
+
+      let finalPrice = 0;
+      let discountAmount = 0;
+      let deliveryAmount = liveConfig.deliveryAmount;
+      let couponData: CouponResponse;
+
+      if (couponCode) {
+        const res = await this.couponservice.verify({
+          code: couponCode,
+          regionId,
+          userId,
+          cartTotal: totalPrice,
+        });
+        couponData = res.data;
+
+        if (couponData.discountType === 'percentage') {
+          const maxDiscountValue = couponData.maxDiscountValue ?? Number.POSITIVE_INFINITY;
+          discountAmount = Math.min(
+            (totalPrice * couponData.discountValue) / 100,
+            maxDiscountValue,
+          );
+        } else if (couponData.discountType === 'fixed_amount') {
+          discountAmount = couponData.discountValue;
+        } else if (couponData.discountType === 'free_shipping') {
+          discountAmount = 0;
+          deliveryAmount = 0;
+        }
+
+        await this.couponservice.consume(couponData.id, userId);
+      }
+
+      finalPrice = totalPrice - discountAmount;
 
       const referenceNumber = this.generateOrderReference();
 
@@ -426,9 +427,14 @@ export class OrderService {
             discountAmount: discountAmount.toFixed(2),
             ...(liveConfig && {
               bastiPercentage: (parseFloat(liveConfig.bastiPercentage) / 100).toFixed(2),
+              miniCakePercentage: (parseFloat(liveConfig.miniCakePercentage) / 100).toFixed(2),
               deliveryAmount: liveConfig.deliveryAmount,
               bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
             }),
+            couponData: couponData || null,
+            addonsTotal: addonsTotal,
+            deliveryAmount: deliveryAmount,
+            miniCakesTotal: miniCakesTotal,
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
@@ -451,6 +457,8 @@ export class OrderService {
           flavor: item.flavor,
           size: item.size,
           price: item.price,
+          listPrice: item.listPrice,
+          offer: item.offer,
           selectedOptions: item.selectedOptions,
         }));
 
@@ -489,7 +497,7 @@ export class OrderService {
 
       const response: CreateOrderResponseDto = {
         ...newOrder,
-        bakeryId: undefined,
+        bakeryId: null,
         locationId: newOrder.locationId || null,
         paymentMethodId: newOrder.paymentMethodId || null,
         paymentData: newOrder.paymentData || null,
@@ -519,6 +527,8 @@ export class OrderService {
           size: item.size,
           flavor: item.flavor,
           price: item.price,
+          listPrice: item.listPrice,
+          offer: item.offer,
           selectedOptions: item.selectedOptions || [],
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
@@ -527,67 +537,29 @@ export class OrderService {
 
       return response;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-
-      const errMsg = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Error placing the order: ${errMsg}`);
-      this.logger.error(`Stack trace: ${stack}`);
-
-      throw new InternalServerErrorException(
-        errorResponse(
-          `routes.orders.failed_place`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-          { error: errMsg },
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_create', this.logger);
     }
   }
 
-  async getAllForUser(userId: string, regionId?: string): Promise<OrderResponseDto[]> {
+  async getOne(orderId: string, regionId?: string, userId?: string): Promise<OrderResponseDto> {
     try {
-      const ordersForUser = await db.select().from(orders).where(eq(orders.userId, userId));
+      const condition: SQL[] = [];
 
-      const validOrderIds = ordersForUser
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const response = await Promise.all(
-        validOrderIds.map((orderId) => this.getOneForUser(orderId, userId, regionId)),
-      );
-
-      this.logger.log(`Retrieved ${response.length} orders for user ${userId}`);
-      return response;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
+      if (userId) {
+        await this.checkUserExists(userId);
+        condition.push(eq(orders.userId, userId));
       }
 
-      this.logger.error(`Failed to retrieve orders for user ${userId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
+      if (regionId) {
+        await this.checkRegionExists(regionId);
+        condition.push(eq(orders.regionId, regionId));
+      }
 
-  async getOneForUser(
-    orderId: string,
-    userId: string,
-    regionId?: string,
-  ): Promise<OrderResponseDto> {
-    try {
       const [order] = await db
         .select()
         .from(orders)
-        .where(and(eq(orders.id, orderId), eq(orders.userId, userId)));
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+        .where(and(...condition))
+        .limit(1);
 
       if (!order) {
         this.logger.warn(`Order with id: ${orderId} not found`);
@@ -596,9 +568,12 @@ export class OrderService {
         );
       }
 
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+
       const formattedItems = await this.formatOrderItemsResponse(items, regionId ?? order.regionId);
 
       this.logger.log(`Retrieved order: ${orderId}`);
+
       return {
         addons: formattedItems.addonItems,
         sweets: formattedItems.sweetItems,
@@ -606,45 +581,153 @@ export class OrderService {
         predesignedCakes: formattedItems.predesignedCakeItems,
         customCakes: formattedItems.customCakeItems,
         ...this.exposeOrderFields(order, 'user'),
-        bakeryId: order.bakeryId || undefined,
-        totalCapacity: order.totalCapacity || 0,
-        deliveryNote: order.deliveryNote || '',
         totalPrice: parseFloat(order.totalPrice),
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Failed to retrieve order ${orderId} for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : '',
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_retrieve',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_retrieve', this.logger);
     }
   }
 
-  async getAll(regionId?: string, status?: string[]): Promise<OrderResponseDto[]> {
-    try {
-      let allOrders = await db.select().from(orders);
+  async getAll(
+    userId: string | null,
+    query: GetAllQueryDto,
+    isAssigned: boolean | null,
+    isCompleted: boolean | null,
+    isDispatch: boolean | null,
+    confirmAssignedOrders: boolean | null,
+  ): Promise<{
+    items: OrderResponseDto[];
+    pagination: { total: number; totalPages: number; page: number; limit: number };
+  }> {
+    const { regionId, status, bakeryId } = query;
 
-      // Filter by status(es) if provided
+    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+    const sortDir = query.sort ?? 'desc';
+    const offset = (page - 1) * limit;
+
+    try {
+      const conditions: SQL[] = [];
+
+      if (userId) {
+        await this.checkUserExists(userId);
+        conditions.push(eq(orders.userId, userId));
+      }
+
+      if (regionId) {
+        await this.checkRegionExists(regionId);
+        conditions.push(eq(orders.regionId, regionId));
+      }
+
+      if (bakeryId) {
+        await this.checkBakeryExists(bakeryId);
+        conditions.push(eq(orders.bakeryId, bakeryId));
+      }
+
+      if (query.type) {
+        conditions.push(
+          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
+        );
+      }
+
+      if (query.status && query.status.length > 0) {
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            query.status as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
+      }
+
+      if (isAssigned !== null) {
+        const defaultActiveStatuses = [
+          'pending',
+          'confirmed',
+          'preparing',
+          'ready',
+          'out_for_delivery',
+        ];
+        const statusList =
+          query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
+
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            statusList as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+
+        if (isAssigned) {
+          conditions.push(isNotNull(orders.bakeryId));
+        } else {
+          conditions.push(
+            isNull(orders.bakeryId),
+            not(eq(orders.orderStatus, 'delivered')),
+            not(eq(orders.orderStatus, 'cancelled')),
+          );
+        }
+      }
+
+      if (isCompleted) {
+        const defaultCompletedStatuses = ['ready', 'out_for_delivery', 'delivered', 'cancelled'];
+        const statusList =
+          query.status && query.status.length > 0 ? query.status : defaultCompletedStatuses;
+
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            statusList as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+
+      if (isDispatch) {
+        // Active, non-terminal statuses only — delivered/cancelled orders aren't dispatched.
+        const dispatchStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
+
+        conditions.push(
+          isNotNull(orders.bakeryId),
+          inArray(
+            orders.orderStatus,
+            dispatchStatuses as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+
+        if (query.driverState === 'unassigned') {
+          conditions.push(isNull(orders.driverId));
+        } else if (query.driverState === 'assigned') {
+          conditions.push(isNotNull(orders.driverId));
+          conditions.push(isNull(orders.driverData));
+        } else if (query.driverState === 'accepted') {
+          conditions.push(isNotNull(orders.driverId));
+          conditions.push(isNotNull(orders.driverData));
+        }
+      }
+
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(and(...conditions));
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
+
+      let allOrders = await db
+        .select()
+        .from(orders)
+        .where(and(...conditions))
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
+
       if (status && status.length > 0) {
         allOrders = allOrders.filter((order) =>
           this.matchesStatusFilter(order.orderStatus, status),
         );
-      }
-
-      if (regionId) {
-        allOrders = allOrders.filter((order) => order.regionId === regionId);
       }
 
       const orderIds = allOrders
@@ -658,7 +741,6 @@ export class OrderService {
 
       const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
 
-      // Process all orders concurrently with per-order fallback
       const response = await Promise.all(
         allOrders.map(async (order): Promise<OrderResponseDto> => {
           try {
@@ -676,621 +758,32 @@ export class OrderService {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
-
             return this.buildBasicOrderResponse(order);
+          } finally {
+            /* 
+              this is desinged for bakery orders retrieval, where 
+              we want to confirm assigned orders automatically if the flag is set
+            */
+            if (confirmAssignedOrders) {
+              await this.confirmAssignedOrder(order);
+            }
           }
         }),
       );
 
       this.logger.log(`Retrieved all orders, count: ${response.length}`);
-      return response;
-    } catch {
-      this.logger.error(`Failed to retrieve all orders`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of a bakery's orders. Same shape as the admin endpoints:
-   * { items, pagination: { total, totalPages, page, limit } }.
-   * Filters: regionId, q (reference search), status[], sort.
-   */
-  async getAllForBakery(
-    bakeryId: string,
-    query: {
-      page?: number;
-      limit?: number;
-      regionId?: string;
-      type?: string;
-      status?: string[];
-      q?: string;
-      sort?: 'asc' | 'desc';
-    } = {},
-  ): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    try {
-      // Verify bakery exists
-      const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
-
-      if (!bakery) {
-        this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-        throw new NotFoundException(
-          errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const conditions: SQL[] = [eq(orders.bakeryId, bakeryId)];
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.type) {
-        conditions.push(
-          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
-        );
-      }
-      if (query.status && query.status.length > 0) {
-        conditions.push(
-          inArray(
-            orders.orderStatus,
-            query.status as (typeof orders.orderStatus.enumValues)[number][],
-          ),
-        );
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const allOrderItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-
-      const groupedItems = this.groupOrderItemsByOrderId(allOrderItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) {
-              throw new Error('Order id is missing');
-            }
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            this.logger.warn(
-              `Failed to retrieve full details for order ${order.id}, returning basic order data`,
-            );
-            await this.confirmAssignedOrder(order);
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Bakery ${bakeryId} orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
 
       return {
-        items,
+        items: response,
         pagination: {
           total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
+          totalPages: Math.ceil(total / limit),
           page,
           limit,
         },
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      this.logger.error(`Failed to retrieve bakery orders for bakery ${bakeryId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of unassigned active orders for the admin sidebar.
-   * Excludes delivered/cancelled. Filters apply at the SQL layer so we don't
-   * scan the whole orders table for every keystroke.
-   */
-  async getUnassigned(query: GetUnassignedOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    // Default statuses for an "unassigned" view: everything that's still in flight.
-    const defaultActiveStatuses = [
-      'pending',
-      'confirmed',
-      'preparing',
-      'ready',
-      'out_for_delivery',
-    ];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        isNull(orders.bakeryId),
-        not(eq(orders.orderStatus, 'delivered')),
-        not(eq(orders.orderStatus, 'cancelled')),
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.type) {
-        conditions.push(
-          eq(orders.cartType, query.type as (typeof orders.cartType.enumValues)[number]),
-        );
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            this.logger.warn(
-              `Failed to retrieve full details for order ${order.id}, returning basic data`,
-            );
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Unassigned orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve unassigned orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Orders that have been assigned to a bakery, grouped by bakeryId.
-   * Used by the admin Kanban view. Not paginated — usually a manageable count.
-   *
-   * By default only active (non-terminal) orders are returned. To pull history,
-   * pass explicit statuses (e.g. status=delivered,cancelled) — terminal statuses
-   * are no longer hard-excluded, so the status filter fully controls the scope.
-   */
-  async getAssigned(query: GetAssignedOrdersQueryDto): Promise<Record<string, OrderResponseDto[]>> {
-    const sortDir = query.sort ?? 'desc';
-    const defaultActiveStatuses = [
-      'pending',
-      'confirmed',
-      'preparing',
-      'ready',
-      'out_for_delivery',
-    ];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultActiveStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        isNotNull(orders.bakeryId),
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const allRows = await db
-        .select()
-        .from(orders)
-        .where(and(...conditions))
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt));
-
-      const orderIds = allRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const allItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(allItems);
-
-      const built = await Promise.all(
-        allRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      // Group by bakeryId. `bakeryId` is non-null here thanks to the isNotNull filter.
-      const result: Record<string, OrderResponseDto[]> = {};
-      for (const order of built) {
-        const key = order.bakeryId;
-        if (!key) continue;
-        if (!result[key]) result[key] = [];
-        result[key].push(order);
-      }
-
-      this.logger.log(
-        `Assigned orders: ${built.length} order(s) across ${Object.keys(result).length} bakery(ies)`,
-      );
-
-      return result;
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve assigned orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed of completed/terminal orders for the admin completed page.
-   * Default statuses: ready / out_for_delivery / delivered / cancelled.
-   */
-  async getCompleted(query: GetCompletedOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    const defaultCompletedStatuses = ['ready', 'out_for_delivery', 'delivered', 'cancelled'];
-    const statusList =
-      query.status && query.status.length > 0 ? query.status : defaultCompletedStatuses;
-
-    try {
-      const conditions: SQL[] = [
-        inArray(orders.orderStatus, statusList as (typeof orders.orderStatus.enumValues)[number][]),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Completed orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve completed orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  /**
-   * Paginated feed for the admin driver-dispatch board. Returns orders that have
-   * been assigned to a bakery and are still active (anything except
-   * delivered/cancelled), so an admin can assign/track a delivery driver.
-   * Items carry their driver assignment state (driverId / driverData /
-   * driverAssignedAt) so the board can render the assignment chip.
-   */
-  async getForDispatch(query: GetDispatchOrdersQueryDto): Promise<{
-    items: OrderResponseDto[];
-    pagination: { total: number; totalPages: number; page: number; limit: number };
-  }> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const sortDir = query.sort ?? 'desc';
-    const offset = (page - 1) * limit;
-
-    // Active, non-terminal statuses only — delivered/cancelled orders aren't dispatched.
-    const dispatchStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
-
-    try {
-      const conditions: SQL[] = [
-        isNotNull(orders.bakeryId),
-        inArray(
-          orders.orderStatus,
-          dispatchStatuses as (typeof orders.orderStatus.enumValues)[number][],
-        ),
-      ];
-
-      if (query.regionId) {
-        conditions.push(eq(orders.regionId, query.regionId));
-      }
-      if (query.bakeryId) {
-        conditions.push(eq(orders.bakeryId, query.bakeryId));
-      }
-      if (query.q && query.q.trim()) {
-        conditions.push(ilike(orders.referenceNumber, `%${query.q.trim()}%`));
-      }
-      // driverState: unassigned = no driver; assigned = driver set but not yet
-      // accepted (driverData null); accepted = driver accepted (driverData set).
-      if (query.driverState === 'unassigned') {
-        conditions.push(isNull(orders.driverId));
-      } else if (query.driverState === 'assigned') {
-        conditions.push(isNotNull(orders.driverId));
-        conditions.push(isNull(orders.driverData));
-      } else if (query.driverState === 'accepted') {
-        conditions.push(isNotNull(orders.driverId));
-        conditions.push(isNotNull(orders.driverData));
-      }
-
-      const where = and(...conditions);
-
-      const [{ count }] = await db
-        .select({ count: sql<string>`COUNT(*)` })
-        .from(orders)
-        .where(where);
-      const total = typeof count === 'string' ? parseInt(count, 10) : count;
-
-      const pageRows = await db
-        .select()
-        .from(orders)
-        .where(where)
-        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset);
-
-      const orderIds = pageRows
-        .map((order) => order.id)
-        .filter((orderId): orderId is string => Boolean(orderId));
-
-      const pageItems =
-        orderIds.length > 0
-          ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
-          : [];
-      const groupedItems = this.groupOrderItemsByOrderId(pageItems);
-
-      const items = await Promise.all(
-        pageRows.map(async (order): Promise<OrderResponseDto> => {
-          try {
-            if (!order.id) throw new Error('Order id is missing');
-            const formattedItems = await this.formatOrderItemsResponse(
-              groupedItems[order.id] || [],
-              query.regionId ?? order.regionId,
-            );
-            return this.buildOrderResponse(order, formattedItems);
-          } catch {
-            return this.buildBasicOrderResponse(order);
-          }
-        }),
-      );
-
-      this.logger.log(
-        `Dispatch orders page ${page}/${Math.max(1, Math.ceil(total / limit))} (total ${total})`,
-      );
-
-      return {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
-        },
-      };
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to retrieve dispatch orders: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
-    }
-  }
-
-  async getOne(orderId: string, regionId?: string): Promise<OrderResponseDto> {
-    try {
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-
-      this.logger.log(`Fetching order details for order ID: ${orderId} with ${items.length} items`);
-
-      if (!order) {
-        this.logger.warn(`Order with id: ${orderId} not found`);
-        throw new NotFoundException(
-          errorResponse('routes.orders.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-        );
-      }
-
-      const formattedItems = await this.formatOrderItemsResponse(items, regionId ?? order.regionId);
-
-      this.logger.log(`Retrieved order: ${orderId}`);
-      return {
-        addons: formattedItems.addonItems,
-        sweets: formattedItems.sweetItems,
-        featuredCakes: formattedItems.featuredCakeItems,
-        predesignedCakes: formattedItems.predesignedCakeItems,
-        customCakes: formattedItems.customCakeItems,
-        ...this.exposeOrderFields(order),
-        bakeryId: order.bakeryId || undefined,
-        totalCapacity: order.totalCapacity || 0,
-        deliveryNote: order.deliveryNote || '',
-        totalPrice: parseFloat(order.totalPrice),
-        discountAmount: parseFloat(order.discountAmount),
-        finalPrice: parseFloat(order.finalPrice),
-      };
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Failed to retrieve order ${orderId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : '',
-      );
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_retrieve',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_list', this.logger);
     }
   }
 
@@ -1367,22 +860,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-
-      const errMsg = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Error cancelling the order: ${errMsg}`);
-      this.logger.error(`Stack trace: ${stack}`);
-
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_cancel',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_cancel', this.logger);
     }
   }
 
@@ -1431,18 +909,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(`Failed to refuse order ${orderId}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_refuse',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_refuse', this.logger);
     }
   }
 
@@ -1462,7 +929,7 @@ export class OrderService {
 
       /*
         If a driver has already accepted this order (driverData is set), marking it
-        'ready' sends it straight to 'out_for_delivery' instead — the driver was just
+   {}     'ready' sends it straight to 'out_for_delivery' instead — the driver was just
         waiting on the bakery. driverData is already populated, so it shows immediately.
       */
       const driverAlreadyAccepted = !!order.driverData;
@@ -1548,18 +1015,7 @@ export class OrderService {
 
       return updatedOrder;
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      this.logger.error(`Failed to change order status for order ${orderId} to ${status}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_change_status',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.orders.failed_change_status', this.logger);
     }
   }
 
@@ -1750,7 +1206,7 @@ export class OrderService {
     // not only while pending. Once it is ready / out for delivery / delivered /
     // cancelled it is too late to move it to another bakery.
     const reassignableStatuses: string[] = ['pending', 'confirmed', 'preparing'];
-    if (!reassignableStatuses.includes(order.orderStatus)) {
+    if (!reassignableStatuses.includes(order.orderStatus!)) {
       this.logger.warn(
         `Order with id: ${orderId} cannot be assigned to a bakery in status: ${order.orderStatus}`,
       );
@@ -2118,7 +1574,7 @@ export class OrderService {
     const returnableStatuses: string[] = bypassTimeLimit
       ? ['pending', 'confirmed', 'preparing']
       : ['pending'];
-    if (!returnableStatuses.includes(order.orderStatus)) {
+    if (!returnableStatuses.includes(order.orderStatus!)) {
       this.logger.warn(
         `Order with id: ${orderId} cannot be un-assigned from a bakery in status: ${order.orderStatus}`,
       );
@@ -2444,255 +1900,42 @@ export class OrderService {
     }
   }
 
-  /**
-   * Admin financials view (all bakeries, optionally scoped by bakeryId).
-   * Includes orders from "ready" through "delivered" and filters the
-   * from/to range on createdAt, since not-yet-delivered orders have no
-   * deliveredAt yet.
-   */
-  async getOrdersFinancials(
-    dto: GetOrdersFinancialsDto,
-  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit } = dto;
-    return this.computeFinancials({
-      bakeryId,
-      from,
-      to,
-      page,
-      limit,
-      statuses: ['ready', 'out_for_delivery', 'delivered'],
-      dateField: 'createdAt',
-    });
-  }
-
-  /**
-   * Bakery-scoped financials for the bakery manager view.
-   * Includes orders from "ready" through "delivered" and filters the
-   * from/to range on createdAt, since not-yet-delivered orders have no
-   * deliveredAt yet.
-   */
-  async getBakeryFinancials(
-    bakeryId: string,
-    dto: GetOrdersFinancialsDto,
-  ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { from, to, page, limit } = dto;
-    return this.computeFinancials({
-      bakeryId,
-      from,
-      to,
-      page,
-      limit,
-      statuses: ['ready', 'out_for_delivery', 'delivered'],
-      dateField: 'createdAt',
-    });
-  }
-
-  private async computeFinancials(opts: {
-    bakeryId?: string;
-    from?: string;
-    to?: string;
-    page?: number;
-    limit?: number;
-    statuses: (typeof orders.orderStatus.enumValues)[number][];
-    dateField: 'deliveredAt' | 'createdAt';
-  }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
-    const dateColumn = dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
-
-    try {
-      const conditions: SQL[] = [];
-
-      if (bakeryId) {
-        const [bakery] = await db
-          .select({
-            name: this.translationService.getLocalized(bakeries.name, 'name'),
-          })
-          .from(bakeries)
-          .where(eq(bakeries.id, bakeryId))
-          .limit(1);
-
-        if (!bakery) {
-          this.logger.warn(`Bakery with id: ${bakeryId} not found`);
-          throw new NotFoundException(
-            errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
-          );
-        }
-
-        conditions.push(eq(orders.bakeryId, bakeryId));
-      }
-
-      if (from) {
-        const fromCondition = and(isNotNull(dateColumn), gte(dateColumn, new Date(from)));
-        if (fromCondition) conditions.push(fromCondition);
-      }
-
-      if (to) {
-        const toCondition = and(isNotNull(dateColumn), lte(dateColumn, new Date(to)));
-        if (toCondition) conditions.push(toCondition);
-      }
-
-      conditions.push(inArray(orders.orderStatus, statuses));
-
-      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-      const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
-      const resolvedLimit = Math.min(
-        limit ?? PAGINATION_DEFAULTS.LIMIT,
-        PAGINATION_DEFAULTS.MAX_LIMIT,
-      );
-      const offset = (resolvedPage - 1) * resolvedLimit;
-
-      const ordersTotalList = await db
-        .select({
-          orderId: orders.id,
-          referenceNumber: orders.referenceNumber,
-          bakeryId: orders.bakeryId,
-          addonsTotal: orders.addonsTotal,
-          bastiPercentage: orders.bastiPercentage,
-          deliveryAmount: orders.deliveryAmount,
-          bastiDeliveryAmount: orders.bastiDeliveryAmount,
-          totalPrice: orders.totalPrice,
-          discountAmount: orders.discountAmount,
-          finalPrice: orders.finalPrice,
-          orderStatus: orders.orderStatus,
-          deliveredAt: orders.deliveredAt,
-          createdAt: orders.createdAt,
-          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
-        })
-        .from(orders)
-        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
-        .where(whereClause)
-        .orderBy(desc(dateColumn));
-
-      if (!ordersTotalList || ordersTotalList.length === 0) {
-        this.logger.log('No orders matched the financials filters; returning empty result');
-        return successResponse(
-          {
-            rows: [],
-            total: {
-              addonsTotal: 0,
-              bastiTotal: 0,
-              bakeryTotal: 0,
-              deliveryAmount: 0,
-              bastiDeliveryAmount: 0,
-              totalPrice: 0,
-              discountAmount: 0,
-              finalPrice: 0,
-            },
-            pagination: {
-              total: 0,
-              limit: resolvedLimit,
-              page: resolvedPage,
-              totalPages: 0,
-            },
-          },
-          'routes.orders.financials_retrieved',
-        );
-      }
-
-      const ordersList = await db
-        .select({
-          orderId: orders.id,
-          referenceNumber: orders.referenceNumber,
-          bakeryId: orders.bakeryId,
-          addonsTotal: orders.addonsTotal,
-          bastiPercentage: orders.bastiPercentage,
-          deliveryAmount: orders.deliveryAmount,
-          bastiDeliveryAmount: orders.bastiDeliveryAmount,
-          totalPrice: orders.totalPrice,
-          discountAmount: orders.discountAmount,
-          finalPrice: orders.finalPrice,
-          orderStatus: orders.orderStatus,
-          deliveredAt: orders.deliveredAt,
-          createdAt: orders.createdAt,
-          bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
-        })
-        .from(orders)
-        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
-        .where(whereClause)
-        .orderBy(desc(dateColumn))
-        .limit(resolvedLimit)
-        .offset(offset);
-
-      const rows = ordersList.map((order) => {
-        const totalPrice = Number(order.totalPrice) || 0;
-        const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
-        const bastiAmount = bastiPercentage * totalPrice;
-
-        return {
-          addonsTotal: Number(order.addonsTotal) || 0,
-          bastiPercentage,
-          bastiAmount,
-          deliveryAmount: Number(order.deliveryAmount) || 0,
-          bastiDeliveryAmount: Number(order.bastiDeliveryAmount) || 0,
-          totalPrice,
-          discountAmount: Number(order.discountAmount) || 0,
-          finalPrice: Number(order.finalPrice) || 0,
-          bakeryId: order.bakeryId || '',
-          bakeryName: order.bakeryName || '',
-          orderId: order.orderId,
-          referenceNumber: order.referenceNumber || '',
-          orderStatus: order.orderStatus,
-          deliveredAt: order.deliveredAt,
-          createdAt: order.createdAt,
-        };
-      });
-
-      const total = ordersTotalList.reduce(
-        (acc, order) => ({
-          addonsTotal: acc.addonsTotal + (Number(order.addonsTotal) || 0),
-          bastiTotal:
-            acc.bastiTotal +
-            (parseFloat(order.bastiPercentage) || 0) * (Number(order.totalPrice) || 0) +
-            (Number(order.bastiDeliveryAmount) || 0),
-          bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
-          deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
-          bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
-          totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
-          discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
-          finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
-        }),
-        {
-          addonsTotal: 0,
-          bastiTotal: 0,
-          bakeryTotal: 0,
-          deliveryAmount: 0,
-          bastiDeliveryAmount: 0,
-          totalPrice: 0,
-          discountAmount: 0,
-          finalPrice: 0,
-        },
-      );
-
-      const totalCount = ordersTotalList.length;
-      const totalPages = Math.ceil(totalCount / resolvedLimit);
-
-      return successResponse(
-        {
-          rows,
-          total,
-          pagination: {
-            total: totalCount,
-            limit: resolvedLimit,
-            page: resolvedPage,
-            totalPages,
-          },
-        },
-        'routes.orders.financials_retrieved',
-      );
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      this.logger.error(`Failed to retrieve financials:`, error);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.orders.failed_financials',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
+  private async checkUserExists(userId: string): Promise<void> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) {
+      this.logger.warn(`User with id: ${userId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.users.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
+  }
+
+  private async checkRegionExists(regionId: string): Promise<void> {
+    const [region] = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
+    if (!region) {
+      this.logger.warn(`Region with id: ${regionId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.regions.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+  }
+
+  private async checkBakeryExists(bakeryId: string): Promise<void> {
+    const [bakery] = await db.select().from(bakeries).where(eq(bakeries.id, bakeryId)).limit(1);
+    if (!bakery) {
+      this.logger.warn(`Bakery with id: ${bakeryId} not found`);
+      throw new NotFoundException(
+        errorResponse('routes.bakeries.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+  }
+
+  private getAddonQuantityKey(addonId: string, optionId?: string): string {
+    return `${addonId}::${optionId ?? ''}`;
+  }
+
+  private hashDeliveryCheckCode(code: string): string {
+    return createHmac('sha256', env.JWT_ACCESS_SECRET).update(code).digest('hex');
   }
 
   private generateOrderReference(): string {
@@ -2800,7 +2043,7 @@ export class OrderService {
       predesignedCakes: [],
       customCakes: [],
       ...this.exposeOrderFields(order),
-      bakeryId: order.bakeryId || undefined,
+      bakeryId: order.bakeryId,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',
       totalPrice: parseFloat(order.totalPrice),
@@ -2826,7 +2069,7 @@ export class OrderService {
       predesignedCakes: formattedItems.predesignedCakeItems,
       customCakes: formattedItems.customCakeItems,
       ...this.exposeOrderFields(order),
-      bakeryId: order.bakeryId || undefined,
+      bakeryId: order.bakeryId || null,
       totalCapacity: order.totalCapacity || 0,
       deliveryNote: order.deliveryNote || '',
       totalPrice: parseFloat(order.totalPrice),
@@ -2900,7 +2143,7 @@ export class OrderService {
         });
       } else if (item.predesignedCakeId) {
         const [pdc] = await this.itemService.getPredesignedCakes(
-          [item.predesignedCakeId],
+          [{ id: item.predesignedCakeId }],
           regionId,
         );
         if (pdc) {
@@ -2962,7 +2205,10 @@ export class OrderService {
           });
         }
       } else if (item.featuredCakeId) {
-        const [fc] = await this.itemService.getFeaturedCakes([item.featuredCakeId], regionId);
+        const [fc] = await this.itemService.getFeaturedCakes(
+          [{ id: item.featuredCakeId }],
+          regionId,
+        );
         if (fc) {
           featuredCakeItems.push({
             data: {
@@ -3022,7 +2268,7 @@ export class OrderService {
           });
         }
       } else if (item.sweetId) {
-        const [sweet] = await this.itemService.getSweets([item.sweetId], regionId);
+        const [sweet] = await this.itemService.getSweets([{ id: item.sweetId }], regionId);
         if (sweet) {
           sweetItems.push({
             data: {
@@ -3062,15 +2308,3 @@ export class OrderService {
     };
   }
 }
-
-// {
-//   "offerId": "b6937c54-0122-47f8-ad7c-3ced3c31485d",
-//   "regionId": "23e2da5b-50a1-4f0e-b051-ce99a8fe620a",
-//   "addonId": "526bd77a-f133-4eca-af59-ee60e5025c43",
-//   "featuredCakeId": "471d2ceb-f00f-449e-8b24-85b7e91bb2ff",
-//   "sweetId": "cddac154-91ee-4501-87e8-dc4bd6e8859f",
-//   "predesignedCakeId": "fd35b53c-37d7-45df-ba37-07b993c856f7",
-//   "decorationId": "cf343a13-c9ac-4ce2-8081-2e2cc5f5f45d",
-//   "flavorId": "c61046b8-e329-4ad5-87da-eb035eacbd1f",
-//   "shapeId": "a64454e3-9943-4465-aa37-6ed3d95af3c2"
-// }

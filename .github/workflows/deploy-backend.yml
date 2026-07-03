@@ -52,6 +52,9 @@ jobs:
             BCRYPT_SALT_ROUNDS=12
             CORS_ORIGINS=https://dashboard.basty.ly
 
+            DOCS_USERNAME=${{ secrets.DOCS_USERNAME }}
+            DOCS_PASSWORD=${{ secrets.DOCS_PASSWORD }}
+
             BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}
             MAIL_FROM_NAME=${{ secrets.MAIL_FROM_NAME }}
             MAIL_FROM=${{ secrets.MAIL_FROM }}

@@ -2,101 +2,104 @@ import { ApiProperty } from '@nestjs/swagger';
 
 class OrderFinancialsRowDto {
   @ApiProperty()
-  addonsTotal: number;
+  addonsTotal!: number;
 
   @ApiProperty()
-  bastiPercentage: number;
+  bastiPercentage!: number;
 
   @ApiProperty()
-  bastiAmount: number;
+  bastiAmount!: number;
 
   @ApiProperty()
-  deliveryAmount: number;
+  deliveryAmount!: number;
 
   @ApiProperty()
-  bastiDeliveryAmount: number;
+  bastiDeliveryAmount!: number;
 
   @ApiProperty()
-  totalPrice: number;
+  totalPrice!: number;
 
   @ApiProperty()
-  discountAmount: number;
+  discountAmount!: number;
 
   @ApiProperty()
-  finalPrice: number;
+  finalPrice!: number;
 
   @ApiProperty()
-  bakeryId: string;
+  bakeryId!: string;
 
   @ApiProperty()
-  bakeryName: string;
+  bakeryName!: string;
 
   @ApiProperty()
-  orderId: string;
+  orderId!: string;
 
   @ApiProperty()
-  referenceNumber: string;
+  referenceNumber!: string;
 
   @ApiProperty()
-  orderStatus: string;
+  orderStatus!: string | null;
 
   @ApiProperty()
-  deliveredAt: Date;
+  deliveredAt!: Date | null;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date | null;
 }
 
 class OrderFinancialsTotalDto {
   @ApiProperty()
-  addonsTotal: number;
+  addonsTotal!: number;
 
   @ApiProperty()
-  bastiTotal: number;
+  miniCakesTotal!: number;
 
   @ApiProperty()
-  bakeryTotal: number;
+  bastiTotal!: number;
 
   @ApiProperty()
-  deliveryAmount: number;
+  bakeryTotal!: number;
 
   @ApiProperty()
-  bastiDeliveryAmount: number;
+  deliveryAmount!: number;
 
   @ApiProperty()
-  totalPrice: number;
+  bastiDeliveryAmount!: number;
 
   @ApiProperty()
-  discountAmount: number;
+  totalPrice!: number;
 
   @ApiProperty()
-  finalPrice: number;
+  discountAmount!: number;
+
+  @ApiProperty()
+  finalPrice!: number;
 }
 
 class OrdersFinancialsPaginationDto {
   @ApiProperty()
-  total: number;
+  total!: number;
 
   @ApiProperty()
-  limit: number;
+  limit!: number;
 
   @ApiProperty()
-  page: number;
+  page!: number;
 
   @ApiProperty()
-  totalPages: number;
+  totalPages!: number;
 }
 
 export class GetOrdersFinancialsResponseDto {
   @ApiProperty({ type: [OrderFinancialsRowDto] })
-  rows: OrderFinancialsRowDto[];
+  rows!: OrderFinancialsRowDto[];
 
   @ApiProperty({ type: OrderFinancialsTotalDto })
-  total: OrderFinancialsTotalDto;
+  total!: OrderFinancialsTotalDto;
 
   @ApiProperty({
     description: 'Pagination information',
     type: OrdersFinancialsPaginationDto,
   })
-  pagination: OrdersFinancialsPaginationDto;
+  pagination!: OrdersFinancialsPaginationDto;
 }

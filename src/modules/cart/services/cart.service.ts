@@ -87,7 +87,7 @@ export class CartService {
         });
       } else if (item.featuredCakeId) {
         const [featuredCake] = await this.itemService.getFeaturedCakes(
-          [item.featuredCakeId],
+          [{ id: item.featuredCakeId }],
           regionId,
         );
         const unitPrice = Number(featuredCake.price ?? '0');
@@ -108,7 +108,7 @@ export class CartService {
         });
       } else if (item.predesignedCakeId) {
         const [predesignedCake] = await this.itemService.getPredesignedCakes(
-          [item.predesignedCakeId],
+          [{ id: item.predesignedCakeId }],
           regionId,
         );
         const unitPrice = predesignedCake.configs.reduce((total, config) => {
@@ -164,7 +164,10 @@ export class CartService {
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.customCake) {
-        const [customCakeData] = await this.itemService.getCustomCakes([item.customCake], regionId);
+        const [customCakeData] = await this.itemService.getCustomCakes(
+          [{ config: item.customCake }],
+          regionId,
+        );
         const unitPrice =
           Number(customCakeData.decoration.price) +
           Number(customCakeData.flavor.price) +
@@ -245,7 +248,7 @@ export class CartService {
         });
       } else if (item.featuredCakeId) {
         const [featuredCake] = await this.itemService.getFeaturedCakes(
-          [item.featuredCakeId],
+          [{ id: item.featuredCakeId }],
           regionId,
         );
         const unitPrice = Number(featuredCake.price);
@@ -265,7 +268,7 @@ export class CartService {
         });
       } else if (item.predesignedCakeId) {
         const [predesignedCake] = await this.itemService.getPredesignedCakes(
-          [item.predesignedCakeId],
+          [{ id: item.predesignedCakeId }],
           regionId,
         );
         const unitPrice = predesignedCake.configs.reduce((total, config) => {
@@ -304,7 +307,10 @@ export class CartService {
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.customCake) {
-        const [customCakeData] = await this.itemService.getCustomCakes([item.customCake], regionId);
+        const [customCakeData] = await this.itemService.getCustomCakes(
+          [{ config: item.customCake }],
+          regionId,
+        );
         const unitPrice =
           Number(customCakeData.decoration.price) +
           Number(customCakeData.flavor.price) +
@@ -362,7 +368,7 @@ export class CartService {
           totalPrice: unitPrice * item.quantity,
         });
       } else if (item.sweetId) {
-        const [sweet] = await this.itemService.getSweets([item.sweetId], regionId);
+        const [sweet] = await this.itemService.getSweets([{ id: item.sweetId }], regionId);
         const unitPrice = Number(sweet.price);
         othersCartExpanded.sweets.push({
           id: item.id,

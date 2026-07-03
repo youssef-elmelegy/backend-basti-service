@@ -34,6 +34,16 @@ export const appConfig = pgTable('app_config', {
   bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 })
     .notNull()
     .default('0.20'),
+  miniCakePercentage: decimal('mini_cake_percentage', { precision: 10, scale: 2 })
+    .notNull()
+    .default('0.10'),
+  printingFee: jsonb('printing_fee')
+    .$type<{
+      paper: number;
+      suger: number;
+    }>()
+    .notNull()
+    .default(sql`'{"normal": 10, "suger": 20}'::jsonb`),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
   bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
   minMiniCakesRequired: integer('min_mini_cakes_required').notNull().default(1),

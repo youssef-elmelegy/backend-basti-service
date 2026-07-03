@@ -38,6 +38,12 @@ export class GenerateCouponDto {
   @Min(0)
   minOrderValue: number;
 
+  @ApiPropertyOptional({ example: 150 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  maxDiscountValue?: number;
+
   @ApiPropertyOptional({ example: '2026-05-01' })
   @IsOptional()
   @IsDateString()

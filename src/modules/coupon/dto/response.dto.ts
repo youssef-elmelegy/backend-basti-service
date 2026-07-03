@@ -10,14 +10,20 @@ export class CouponResponse {
   @ApiProperty({ example: 'Basty 20% off' })
   name: string;
 
-  @ApiProperty({ example: 'percentage' })
-  discountType: string;
+  @ApiProperty({
+    example: 'percentage',
+    enum: ['percentage', 'fixed_amount', 'free_shipping'],
+  })
+  discountType: 'percentage' | 'fixed_amount' | 'free_shipping';
 
   @ApiProperty({ example: 20 })
   discountValue: number;
 
   @ApiProperty({ example: 50 })
-  minOrderValue: number | null;
+  minOrderValue?: number;
+
+  @ApiProperty({ example: 150 })
+  maxDiscountValue?: number;
 
   @ApiProperty({ example: '2026-05-01' })
   startDate: Date | null;

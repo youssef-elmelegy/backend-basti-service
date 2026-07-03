@@ -1,35 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GetDeliveryDateDto, GetDeliveryDateResponseDto } from '../dto';
 import { ConfigService } from '@/modules/config/services/config.service';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 
 @Injectable()
 export class SchedulerService {
-  constructor(private readonly configService: ConfigService) {}
-
   private readonly logger = new Logger(SchedulerService.name);
+
+  private readonly STORE_TIMEZONE = 'Libya';
+
+  constructor(private readonly configService: ConfigService) {}
 
   async getDeliveryDate(
     getDeliveryDateDto: GetDeliveryDateDto,
   ): Promise<GetDeliveryDateResponseDto> {
-    const { type, totalCapacity, totalMinPrepHours } = getDeliveryDateDto;
+    const { type, totalMinPrepHours } = getDeliveryDateDto;
 
-    const res = await this.calculateTheExpectedDeliveryTime(
-      type,
-      undefined,
-      totalMinPrepHours,
-      totalCapacity,
-    );
-    const configs = await this.configService.get();
+    const config = await this.configService.get();
+
+    const res = await this.calculateTheExpectedDeliveryTime(type, undefined, totalMinPrepHours);
 
     return {
       details: '',
       nearestDeliveryDate: res,
-      configs,
+      configs: config,
     };
   }
 
   isClosedDay(
-    date: Date,
+    date: dayjs.Dayjs,
     config: {
       weekendDays: number[];
       holidays: string[];
@@ -37,32 +45,39 @@ export class SchedulerService {
       isOpen: boolean;
     },
   ): boolean {
-    //?> global closure check
+    // ensure the date is evaluated in the store's timezone
+    const dateTz = date.tz(this.STORE_TIMEZONE);
+    const dateStr = dateTz.format('YYYY-MM-DD');
+
+    // global closure check
     if (!config.isOpen) {
+      this.logger.log(`date ${dateStr} is closed because the bakery is globally closed`);
       return true;
     }
 
-    const dayOfWeek = date.getDay();
-    const dateStr = date.toISOString().split('T')[0];
-
-    //?> check if it's a weekend
+    // check if it's a weekend
+    const dayOfWeek = dateTz.day(); // 0 (Sunday)
     if (config.weekendDays.includes(dayOfWeek)) {
+      this.logger.log(`date ${dateStr} is closed because it's a weekend`);
       return true;
     }
 
-    //?> check if it's a holiday
+    // check if it's a holiday
     if (config.holidays.includes(dateStr)) {
+      this.logger.log(`date ${dateStr} is closed because it's a holiday`);
       return true;
     }
 
-    //?> check if it's within an emergency closure period
+    // check if it's within an emergency closure period
     for (const closure of config.emergencyClosures) {
-      const fromDate = new Date(closure.from);
-      const toDate = new Date(closure.to);
-      fromDate.setHours(0, 0, 0, 0);
-      toDate.setHours(23, 59, 59, 999);
+      // Parse strings directly into the correct timezone at start/end of day
+      const fromDate = dayjs.tz(closure.from, this.STORE_TIMEZONE).startOf('day');
+      const toDate = dayjs.tz(closure.to, this.STORE_TIMEZONE).endOf('day');
 
-      if (date >= fromDate && date <= toDate) {
+      if (dateTz.isSameOrAfter(fromDate) && dateTz.isSameOrBefore(toDate)) {
+        this.logger.log(
+          `date ${dateStr} is closed because it's within an emergency closure period`,
+        );
         return true;
       }
     }
@@ -74,79 +89,81 @@ export class SchedulerService {
     type: 'big_cakes' | 'small_cakes' | 'others',
     wantedDate?: string,
     minPrepHours = 0,
-    capacity?: number,
   ): Promise<Date> {
     const config = await this.configService.get();
 
-    const currentHour = new Date().getHours();
-    const isWorkingHours = currentHour >= config.openingHour && currentHour < config.closingHour;
+    // create current time strictly in the store's timezone
+    const now = dayjs().tz(this.STORE_TIMEZONE);
+    const currentHour = now.hour();
+
+    const isTodayOpen = !this.isClosedDay(now, config);
+    const isWorkingHours =
+      isTodayOpen && currentHour >= config.openingHour && currentHour < config.closingHour;
 
     // base days for big cakes and small cakes
     const baseDays = type === 'big_cakes' ? 2 : 1;
     // number of days required for preparation
-    const prepDaysFromItems = Math.ceil(Math.max(0, minPrepHours) / 24);
+    const prepDaysFromItems = Math.ceil(Math.max(config.minHoursToPrepare, minPrepHours) / 24);
 
-    // Calculate minimum delivery date based on preparation time
-    const minDeliveryDate = new Date();
+    // calculate minimum delivery date based on preparation time
+    let minDeliveryDate = now.clone();
     let daysToAdd = type === 'others' ? 1 : isWorkingHours ? baseDays : baseDays + 1;
     daysToAdd = Math.max(daysToAdd, prepDaysFromItems);
 
-    // dummy, until capacity effect on the order delivery time is known
-    capacity = 1;
-    daysToAdd *= capacity;
-
     while (daysToAdd > 0) {
-      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
-
       if (!this.isClosedDay(minDeliveryDate, config)) {
         daysToAdd--;
       }
+      minDeliveryDate = minDeliveryDate.add(1, 'day');
     }
 
     while (this.isClosedDay(minDeliveryDate, config)) {
-      minDeliveryDate.setDate(minDeliveryDate.getDate() + 1);
+      minDeliveryDate = minDeliveryDate.add(1, 'day');
     }
 
-    minDeliveryDate.setHours(config.openingHour, 0, 0, 0);
+    // safely set the delivery hour
+    minDeliveryDate = minDeliveryDate.hour(config.openingHour).minute(0).second(0).millisecond(0);
 
-    //?> If wantedDate is provided, validate and use it
+    //if wantedDate is provided, validate and use it
     if (wantedDate) {
-      const requestedDate = new Date(wantedDate);
+      // parse wanted date strictly in the store's timezone
+      let requestedDate = dayjs.tz(wantedDate, this.STORE_TIMEZONE);
 
-      //?> Check if requested date is valid
-      if (isNaN(requestedDate.getTime())) {
+      // check if requested date is valid
+      if (!requestedDate.isValid()) {
         this.logger.warn(`Invalid wantedDate provided: ${wantedDate}`);
-        return minDeliveryDate;
+        return minDeliveryDate.toDate();
       }
 
-      //?> Check if requested date is after minimum delivery date
-      if (requestedDate >= minDeliveryDate) {
-        //?> Check if requested date is not a closed day
-        if (!this.isClosedDay(requestedDate, config)) {
-          //?> Ensure delivery is within working hours
-          if (requestedDate.getHours() < config.openingHour) {
-            requestedDate.setHours(config.openingHour, 0, 0, 0);
-          } else if (requestedDate.getHours() >= config.closingHour) {
-            requestedDate.setHours(config.closingHour - 1, 0, 0, 0);
-          }
-          return requestedDate;
-        } else {
-          //?> If requested date is a closed day, find the next open day
-          const adjustedDate = new Date(requestedDate);
-          while (this.isClosedDay(adjustedDate, config)) {
-            adjustedDate.setDate(adjustedDate.getDate() + 1);
-          }
-          adjustedDate.setHours(config.openingHour, 0, 0, 0);
-          return adjustedDate;
+      // check if requested date is same or after minimum delivery date
+      // we check by 'day' to avoid minor millisecond/hour conflicts
+      if (requestedDate.isSameOrAfter(minDeliveryDate, 'day')) {
+        // if requested date is a closed day, find the next open day
+        while (this.isClosedDay(requestedDate, config)) {
+          requestedDate = requestedDate.add(1, 'day');
         }
+
+        // ensure delivery is within working hours
+        if (requestedDate.hour() < config.openingHour) {
+          requestedDate = requestedDate.hour(config.openingHour).minute(0).second(0).millisecond(0);
+        } else if (requestedDate.hour() >= config.closingHour) {
+          requestedDate = requestedDate
+            .hour(config.closingHour - 1)
+            .minute(0)
+            .second(0)
+            .millisecond(0);
+        }
+
+        return requestedDate.toDate();
       }
 
-      //?> Requested date is before minimum delivery date, use minimum
+      // if requested date is before minimum delivery date, use minimum
       this.logger.warn(
         `Requested date ${wantedDate} is before minimum delivery date. Using minimum.`,
       );
     }
 
-    return minDeliveryDate;
+    // convert back to native JavaScript Date for the return value
+    return minDeliveryDate.toDate();
   }
 }

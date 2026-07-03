@@ -18,21 +18,39 @@ export class EmergencyClosureDto {
     example: '2025-03-01',
   })
   @IsString()
-  from: string;
+  from!: string;
 
   @ApiProperty({
     description: 'End date of the emergency closure (ISO format)',
     example: '2025-03-03',
   })
   @IsString()
-  to: string;
+  to!: string;
 
   @ApiProperty({
     description: 'Reason for the emergency closure',
     example: 'Scheduled maintenance',
   })
   @IsString()
-  reason: string;
+  reason!: string;
+}
+
+export class PrintingFeeDto {
+  @ApiProperty({
+    description: 'Paper printing fee',
+    example: 10,
+  })
+  @IsInt()
+  @Min(0)
+  paper!: number;
+
+  @ApiProperty({
+    description: 'Sugar printing fee',
+    example: 20,
+  })
+  @IsInt()
+  @Min(0)
+  suger!: number;
 }
 
 export class UpdateConfigDto {
@@ -133,6 +151,27 @@ export class UpdateConfigDto {
   @Min(0)
   @Max(100)
   bastiPercentage?: number;
+
+  @ApiProperty({
+    description: 'Mini cakes percentage applied to orders (0-100)',
+    example: 10,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  miniCakePercentage?: number;
+
+  @ApiProperty({
+    description: 'Printing fees applied to orders',
+    example: { paper: 10, suger: 20 },
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PrintingFeeDto)
+  printingFee?: PrintingFeeDto;
 
   @ApiProperty({
     description: 'Delivery amount applied to orders',

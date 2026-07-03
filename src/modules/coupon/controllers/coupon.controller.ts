@@ -29,7 +29,7 @@ export class CouponController {
   @UseGuards(JwtAuthGuard)
   @VerifyCouponDecorator()
   async verifyCoupon(@Body() verifyDto: VerifyCouponDto, @CurrentUser('sub') userId: string) {
-    return this.couponService.verify(verifyDto, userId);
+    return this.couponService.verify({ ...verifyDto, userId });
   }
 
   @Post('generate')

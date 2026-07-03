@@ -54,7 +54,11 @@ export class ConfigService {
         updateDto.bastiDeliveryAmount ?? config.bastiDeliveryAmount;
       if (effectiveBastiDeliveryAmount > effectiveDeliveryAmount) {
         throw new BadRequestException(
-          errorResponse('routes.config.basti_delivery_exceeds', HttpStatus.BAD_REQUEST, 'BadRequest'),
+          errorResponse(
+            'routes.config.basti_delivery_exceeds',
+            HttpStatus.BAD_REQUEST,
+            'BadRequest',
+          ),
         );
       }
 
@@ -84,6 +88,10 @@ export class ConfigService {
           ...(updateDto.bastiDeliveryAmount !== undefined && {
             bastiDeliveryAmount: updateDto.bastiDeliveryAmount,
           }),
+          ...(updateDto.miniCakePercentage !== undefined && {
+            miniCakePercentage: updateDto.miniCakePercentage.toFixed(2),
+          }),
+          ...(updateDto.printingFee !== undefined && { printingFee: updateDto.printingFee }),
           ...(updateDto.minMiniCakesRequired !== undefined && {
             minMiniCakesRequired: updateDto.minMiniCakesRequired,
           }),
@@ -127,6 +135,8 @@ export class ConfigService {
       bastiPercentage: parseFloat(config.bastiPercentage),
       deliveryAmount: config.deliveryAmount,
       bastiDeliveryAmount: config.bastiDeliveryAmount,
+      miniCakePercentage: parseFloat(config.miniCakePercentage),
+      printingFee: config.printingFee,
       minMiniCakesRequired: config.minMiniCakesRequired,
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,

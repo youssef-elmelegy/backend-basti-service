@@ -4,15 +4,14 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  InternalServerErrorException,
   HttpStatus,
 } from '@nestjs/common';
 import { db } from '@/db';
 import { coupons, couponUsages } from '@/db/schema';
 import { eq, and, sql, desc, getTableColumns } from 'drizzle-orm';
-import { errorResponse, SuccessResponse, successResponse } from '@/utils';
+import { SuccessResponse, successResponse } from '@/utils';
 import { CouponResponse, GenerateCouponDto, UpdateCouponDto, VerifyCouponDto } from '../dto/index';
-import { handleErrors } from '@/utils/errors.util';
+import { handleErrorsAndThrow } from '@/utils/errors.util';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 
 type FlattenedCoupon = Omit<typeof coupons.$inferSelect, 'name'> & {
@@ -63,9 +62,7 @@ export class CouponService {
 
       return true;
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to check coupon usage limits: ${errMsg}`);
-      return false;
+      handleErrorsAndThrow(error, 'routes.coupons.failed_check_usage_limits', this.logger);
     }
   }
 
@@ -84,9 +81,7 @@ export class CouponService {
       if (coupon.isGlobal) return true;
       return coupon.regionId === regionId;
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to check coupon region limits: ${errMsg}`);
-      return false;
+      handleErrorsAndThrow(error, 'routes.coupons.failed_check_region_limits', this.logger);
     }
   }
 
@@ -95,23 +90,12 @@ export class CouponService {
       const [existingCode] = await db.select().from(coupons).where(eq(coupons.code, code)).limit(1);
       return Boolean(existingCode);
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to check coupon code exists: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_to_check_code',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_check_code_exists', this.logger);
     }
   }
 
-  async verify(
-    verifyDto: VerifyCouponDto,
-    userId: string,
-  ): Promise<SuccessResponse<CouponResponse>> {
-    const { cartTotal, code, regionId } = verifyDto;
+  async verify(verifyDto: VerifyCouponDto): Promise<SuccessResponse<CouponResponse>> {
+    const { cartTotal, code, regionId, userId } = verifyDto;
 
     try {
       const [coupon] = await db
@@ -153,48 +137,30 @@ export class CouponService {
 
       return successResponse(this.formatCouponResponse(coupon), 'routes.coupons.verify');
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon verification error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.verify_failed',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_verify', this.logger);
     }
   }
 
-  async consume(couponId: string, userId: string, orderId: string): Promise<void> {
+  async consume(couponId: string, userId: string): Promise<void> {
     try {
       await db.insert(couponUsages).values({
         couponId,
         userId,
-        orderId,
         createdAt: new Date(),
       });
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to consume coupon: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_consume',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_consume', this.logger);
     }
   }
 
   async applyCoupon(params: {
     code: string;
     userId: string;
-    orderId: string;
     cartTotal: number;
     orderPrice: number;
     regionId?: string;
   }): Promise<{ finalPrice: number; discountAmount: number }> {
-    const { code, userId, orderId, cartTotal, orderPrice, regionId } = params;
+    const { code, userId, cartTotal, orderPrice, regionId } = params;
 
     try {
       const [coupon] = await db
@@ -232,7 +198,7 @@ export class CouponService {
       }
 
       // Consume it
-      await this.consume(coupon.id, userId, orderId);
+      await this.consume(coupon.id, userId);
 
       // Calculate the new price
       let discountAmount = 0;
@@ -253,15 +219,7 @@ export class CouponService {
 
       return { finalPrice, discountAmount };
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon application error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.apply_failed',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_apply', this.logger);
     }
   }
 
@@ -283,6 +241,7 @@ export class CouponService {
           discountType: data.discountType as any,
           discountValue: data.discountValue.toString() as any,
           minOrderValue: data.minOrderValue,
+          maxDiscountValue: data.maxDiscountValue || null,
           startDate: data.startDate ? new Date(data.startDate) : null,
           expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
           usageLimitGlobal: data.usageLimitGlobal || 0,
@@ -315,15 +274,7 @@ export class CouponService {
         HttpStatus.CREATED,
       );
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon generation error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_generate',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_generate', this.logger);
     }
   }
 
@@ -341,15 +292,7 @@ export class CouponService {
         'routes.coupons.list_retrieved',
       );
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon retrieval error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_list',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_list', this.logger);
     }
   }
 
@@ -367,15 +310,7 @@ export class CouponService {
       if (!coupon) throw new NotFoundException('routes.coupons.not_found');
       return successResponse(this.formatCouponResponse(coupon), 'routes.coupons.retrieved');
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to retrieve coupon: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_retrieve',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_retrieve', this.logger);
     }
   }
 
@@ -415,15 +350,7 @@ export class CouponService {
         HttpStatus.OK,
       );
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon update error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_update',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_update', this.logger);
     }
   }
 
@@ -451,15 +378,7 @@ export class CouponService {
         HttpStatus.OK,
       );
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Coupon status toggle error: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_toggle',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_toggle', this.logger);
     }
   }
 
@@ -484,15 +403,7 @@ export class CouponService {
         'routes.coupons.deleted',
       );
     } catch (error) {
-      const errMsg = handleErrors(error);
-      this.logger.error(`Failed to delete coupon: ${errMsg}`);
-      throw new InternalServerErrorException(
-        errorResponse(
-          'routes.coupons.failed_delete',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-          'InternalServerError',
-        ),
-      );
+      handleErrorsAndThrow(error, 'routes.coupons.failed_delete', this.logger);
     }
   }
 
@@ -503,7 +414,8 @@ export class CouponService {
       name: coupon.name,
       discountType: coupon.discountType,
       discountValue: parseFloat(coupon.discountValue),
-      minOrderValue: coupon.minOrderValue,
+      minOrderValue: coupon.minOrderValue ?? undefined,
+      maxDiscountValue: coupon.maxDiscountValue ?? undefined,
       startDate: coupon.startDate,
       expiryDate: coupon.expiryDate,
       usageLimitGlobal: coupon.usageLimitGlobal,

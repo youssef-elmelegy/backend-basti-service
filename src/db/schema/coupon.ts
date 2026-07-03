@@ -28,6 +28,7 @@ export const coupons = pgTable(
     discountType: discountType('discount_type').notNull(),
     discountValue: decimal('discount_value', { precision: 10, scale: 2 }).default('0').notNull(),
     minOrderValue: integer('min_order_value'),
+    maxDiscountValue: integer('max_discount_value'),
 
     startDate: timestamp('start_date', { mode: 'date' }),
     expiryDate: timestamp('expiry_date', { mode: 'date' }),
@@ -65,9 +66,7 @@ export const couponUsages = pgTable(
     userId: uuid('user_id')
       .references(() => users.id)
       .notNull(),
-    orderId: uuid('order_id')
-      .references(() => orders.id)
-      .notNull(),
+    orderId: uuid('order_id').references(() => orders.id),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (table) => ({

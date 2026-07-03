@@ -25,6 +25,11 @@ export interface AddonData {
   updatedAt: Date;
   options: AddonOptionData[];
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   quantity?: number;
@@ -40,6 +45,11 @@ export interface SweetData {
   sizes: string[];
   isActive: boolean;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   createdAt: Date;
@@ -59,6 +69,11 @@ export interface FeaturedCakeData {
   tagName: string;
   isActive: boolean;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   minPrepHours: number;
@@ -85,6 +100,11 @@ export interface FlavorData {
   order: number;
   shapeVariantImages: ShapeVariantImages[];
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   createdAt: Date;
   updatedAt: Date;
@@ -102,6 +122,11 @@ export interface DecorationData {
   minPrepHours: number;
   capacity: number;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   createdAt: Date;
   updatedAt: Date;
@@ -117,6 +142,11 @@ export interface ShapeData {
   order: number;
   size: string;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   minPrepHours: number;
   createdAt: Date;
@@ -146,6 +176,11 @@ export interface PredesignedCakeData {
   totalCapacity?: number;
   totalMinPrepHours?: number;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   offer: ItemOfferDto | null;
   sizesPrices?: Record<string, string>;
   createdAt: Date;
@@ -172,12 +207,19 @@ export interface CustomCakeData {
   extraLayers: ExtraLayerData[];
   message: string;
   imageToPrint: string;
+  printingType?: 'paper' | 'suger';
+  printingFee?: number;
   snapshotFront: string;
   snapshotTop: string;
   snapshotSliced: string;
   totalCapacity?: number;
   totalMinPrepHours?: number;
   price?: string;
+  /**
+   * @description The price of the item before applying any offer.
+   * If the item has no offer, this will be the same as the price property.
+   */
+  listPrice?: string;
   quantity?: number;
 }
 
@@ -195,6 +237,7 @@ export interface CustomCakeFlattenData {
     flavorId: string;
   }[];
   imageToPrint?: string;
+  printingType?: 'paper' | 'suger';
   snapshotFront?: string;
   snapshotTop?: string;
   snapshotSliced?: string;

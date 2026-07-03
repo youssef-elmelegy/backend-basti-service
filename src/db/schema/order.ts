@@ -84,13 +84,35 @@ export const orders = pgTable(
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     discountAmount: decimal('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),
     finalPrice: decimal('final_price', { precision: 10, scale: 2 }).notNull(),
+    deliveryAmount: integer('delivery_amount').notNull().default(10),
+    addonsTotal: integer('addons_total').notNull().default(0),
+    miniCakesTotal: integer('mini_cakes_total').notNull().default(0),
 
+    couponData: jsonb('coupon').$type<{
+      id: string;
+      code: string;
+      name: string;
+      discountType: 'percentage' | 'fixed_amount' | 'free_shipping';
+      discountValue: number;
+      minOrderValue?: number;
+      maxDiscountValue?: number;
+      startDate: Date | null;
+      expiryDate: Date | null;
+      usageLimitGlobal: number;
+      usageLimitPerUser: number;
+      isGlobal: boolean;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }>(),
+
+    bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
     bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 })
       .notNull()
       .default('0.20'),
-    deliveryAmount: integer('delivery_amount').notNull().default(10),
-    bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
-    addonsTotal: integer('addons_total').notNull().default(0),
+    miniCakePercentage: decimal('mini_cake_percentage', { precision: 10, scale: 2 })
+      .notNull()
+      .default('0.10'),
 
     totalCapacity: integer('total_capacity').default(0),
 
