@@ -298,6 +298,13 @@ export class AdminAuthService {
   async refreshTokens(adminId: string) {
     const admin = await this.getAdminById(adminId);
 
+    // A block issued mid-session must take effect no later than the current
+    // access token's expiry: refuse to mint new tokens for a blocked admin so
+    // they can't keep renewing their session indefinitely.
+    if (admin.isBlocked) {
+      throw new UnauthorizedException('routes.admin.account_blocked');
+    }
+
     const accessToken = this.jwtService.sign(
       {
         id: admin.id,

@@ -326,6 +326,21 @@ export class AdminAuthController {
     try {
       if (req.user?.id) {
         const admin = await this.adminAuthService.getAdminById(req.user.id);
+
+        // A still-valid access token must not keep a blocked admin "logged in":
+        // report the session as unauthenticated so the client tears it down.
+        if (admin.isBlocked) {
+          return res.json({
+            code: 200,
+            success: true,
+            message: 'routes.auth.check_completed',
+            data: {
+              isAuthenticated: false,
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         return res.json({
           code: 200,
           success: true,
