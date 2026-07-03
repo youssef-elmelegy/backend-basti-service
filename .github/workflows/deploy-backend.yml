@@ -104,7 +104,7 @@ jobs:
             'cat > /home/elmelegy/basti/backend-basti-service/.env && chmod 600 /home/elmelegy/basti/backend-basti-service/.env' \
             < backend.env
 
-      - name: Pull, build, restart
+      - name: Pull, build, migrate, restart
         run: |
           ssh -o StrictHostKeyChecking=no elmelegy@${{ secrets.SERVER_HOST }} 'bash -se' <<'EOF'
             set -euo pipefail
@@ -113,6 +113,19 @@ jobs:
             git reset --hard origin/main
             cd infra
             # Use --env-file so docker compose substitutes ${VAR} references from .env
+
+            # 1. Build the new backend image (postgres stays up).
+            docker compose --env-file ../.env build backend
+
+            # 2. Apply pending Drizzle migrations from the new image, one-shot.
+            #    --no-deps skips restarting postgres. --entrypoint '' bypasses tini
+            #    so we can call pnpm directly. If migrate fails, this step exits
+            #    non-zero (set -e) and the new backend never starts — old
+            #    container keeps serving until we investigate.
+            docker compose --env-file ../.env run --rm --no-deps \
+              --entrypoint '' backend pnpm db:migrate
+
+            # 3. Only if migrate succeeded, swap in the new container.
             docker compose --env-file ../.env up -d --build
             docker compose --env-file ../.env ps
             sudo systemctl reload caddy || true

@@ -37,12 +37,12 @@ export class EmergencyClosureDto {
 
 export class PrintingFeeDto {
   @ApiProperty({
-    description: 'Paper printing fee',
+    description: 'Normal printing fee',
     example: 10,
   })
   @IsInt()
   @Min(0)
-  paper!: number;
+  normal!: number;
 
   @ApiProperty({
     description: 'Sugar printing fee',
@@ -165,7 +165,7 @@ export class UpdateConfigDto {
 
   @ApiProperty({
     description: 'Printing fees applied to orders',
-    example: { paper: 10, suger: 20 },
+    example: { normal: 10, suger: 20 },
     required: false,
   })
   @IsOptional()

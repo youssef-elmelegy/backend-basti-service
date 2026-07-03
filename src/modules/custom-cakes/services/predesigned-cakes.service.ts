@@ -27,7 +27,7 @@ import {
   CheckEntityRegionAvailabilityDto,
   CreatePredesignedCakeRegionItemPriceDto,
 } from '../dto';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 
@@ -212,7 +212,7 @@ export class PredesignedCakesService {
 
       // Add search filter
       if (query.search) {
-        const searchPattern = `%${query.search}%`;
+        const searchPattern = buildSearchPattern(query.search);
         whereConditions.push(
           or(
             ilike(

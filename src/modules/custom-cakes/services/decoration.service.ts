@@ -28,7 +28,7 @@ import {
   offers,
 } from '@/db/schema';
 import { eq, desc, asc, sql, and, inArray, getTableColumns } from 'drizzle-orm';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
 import { validateTagExists } from '@/utils';
 import { isOfferActive } from '@/db/utils/helpers';
@@ -207,7 +207,7 @@ export class DecorationService {
     let total = 0;
 
     if (query.search) {
-      const searchPattern = `%${query.search}%`;
+      const searchPattern = buildSearchPattern(query.search);
       const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
@@ -369,7 +369,7 @@ export class DecorationService {
     let total = 0;
 
     if (query.search) {
-      const searchPattern = `%${query.search}%`;
+      const searchPattern = buildSearchPattern(query.search);
       const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
@@ -502,7 +502,7 @@ export class DecorationService {
 
     // If search is also provided, combine both filters
     if (query.search) {
-      const searchPattern = `%${query.search}%`;
+      const searchPattern = buildSearchPattern(query.search);
       const searchCondition = sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`;
       whereConditions.push(searchCondition);
 
@@ -652,7 +652,7 @@ export class DecorationService {
     total: number;
     totalPages: number;
   }> {
-    const searchPattern = `%${query.search}%`;
+    const searchPattern = buildSearchPattern(query.search);
     const whereConditions: any[] = [];
     whereConditions.push(
       sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,

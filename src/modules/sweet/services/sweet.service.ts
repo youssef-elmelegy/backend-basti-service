@@ -19,7 +19,7 @@ import {
 import { db } from '@/db';
 import { sweets, tags, regionItemPrices, regions, offers } from '@/db/schema';
 import { eq, desc, asc, and, sql, getTableColumns } from 'drizzle-orm';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common/translation/translation.service';
 import { isOfferActive } from '@/db/utils/helpers';
@@ -155,7 +155,7 @@ export class SweetService {
           );
         }
         if (query.search) {
-          const searchPattern = `%${query.search}%`;
+          const searchPattern = buildSearchPattern(query.search);
           whereConditions.push(
             sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
           );
@@ -198,7 +198,7 @@ export class SweetService {
           eq(this.translationService.getLocalized(tags.name, null, 'en'), query.tag),
         ];
         if (query.search) {
-          const searchPattern = `%${query.search}%`;
+          const searchPattern = buildSearchPattern(query.search);
           whereConditions.push(
             sql`LOWER(${this.translationService.getLocalized(sweets.name, null, 'en')}) LIKE LOWER(${searchPattern})`,
           );
@@ -228,7 +228,7 @@ export class SweetService {
           .limit(query.limit)
           .offset(offset);
       } else if (query.search) {
-        const searchPattern = `%${query.search}%`;
+        const searchPattern = buildSearchPattern(query.search);
         const [{ count: searchCount }] = await db
           .select({ count: sql<number>`COUNT(DISTINCT ${sweets.id})` })
           .from(sweets)

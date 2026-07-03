@@ -815,7 +815,7 @@ export class ItemService {
           const appConfig = await this.configService.get();
 
           if (customCake.printingType === 'paper') {
-            printingFee = appConfig.printingFee.paper;
+            printingFee = appConfig.printingFee.normal;
           } else if (customCake.printingType === 'suger') {
             printingFee = appConfig.printingFee.suger;
           }

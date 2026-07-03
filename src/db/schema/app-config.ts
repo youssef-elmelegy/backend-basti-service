@@ -39,7 +39,7 @@ export const appConfig = pgTable('app_config', {
     .default('0.10'),
   printingFee: jsonb('printing_fee')
     .$type<{
-      paper: number;
+      normal: number;
       suger: number;
     }>()
     .notNull()

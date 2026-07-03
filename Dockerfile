@@ -28,12 +28,14 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/i18n ./src/i18n
+COPY --from=builder /app/src/db/migrations ./src/db/migrations
 COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/tsconfig.json ./
 
 EXPOSE 3000
 ENTRYPOINT ["/sbin/tini", "--"]
-# DB schema is managed via `pnpm db:push` (run manually after schema changes:
-#   docker exec basti-backend pnpm db:push --force
-# drizzle-kit is still installed in this image to support that command.
+# Schema migrations run BEFORE the app starts in the deploy workflow via
+# a one-shot container: `docker compose run --rm backend pnpm db:migrate`.
+# drizzle-kit stays bundled here so that step (and manual `db:push --force`)
+# work.
 CMD ["node", "dist/src/main"]

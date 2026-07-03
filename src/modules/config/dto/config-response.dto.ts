@@ -74,7 +74,7 @@ export class ConfigResponseDto {
 
   @ApiProperty({
     description: 'Printing fees applied to orders',
-    example: { paper: 10, suger: 20 },
+    example: { normal: 10, suger: 20 },
   })
   printingFee!: PrintingFeeDto;
 
