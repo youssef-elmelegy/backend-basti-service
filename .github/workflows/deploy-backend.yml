@@ -117,7 +117,11 @@ jobs:
               --entrypoint '' backend pnpm db:migrate
 
             # 3. Only if migrate succeeded, swap in the new container.
-            docker compose --env-file ../.env up -d --build
+            #    --force-recreate guarantees the running container is replaced
+            #    even when compose's image-digest detection fails to notice
+            #    the rebuild — the whole point of a deploy is to swap code,
+            #    so we're never OK with "keep the existing container".
+            docker compose --env-file ../.env up -d --build --force-recreate
             docker compose --env-file ../.env ps
             sudo systemctl reload caddy || true
           EOF
