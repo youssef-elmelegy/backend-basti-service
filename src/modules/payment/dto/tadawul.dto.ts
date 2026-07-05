@@ -147,4 +147,8 @@ export class TadawulInitiatePaymentDto {
   @ApiProperty({ description: 'Failure URL', required: false })
   @IsOptional()
   failureUrl?: string;
+
+  @ApiProperty({ description: 'Forced phone number (for testing)', required: false })
+  @IsOptional()
+  forcedPhoneNumber?: string;
 }

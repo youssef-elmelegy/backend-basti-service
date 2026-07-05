@@ -26,9 +26,15 @@ export class PaymentController {
   async initiatePayment(
     @Param('orderId') orderId: string,
     @CurrentUser('sub') userId: string,
-    @Body() { successUrl, failureUrl }: TadawulInitiatePaymentDto,
+    @Body() { successUrl, failureUrl, forcedPhoneNumber }: TadawulInitiatePaymentDto,
   ) {
-    return await this.tadawulService.initiatePayment(orderId, userId, successUrl, failureUrl);
+    return await this.tadawulService.initiatePayment(
+      orderId,
+      userId,
+      successUrl,
+      failureUrl,
+      forcedPhoneNumber,
+    );
   }
 
   @ApiTags('payment - tadawul')

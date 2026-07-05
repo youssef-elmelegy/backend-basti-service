@@ -22,6 +22,7 @@ export class TadawulService {
     userId: string,
     successUrl?: string,
     failureUrl?: string,
+    forcedPhoneNumber?: string,
   ): Promise<SuccessResponse<InitiatePaymentResponse>> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -39,11 +40,12 @@ export class TadawulService {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          Authorization: `Bearer ${env.TADAWUL_TOKEN}`,
         },
         body: JSON.stringify({
           id: env.TADAWUL_ID,
           amount: order.finalPrice,
-          phone: order.userData.phoneNumber,
+          phone: forcedPhoneNumber || order.userData.phoneNumber,
           email: order.userData.email,
           custom_ref: order.id,
           backend_url: env.TADAWUL_WEBHOOK_URL,
@@ -55,12 +57,8 @@ export class TadawulService {
       if (!res.ok) {
         const err = (await res.json()) as TadawulError;
         throw new BadRequestException(
-          'routes.payment.failed_initiate_payment',
-          err.message
-            ? err.errors
-              ? JSON.stringify(err.errors)
-              : 'Unknown error'
-            : 'Unknown error',
+          err.message,
+          err.errors ? JSON.stringify(err.errors) : 'Unknown error',
         );
       }
 
@@ -148,6 +146,7 @@ export class TadawulService {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          Authorization: `Bearer ${env.TADAWUL_TOKEN}`,
         },
         body: JSON.stringify({
           store_id: env.TADAWUL_ID,
@@ -158,12 +157,8 @@ export class TadawulService {
       if (!res.ok) {
         const err = (await res.json()) as TadawulError;
         throw new BadRequestException(
-          'routes.payment.failed_get_receipt',
-          err.message
-            ? err.errors
-              ? JSON.stringify(err.errors)
-              : 'Unknown error'
-            : 'Unknown error',
+          err.message,
+          err.errors ? JSON.stringify(err.errors) : 'Unknown error',
         );
       }
 
