@@ -81,6 +81,7 @@ const envSchema = z.object({
 
   TADAWUL_URL: z.string().url(),
   TADAWUL_ID: z.string(),
+  TADAWUL_TOKEN: z.string(),
   TADAWUL_WEBHOOK_URL: z.string().url(),
 
   // Firebase Admin (FCM)
