@@ -949,18 +949,13 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} status changed to ${effectiveStatus} successfully`);
 
-
       const silentStatuses = ['pending', 'preparing', 'ready'] as const;
       const isSilentStatus = (silentStatuses as readonly string[]).includes(effectiveStatus);
 
       if (order.userId && effectiveStatus && !isSilentStatus) {
-        const { title, body } = this.buildStatusMessage(
-          effectiveStatus,
-          order.referenceNumber ?? '',
-        );
-        rvice.pushNotificationSafe({
-          titleKey: `notification_templates.order_status.${statusKey}.title`,
-          bodyKey: `notification_templates.order_status.${statusKey}.body`,
+        await this.notificationService.pushNotificationSafe({
+          titleKey: `notification_templates.order_status.${effectiveStatus}.title`,
+          bodyKey: `notification_templates.order_status.${effectiveStatus}.body`,
           args: { ref: order.referenceNumber ?? '' },
           type: 'order_status',
           recipientType: 'user',
