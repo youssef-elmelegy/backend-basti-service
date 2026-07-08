@@ -940,7 +940,10 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} status changed to ${effectiveStatus} successfully`);
 
-      if (order.userId && effectiveStatus) {
+      const silentStatuses = ['pending', 'preparing', 'ready'] as const;
+      const isSilentStatus = (silentStatuses as readonly string[]).includes(effectiveStatus);
+
+      if (order.userId && effectiveStatus && !isSilentStatus) {
         const { title, body } = this.buildStatusMessage(
           effectiveStatus,
           order.referenceNumber ?? '',
