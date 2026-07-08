@@ -122,8 +122,9 @@ export class ReviewService {
 
       const ratingStars = '★'.repeat(createDto.rating);
       await this.notificationService.pushToBakeryStaff(order.bakeryId, {
-        title: 'New review received',
-        body: `Your bakery received a ${createDto.rating}-star review ${ratingStars}.`,
+        titleKey: 'notification_templates.review_received.title',
+        bodyKey: 'notification_templates.review_received.body',
+        args: { rating: createDto.rating, stars: ratingStars },
         type: 'review',
         redirectId: newReview.id,
         data: {
@@ -134,8 +135,9 @@ export class ReviewService {
       });
 
       await this.notificationService.pushToPlatformAdmins({
-        title: 'New review submitted',
-        body: `A customer left a ${createDto.rating}-star review.`,
+        titleKey: 'notification_templates.review_submitted.title',
+        bodyKey: 'notification_templates.review_submitted.body',
+        args: { rating: createDto.rating },
         type: 'review',
         redirectId: newReview.id,
         data: {

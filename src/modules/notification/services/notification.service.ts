@@ -18,21 +18,42 @@ import {
 } from '../dto';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { FirebaseService } from '@/common/services';
-import { TranslationService } from '@/common';
+import { TranslationService, LocalizableArgs } from '@/common';
+import { TranslationObject } from '@/types/translation.types';
 
 export type RecipientKind = 'user' | 'admin';
 
 type AdminRole = 'super_admin' | 'admin' | 'manager' | 'driver';
 
-export interface PushNotificationParams {
-  title: string;
-  body: string;
+interface NotificationMeta {
   type: NotificationType;
-  recipientType: RecipientKind;
-  recipientId: string;
   redirectId?: string | null;
   data?: Record<string, string>;
 }
+
+/**
+ * Source for a notification's title/body, resolved to a bilingual { en, ar }
+ * object before it is stored. Three shapes, in order of preference:
+ *
+ * 1. Templated — `{ titleKey, bodyKey, args? }`: static i18n catalogue keys
+ *    rendered locally into both languages. This is the path for every
+ *    system-generated event and costs ZERO machine-translation calls.
+ * 2. Custom — `{ custom: true, title, body }`: free text typed by an admin,
+ *    run through the machine translator so both languages get stored.
+ * 3. Legacy — `{ title, body }`: raw text duplicated into both languages with
+ *    no translation. Kept so un-migrated call sites keep compiling; prefer (1).
+ */
+export type NotificationContent =
+  | { titleKey: string; bodyKey: string; args?: LocalizableArgs }
+  | { custom: true; title: string; body: string }
+  | { title: string; body: string };
+
+export type NotificationPayload = NotificationContent & NotificationMeta;
+
+export type PushNotificationParams = NotificationPayload & {
+  recipientType: RecipientKind;
+  recipientId: string;
+};
 
 @Injectable()
 export class NotificationService {
@@ -145,6 +166,7 @@ export class NotificationService {
     const recipientId = await this.resolveRecipientIdByEmail(dto.recipientType, dto.recipientEmail);
 
     const created = await this.pushNotification({
+      custom: true,
       title: dto.title,
       body: dto.body,
       type: dto.type,
@@ -224,7 +246,7 @@ export class NotificationService {
     readAt: Date | null;
     createdAt: Date;
   }> {
-    const { title, body, type, recipientType, recipientId, redirectId, data } = params;
+    const { type, recipientType, recipientId, redirectId, data } = params;
 
     let fcmToken: string | null = null;
 
@@ -264,8 +286,7 @@ export class NotificationService {
       fcmToken = admin.fcmToken;
     }
 
-    const titleObject = { ar: title, en: title };
-    const bodyObject = { ar: body, en: body };
+    const { title: titleObject, body: bodyObject } = await this.resolveContent(params);
 
     const [created] = await db
       .insert(notifications)
@@ -296,7 +317,12 @@ export class NotificationService {
       };
 
       try {
-        const result = await this.firebaseService.sendToToken(fcmToken, title, body, pushPayload);
+        const result = await this.firebaseService.sendToToken(
+          fcmToken,
+          titleObject.en,
+          bodyObject.en,
+          pushPayload,
+        );
 
         if (!result.success && result.invalidToken) {
           this.logger.warn(`Clearing invalid FCM token for ${recipientType} ${recipientId}`);
@@ -344,13 +370,58 @@ export class NotificationService {
   }
 
   /**
+   * Resolves a notification's content into a bilingual { en, ar } title/body.
+   * Templated content (titleKey/bodyKey) is rendered from the static catalogue
+   * with no API call; custom free text is machine-translated; legacy raw text is
+   * stored as-is for both languages. See {@link NotificationContent}.
+   */
+  private async resolveContent(
+    content: NotificationContent,
+  ): Promise<{ title: TranslationObject; body: TranslationObject }> {
+    if ('titleKey' in content) {
+      return {
+        title: this.translationService.buildTranslationObject(content.titleKey, content.args),
+        body: this.translationService.buildTranslationObject(content.bodyKey, content.args),
+      };
+    }
+
+    if ('custom' in content && content.custom) {
+      const [title, body] = await Promise.all([
+        this.translateCustom(content.title),
+        this.translateCustom(content.body),
+      ]);
+      return { title, body };
+    }
+
+    // Legacy raw text — duplicated into both languages, no translation.
+    return {
+      title: { en: content.title, ar: content.title },
+      body: { en: content.body, ar: content.body },
+    };
+  }
+
+  /**
+   * Translates a single free-text string into a bilingual object via the MT
+   * provider. Best-effort: on failure it logs and stores the source text for
+   * both languages so a translation outage never blocks the notification.
+   */
+  private async translateCustom(text: string): Promise<TranslationObject> {
+    try {
+      return await this.translationService.getTranslationObject(text);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Custom notification translation failed; storing source text for both languages: ${errMsg}`,
+      );
+      return { en: text, ar: text };
+    }
+  }
+
+  /**
    * Fan-out push to every admin staffing a given bakery (manager + any other
    * bakery-scoped admin). Returns silently if the bakery has no staff.
    */
-  async pushToBakeryStaff(
-    bakeryId: string,
-    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
-  ): Promise<void> {
+  async pushToBakeryStaff(bakeryId: string, payload: NotificationPayload): Promise<void> {
     try {
       const bakeryAdmins = await db
         .select({ id: admins.id })
@@ -391,9 +462,7 @@ export class NotificationService {
    * Fan-out push to every platform-level admin (super_admin / admin), used
    * for new orders, cancellations, and other events admins must oversee.
    */
-  async pushToPlatformAdmins(
-    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
-  ): Promise<void> {
+  async pushToPlatformAdmins(payload: NotificationPayload): Promise<void> {
     try {
       const rows = await db
         .select({ id: admins.id })
@@ -429,9 +498,7 @@ export class NotificationService {
    * Fan-out push to super_admin accounts only — used when an event must reach
    * the top-level main admins and not the wider admin pool.
    */
-  async pushToSuperAdmins(
-    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
-  ): Promise<void> {
+  async pushToSuperAdmins(payload: NotificationPayload): Promise<void> {
     try {
       const rows = await db
         .select({ id: admins.id })
@@ -463,7 +530,7 @@ export class NotificationService {
    * messages). Stores a row per user and pushes to those with FCM tokens.
    */
   async broadcastToAllUsers(
-    payload: Omit<PushNotificationParams, 'recipientType' | 'recipientId'>,
+    payload: NotificationPayload,
   ): Promise<{ totalUsers: number; pushedCount: number; failedCount: number }> {
     try {
       const allUsers = await db.select({ id: users.id, fcmToken: users.fcmToken }).from(users);
@@ -472,8 +539,7 @@ export class NotificationService {
         return { totalUsers: 0, pushedCount: 0, failedCount: 0 };
       }
 
-      const titleObject = { ar: payload.title, en: payload.title };
-      const bodyObject = { ar: payload.body, en: payload.body };
+      const { title: titleObject, body: bodyObject } = await this.resolveContent(payload);
 
       await db.insert(notifications).values(
         allUsers.map((u) => ({
@@ -505,8 +571,8 @@ export class NotificationService {
           try {
             const result = await this.firebaseService.sendToToken(
               u.fcmToken,
-              payload.title,
-              payload.body,
+              titleObject.en,
+              bodyObject.en,
               pushPayloadBase,
             );
             if (result.success) {
@@ -562,9 +628,7 @@ export class NotificationService {
         ? and(eq(admins.isBlocked, false), inArray(admins.role, adminRoleFilter))
         : eq(admins.isBlocked, false);
 
-      const emptyRecipients = Promise.resolve(
-        [] as { id: string; fcmToken: string | null }[],
-      );
+      const emptyRecipients = Promise.resolve([] as { id: string; fcmToken: string | null }[]);
       const [allUsers, allAdmins] = await Promise.all([
         includeUsers
           ? db.select({ id: users.id, fcmToken: users.fcmToken }).from(users)
@@ -583,8 +647,11 @@ export class NotificationService {
         );
       }
 
-      const titleObject = { ar: title, en: title };
-      const bodyObject = { ar: body, en: body };
+      const { title: titleObject, body: bodyObject } = await this.resolveContent({
+        custom: true,
+        title,
+        body,
+      });
 
       const notificationRows = [
         ...allUsers.map((u) => ({
@@ -636,8 +703,8 @@ export class NotificationService {
           try {
             const result = await this.firebaseService.sendToToken(
               u.fcmToken,
-              title,
-              body,
+              titleObject.en,
+              bodyObject.en,
               pushPayloadBase,
             );
 
@@ -659,8 +726,8 @@ export class NotificationService {
           try {
             const result = await this.firebaseService.sendToToken(
               a.fcmToken,
-              title,
-              body,
+              titleObject.en,
+              bodyObject.en,
               pushPayloadBase,
             );
 

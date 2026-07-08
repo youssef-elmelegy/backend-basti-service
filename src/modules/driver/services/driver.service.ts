@@ -447,8 +447,9 @@ export class DriverService {
     // The driver took this action themselves, so they don't need a notification.
     if (isReady && order.userId) {
       await this.notificationService.pushNotificationSafe({
-        title: 'Out for delivery',
-        body: `Your order ${order.referenceNumber ? `#${order.referenceNumber}` : ''} is on the way!`,
+        titleKey: 'notification_templates.order_status.out_for_delivery.title',
+        bodyKey: 'notification_templates.order_status.out_for_delivery.body',
+        args: { ref: order.referenceNumber ?? '' },
         type: 'order_status',
         recipientType: 'user',
         recipientId: order.userId,
@@ -492,8 +493,9 @@ export class DriverService {
     // The order just lost its driver — alert admins so they can reassign it
     // instead of letting it sit driver-less. Fire-and-forget.
     await this.notificationService.pushToPlatformAdmins({
-      title: 'Order needs a new driver',
-      body: `Order ${order.referenceNumber ? `#${order.referenceNumber}` : orderId} was refused by the driver and needs reassignment.`,
+      titleKey: 'notification_templates.order_needs_driver.title',
+      bodyKey: 'notification_templates.order_needs_driver.body',
+      args: { ref: order.referenceNumber ?? orderId },
       type: 'order_update',
       redirectId: orderId,
       data: { orderId, event: 'driver_refused' },
@@ -537,8 +539,9 @@ export class DriverService {
     // Let the driver know their balance changed. Fire-and-forget: a failed push
     // must never fail the update itself.
     await this.notificationService.pushNotificationSafe({
-      title: 'Due amount updated',
-      body: `Your due amount has been updated to ${dueAmount}.`,
+      titleKey: 'notification_templates.due_amount_updated.title',
+      bodyKey: 'notification_templates.due_amount_updated.body',
+      args: { amount: dueAmount },
       type: 'system',
       recipientType: 'admin',
       recipientId: updatedDriver.id,

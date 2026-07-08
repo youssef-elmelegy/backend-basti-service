@@ -10,7 +10,15 @@ import { SQL, sql } from 'drizzle-orm';
 import { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { Credentials, Translator } from '@translated/lara';
 
-type TranslationArgs = Record<string, string | number | boolean | null | undefined>;
+export type TranslationArgs = Record<string, string | number | boolean | null | undefined>;
+
+/**
+ * Like {@link TranslationArgs} but an interpolation arg may itself be a bilingual
+ * TranslationObject (e.g. an offer name that is user content). Each language
+ * render then embeds the matching variant — see {@link TranslationService.buildTranslationObject}.
+ */
+export type LocalizableArg = string | number | boolean | null | undefined | TranslationObject;
+export type LocalizableArgs = Record<string, LocalizableArg>;
 
 const SUPPORTED_LANGUAGES = ['en', 'ar'];
 
@@ -38,6 +46,43 @@ export class TranslationService {
       lang: lang ?? context?.lang ?? 'en',
       args,
     });
+  }
+
+  /**
+   * Builds a fully bilingual { en, ar } object from a STATIC i18n catalogue key,
+   * rendering both languages locally with ZERO machine-translation calls. This is
+   * the path for templated, system-generated copy such as notification
+   * titles/bodies — reserve the paid translator ({@link getTranslationObject})
+   * for free-text user/admin content only.
+   *
+   * Interpolation args may themselves be bilingual TranslationObjects (e.g. an
+   * offer name that is user content); each language render then embeds the
+   * matching variant, so the Arabic body gets the Arabic name and the English
+   * body the English one.
+   */
+  buildTranslationObject(key: string, args?: LocalizableArgs): TranslationObject {
+    return {
+      en: this.renderStatic(key, 'en', args),
+      ar: this.renderStatic(key, 'ar', args),
+    };
+  }
+
+  private renderStatic(key: string, lang: 'en' | 'ar', args?: LocalizableArgs): string {
+    const resolvedArgs: TranslationArgs = {};
+    if (args) {
+      for (const [name, value] of Object.entries(args)) {
+        resolvedArgs[name] = this.isTranslationObject(value)
+          ? value[lang] || value.en || ''
+          : value;
+      }
+    }
+    // Keys live in messages.json under the `messages` namespace, matching the
+    // response interceptor/filter convention (`messages.<key>`).
+    return this.i18nService.t(`messages.${key}`, { lang, args: resolvedArgs, defaultValue: key });
+  }
+
+  private isTranslationObject(value: LocalizableArg): value is TranslationObject {
+    return typeof value === 'object' && value !== null && 'en' in value && 'ar' in value;
   }
 
   // async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponse>> {
