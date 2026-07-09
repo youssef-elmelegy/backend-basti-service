@@ -35,6 +35,15 @@ export class TadawulService {
         throw new NotFoundException('routes.payment.invalid_order_user');
       }
 
+      /**
+       * consturct a ref with the orderId and a timestamp to allow
+       * the client to retry the payment if it fails,
+       * because the gatway rejects payments with the same custom_ref
+       * even if the payment fails.
+       */
+      const now = new Date().getTime();
+      const ref = `${order.id}@t=${now}`;
+
       const res = await fetch(`${env.TADAWUL_URL}/payment/initiate`, {
         method: 'POST',
         headers: {
@@ -47,7 +56,7 @@ export class TadawulService {
           amount: order.finalPrice,
           phone: forcedPhoneNumber || order.userData.phoneNumber,
           email: order.userData.email,
-          custom_ref: order.id,
+          custom_ref: ref,
           backend_url: env.TADAWUL_WEBHOOK_URL,
           frontend_url: successUrl || '',
           failed_front_end_url: failureUrl || '',
@@ -67,7 +76,8 @@ export class TadawulService {
       return successResponse(
         {
           url: data.url,
-          orderId: data.custom_ref,
+          orderId: order.id,
+          ref,
         },
         'routes.payment.payment_initiated',
       );
@@ -86,10 +96,13 @@ export class TadawulService {
         throw new BadRequestException(err);
       }
 
-      const [order] = await db.select().from(orders).where(eq(orders.id, custom_ref)).limit(1);
+      // strip timestamp from the ref to get the orderId
+      const resolvedOrderId = custom_ref.split('@')[0];
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, resolvedOrderId)).limit(1);
 
       if (!order) {
-        const err = `Order not found for custom_ref: ${custom_ref}`;
+        const err = `Order not found for id: ${resolvedOrderId}`;
         this.logger.error(err);
         throw new NotFoundException(err);
       }
@@ -121,10 +134,10 @@ export class TadawulService {
             paymentGatewayRef: our_ref,
           },
         })
-        .where(eq(orders.id, custom_ref))
+        .where(eq(orders.id, resolvedOrderId))
         .returning();
 
-      this.logger.log(`Order ${custom_ref} confirmed successfully`);
+      this.logger.log(`Order ${resolvedOrderId} confirmed successfully`);
       return successResponse({});
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
@@ -132,10 +145,13 @@ export class TadawulService {
   }
 
   async getTransactionReceipt(
-    orderId: string,
+    ref: string,
   ): Promise<SuccessResponse<GetTransactionReceiptResponse>> {
     try {
-      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      // strip timestamp from the ref to get the orderId
+      const resolvedOrderId = ref.split('@')[0];
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, resolvedOrderId)).limit(1);
 
       if (!order) {
         throw new NotFoundException('routes.orders.not_found');
@@ -150,7 +166,7 @@ export class TadawulService {
         },
         body: JSON.stringify({
           store_id: env.TADAWUL_ID,
-          custom_ref: order.id,
+          custom_ref: ref,
         }),
       });
 

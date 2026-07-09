@@ -41,9 +41,9 @@ export function GetTransactionReceiptDecorator() {
       description: 'Retrieve the receipt for a specific transaction',
     }),
     ApiParam({
-      name: 'orderId',
+      name: 'ref',
       type: 'string',
-      description: 'The UUID of the order',
+      description: 'The reference of the transaction',
     }),
     ApiHeader({
       name: 'Authorization',
