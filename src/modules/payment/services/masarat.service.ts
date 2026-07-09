@@ -68,6 +68,10 @@ export class MasaratService {
         throw new NotFoundException('routes.payment.invalid_order_user');
       }
 
+      if (order.orderStatus !== null) {
+        throw new BadRequestException('routes.payment.order_already_paid');
+      }
+
       const res = await fetch(`${env.MASARAT_URL}/OpenSession`, {
         method: 'POST',
         headers: {
@@ -138,7 +142,7 @@ export class MasaratService {
       await db
         .update(orders)
         .set({
-          orderStatus: 'confirmed',
+          orderStatus: 'pending',
           paymentData: {
             type: '',
             cardHolderName: '',

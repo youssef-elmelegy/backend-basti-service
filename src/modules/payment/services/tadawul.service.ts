@@ -35,6 +35,10 @@ export class TadawulService {
         throw new NotFoundException('routes.payment.invalid_order_user');
       }
 
+      if (order.orderStatus !== null) {
+        throw new BadRequestException('routes.payment.order_already_paid');
+      }
+
       /**
        * consturct a ref with the orderId and a timestamp to allow
        * the client to retry the payment if it fails,
@@ -122,7 +126,7 @@ export class TadawulService {
       await db
         .update(orders)
         .set({
-          orderStatus: 'confirmed',
+          orderStatus: 'pending',
           paymentData: {
             type: '',
             cardHolderName: '',

@@ -609,11 +609,27 @@
     },
 
     "payment": {
-      "method_created": "تم إضافة طريقة الدفع بنجاح",
+      "method_created": "تم إنشاء طريقة الدفع بنجاح",
       "method_deleted": "تم حذف طريقة الدفع بنجاح",
       "method_retrieved": "تم استرجاع طريقة الدفع بنجاح",
       "methods_retrieved": "تم استرجاع طرق الدفع بنجاح",
-      "method_updated": "تم تحديث طريقة الدفع بنجاح"
+      "method_updated": "تم تحديث طريقة الدفع بنجاح",
+
+      "payment_initiated": "تم بدء الدفع بنجاح",
+      "failed_initiate_payment": "تعذر بدء الدفع",
+      "invalid_order_user": "مستخدم الطلب غير صحيح. الطلب لا ينتمي إلى المستخدم",
+      "receipt_retrieved": "تم استرجاع إيصال المعاملة بنجاح",
+      "failed_get_receipt": "تعذر استرجاع إيصال المعاملة",
+
+      "payment_signed_in": "تم تسجيل الدفع بنجاح",
+      "failed_sign_in": "تعذر تسجيل الدفع",
+      "payment_session_opened": "تم فتح جلسة الدفع بنجاح، تم إرسال رمز التحقق (OTP)",
+      "failed_open_session": "تعذر فتح جلسة الدفع",
+      "otp_invalid": "رمز التحقق (OTP) غير صحيح",
+      "payment_session_completed": "تمت جلسة الدفع بنجاح",
+      "failed_complete_session": "تعذر إكمال جلسة الدفع",
+
+      "order_already_paid": "تم دفع الطلب بالفعل"
     },
 
     "item_flags": {

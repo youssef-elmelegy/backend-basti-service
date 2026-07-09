@@ -3,6 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export enum OrderStatusEnum {
+  NULL = 'null',
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
   PREPARING = 'preparing',

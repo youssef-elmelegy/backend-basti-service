@@ -31,6 +31,7 @@ import {
   AssignDriverDto,
   VerifyDeliveryCodeDto,
   OrderResponseDto,
+  GetAllQueryDto,
 } from '../dto';
 import {
   AssignBakeryDecorator,
@@ -89,9 +90,9 @@ export class OrderController {
   @UseGuards(JwtAuthGuard)
   @Get('my-orders')
   @GetMyOrdersDecorator()
-  async getMyOrders(@CurrentUser('sub') userId: string, @Query() { regionId }: RegionFilterDto) {
+  async getMyOrders(@CurrentUser('sub') userId: string, @Query() query: GetAllQueryDto) {
     this.logger.debug(`getting orders for user: ${userId}`);
-    const result = await this.orderService.getAll(userId, { regionId }, null, null, null, null);
+    const result = await this.orderService.getAll(userId, query, null, null, null, null);
     return successResponse(result.items, 'routes.orders.list_retrieved');
   }
 
