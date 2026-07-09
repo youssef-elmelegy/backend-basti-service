@@ -143,19 +143,11 @@ export class TranslationService {
     let translationObject: TranslationObject;
 
     try {
-      if (sourceLang === 'en') {
-        const tr = await this.dynamicTranslate({ text, targetLang: 'ar', sourceLang: 'en' });
-        translationObject = {
-          en: text,
-          ar: tr.data.result,
-        };
-      } else {
-        const tr = await this.dynamicTranslate({ text, targetLang: 'en', sourceLang: 'ar' });
-        translationObject = {
-          en: tr.data.result,
-          ar: text,
-        };
-      }
+      const tr = await this.dynamicTranslate({ text, targetLang: 'en', sourceLang: 'ar' });
+      translationObject = {
+        en: tr.data.result,
+        ar: text,
+      };
       return translationObject;
     } catch (error) {
       if (error instanceof Error) {
