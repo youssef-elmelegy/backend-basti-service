@@ -662,7 +662,9 @@
       "failed_open_session": "Failed to open payment session",
       "otp_invalid": "Invalid OTP",
       "payment_session_completed": "Payment session completed successfully",
-      "failed_complete_session": "Failed to complete payment session"
+      "failed_complete_session": "Failed to complete payment session",
+
+      "order_already_paid": "Order had already been paid"
     },
 
     "item_flags": {

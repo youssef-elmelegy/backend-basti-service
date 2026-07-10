@@ -4,10 +4,10 @@ import { orderStatusEnum } from '@/db/schema';
 
 export class ChangeOrderStatusDto {
   @ApiProperty({
-    enum: [...orderStatusEnum.enumValues, null],
+    enum: orderStatusEnum.enumValues,
     nullable: true,
     description: 'The new status of the order.',
   })
-  @IsIn([...orderStatusEnum.enumValues, null])
-  status!: (typeof orderStatusEnum.enumValues)[number] | null;
+  @IsIn(orderStatusEnum.enumValues)
+  status!: (typeof orderStatusEnum.enumValues)[number];
 }

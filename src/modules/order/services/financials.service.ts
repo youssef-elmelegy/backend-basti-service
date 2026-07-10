@@ -80,14 +80,14 @@ export class FinancialsService {
       const ordersTotalList = await db
         .select({
           orderId: orders.id,
-          referenceNumber: orders.referenceNumber,
-          bakeryId: orders.bakeryId,
           addonsTotal: orders.addonsTotal,
-          miniCakesTotal: orders.miniCakesTotal,
-          miniCakePercentage: orders.miniCakePercentage,
           bastiPercentage: orders.bastiPercentage,
+          bastiAmount: orders.bastiAmount,
+          bakeryAmount: orders.bakeryAmount,
           deliveryAmount: orders.deliveryAmount,
           bastiDeliveryAmount: orders.bastiDeliveryAmount,
+          referenceNumber: orders.referenceNumber,
+          bakeryId: orders.bakeryId,
           totalPrice: orders.totalPrice,
           discountAmount: orders.discountAmount,
           finalPrice: orders.finalPrice,
@@ -137,14 +137,15 @@ export class FinancialsService {
           bakeryId: orders.bakeryId,
           addonsTotal: orders.addonsTotal,
           bastiPercentage: orders.bastiPercentage,
-          miniCakePercentage: orders.miniCakePercentage,
-          miniCakesTotal: orders.miniCakesTotal,
+          bastiAmount: orders.bastiAmount,
+          bakeryAmount: orders.bakeryAmount,
           deliveryAmount: orders.deliveryAmount,
           bastiDeliveryAmount: orders.bastiDeliveryAmount,
           totalPrice: orders.totalPrice,
           discountAmount: orders.discountAmount,
           finalPrice: orders.finalPrice,
           orderStatus: orders.orderStatus,
+          cartType: orders.cartType,
           deliveredAt: orders.deliveredAt,
           createdAt: orders.createdAt,
           bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
@@ -157,21 +158,16 @@ export class FinancialsService {
         .offset(offset);
 
       const rows = ordersList.map((order) => {
-        const totalPrice = Number(order.totalPrice) || 0;
-        const bastiPercentage = parseFloat(order.bastiPercentage) || 0;
-        const bastiAmount = bastiPercentage * totalPrice;
-
         return {
           addonsTotal: order.addonsTotal,
-          miniCakesTotal: order.miniCakesTotal,
-          bastiPercentage,
-          miniCakePercentage: parseFloat(order.miniCakePercentage) || 0,
-          bastiAmount,
-          deliveryAmount: order.deliveryAmount,
-          bastiDeliveryAmount: order.bastiDeliveryAmount,
-          totalPrice,
-          discountAmount: Number(order.discountAmount) || 0,
-          finalPrice: Number(order.finalPrice) || 0,
+          bastiPercentage: parseFloat(order.bastiPercentage) || 0,
+          bastiAmount: parseFloat(order.bastiAmount) || 0,
+          bakeryAmount: parseFloat(order.bakeryAmount) || 0,
+          deliveryAmount: order.deliveryAmount, // total delivery price
+          bastiDeliveryAmount: order.bastiDeliveryAmount, // basti delivery price share
+          totalPrice: parseFloat(order.totalPrice) || 0,
+          finalPrice: parseFloat(order.finalPrice) || 0,
+          discountAmount: parseFloat(order.discountAmount) || 0,
           bakeryId: order.bakeryId || '',
           bakeryName: order.bakeryName || '',
           orderId: order.orderId,
@@ -179,27 +175,23 @@ export class FinancialsService {
           orderStatus: order.orderStatus,
           deliveredAt: order.deliveredAt,
           createdAt: order.createdAt,
+          miniCakesTotal: 0, // TODO: remove
+          miniCakePercentage: 0, // TODO: remove
         };
       });
 
       const total = ordersTotalList.reduce(
         (acc, order) => ({
           addonsTotal: acc.addonsTotal + order.addonsTotal,
-          miniCakesTotal:
-            acc.miniCakesTotal + Number(order.miniCakePercentage) * order.miniCakesTotal,
-          bastiTotal:
-            acc.bastiTotal +
-            (parseFloat(order.bastiPercentage) || 0) *
-              ((Number(order.finalPrice) || 0) -
-                order.miniCakesTotal +
-                (Number(order.bastiDeliveryAmount) || 0)),
-          miniCakePercentage: parseFloat(order.miniCakePercentage) || 0,
-          bakeryTotal: acc.bakeryTotal + (Number(order.finalPrice) || 0),
-          deliveryAmount: acc.deliveryAmount + (Number(order.deliveryAmount) || 0),
-          bastiDeliveryAmount: acc.bastiDeliveryAmount + (Number(order.bastiDeliveryAmount) || 0),
-          totalPrice: acc.totalPrice + (Number(order.totalPrice) || 0),
-          discountAmount: acc.discountAmount + (Number(order.discountAmount) || 0),
-          finalPrice: acc.finalPrice + (Number(order.finalPrice) || 0),
+          bastiTotal: acc.bastiTotal + (parseFloat(order.bastiAmount) || 0),
+          bakeryTotal: acc.bakeryTotal + (parseFloat(order.bakeryAmount) || 0),
+          deliveryAmount: acc.deliveryAmount + order.deliveryAmount,
+          bastiDeliveryAmount: acc.bastiDeliveryAmount + order.bastiDeliveryAmount,
+          totalPrice: acc.totalPrice + (parseFloat(order.totalPrice) || 0),
+          discountAmount: acc.discountAmount + (parseFloat(order.discountAmount) || 0),
+          finalPrice: acc.finalPrice + (parseFloat(order.finalPrice) || 0),
+          miniCakesTotal: 0, // TODO: remove
+          miniCakePercentage: 0, // TODO: remove
         }),
         {
           addonsTotal: 0,

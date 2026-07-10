@@ -44,6 +44,9 @@ export class InitiatePaymentResponse {
 
   @ApiProperty()
   orderId!: string;
+
+  @ApiProperty()
+  ref!: string;
 }
 
 class TransactionReceiptDataDto {

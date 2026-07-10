@@ -38,11 +38,11 @@ export class PaymentController {
   }
 
   @ApiTags('payment - tadawul')
-  @Post('tadawul/receipt/:orderId')
+  @Post('tadawul/receipt/:ref')
   @UseGuards(JwtAuthGuard)
   @GetTransactionReceiptDecorator()
-  async getTransactionReceipt(@Param('orderId') orderId: string) {
-    return await this.tadawulService.getTransactionReceipt(orderId);
+  async getTransactionReceipt(@Param('ref') ref: string) {
+    return await this.tadawulService.getTransactionReceipt(ref);
   }
 
   @ApiTags('payment - tadawul')

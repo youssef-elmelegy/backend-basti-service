@@ -21,6 +21,7 @@ import {
   GetAllQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
+  OrderStatusEnum,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -52,6 +53,7 @@ import {
   desc,
   isNotNull,
   sql,
+  or,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { errorResponse, successResponse, handleErrorsAndThrow, buildSearchPattern } from '@/utils';
@@ -72,14 +74,6 @@ export interface BakeryStockIssue {
   requested: number;
   available: number;
 }
-
-/* prod: 
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExODQ0LCJleHAiOjE3ODI5MTI3NDR9.aTh4TPFOEzeZlP2V_Ee9OL8yNZAuHekMJHXdoswrH70
-*/
-
-/* dev:
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6ImFobWVkQGV4YW1wbGUuY29tIiwiaWF0IjoxNzgyOTExOTI4LCJleHAiOjE3ODM4MTE5Mjh9.ryqIvKE3OsB93iyFwQHPfyGUfaRuP9_Ak4vPYdAoAUw
-*/
 
 /* eslint-disable */
 @Injectable()
@@ -212,7 +206,6 @@ export class OrderService {
       let totalPrice = 0;
       let totalCapacity = 0;
       let addonsTotal = 0;
-      let miniCakesTotal = 0;
       let requiredMinPrepHours = 0;
 
       // addons processing
@@ -304,15 +297,6 @@ export class OrderService {
           requiredMinPrepHours,
           predesignedCake.totalMinPrepHours ?? 0,
         );
-
-        // save mini cakes total separately
-        if (
-          predesignedCake.configs.length === 1 &&
-          predesignedCake.configs[0].shape.size === 'mini'
-        ) {
-          miniCakesTotal += parseFloat(predesignedCake.price ?? '0') * qnt;
-        }
-
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
@@ -331,7 +315,6 @@ export class OrderService {
         })),
         regionId,
       );
-
       for (const customCake of customCakesData) {
         const qnt = customCake.quantity ?? 1;
         totalPrice += parseFloat(customCake.price ?? '0') * qnt;
@@ -391,6 +374,12 @@ export class OrderService {
 
       finalPrice = totalPrice - discountAmount;
 
+      const bastiPercentage =
+        type === 'big_cakes'
+          ? parseFloat(liveConfig.bastiPercentage) / 100
+          : parseFloat(liveConfig.miniCakePercentage) / 100;
+      const bastiAmount = bastiPercentage * finalPrice;
+
       const referenceNumber = this.generateOrderReference();
 
       const { newOrder, newItems } = await db.transaction(async (tx) => {
@@ -425,20 +414,19 @@ export class OrderService {
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
-            ...(liveConfig && {
-              bastiPercentage: (parseFloat(liveConfig.bastiPercentage) / 100).toFixed(2),
-              miniCakePercentage: (parseFloat(liveConfig.miniCakePercentage) / 100).toFixed(2),
-              deliveryAmount: liveConfig.deliveryAmount,
-              bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
-            }),
+
+            bastiPercentage: bastiPercentage.toFixed(2),
+            bastiAmount: bastiAmount.toFixed(2),
+            bakeryAmount: (finalPrice - bastiAmount).toFixed(2),
+            deliveryAmount: liveConfig.deliveryAmount,
+            bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
+            addonsTotal: addonsTotal, // without discount
+
             couponData: couponData || null,
-            addonsTotal: addonsTotal,
-            deliveryAmount: deliveryAmount,
-            miniCakesTotal: miniCakesTotal,
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
-            orderStatus: 'pending',
+            orderStatus: null,
           })
           .returning();
 
@@ -514,7 +502,7 @@ export class OrderService {
         deliveredAt: null,
         discountAmount: parseFloat(newOrder.discountAmount),
         finalPrice: parseFloat(newOrder.finalPrice),
-        orderStatus: newOrder.orderStatus || 'pending',
+        orderStatus: newOrder.orderStatus,
         items: newItems.map((item) => ({
           id: item.id,
           orderId: item.orderId,
@@ -635,12 +623,25 @@ export class OrderService {
       }
 
       if (query.status && query.status.length > 0) {
-        conditions.push(
-          inArray(
-            orders.orderStatus,
-            query.status as (typeof orders.orderStatus.enumValues)[number][],
-          ),
-        );
+        if (query.status.includes(OrderStatusEnum.NULL)) {
+          const nonNullStatuses = query.status.filter((s) => s !== 'null');
+          conditions.push(
+            or(
+              isNull(orders.orderStatus),
+              inArray(
+                orders.orderStatus,
+                nonNullStatuses as (typeof orders.orderStatus.enumValues)[number][],
+              ),
+            )!,
+          );
+        } else {
+          conditions.push(
+            inArray(
+              orders.orderStatus,
+              query.status as (typeof orders.orderStatus.enumValues)[number][],
+            ),
+          );
+        }
       }
 
       if (query.q && query.q.trim()) {
@@ -1932,10 +1933,6 @@ export class OrderService {
         errorResponse('routes.bakeries.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
       );
     }
-  }
-
-  private getAddonQuantityKey(addonId: string, optionId?: string): string {
-    return `${addonId}::${optionId ?? ''}`;
   }
 
   private hashDeliveryCheckCode(code: string): string {
