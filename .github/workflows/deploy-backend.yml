@@ -86,6 +86,7 @@ jobs:
 
             TADAWUL_URL=${{ secrets.TADAWUL_URL }}
             TADAWUL_ID=${{ secrets.TADAWUL_ID }}
+            TADAWUL_TOKEN=${{ secrets.TADAWUL_TOKEN }}
             TADAWUL_WEBHOOK_URL=${{ secrets.TADAWUL_WEBHOOK_URL }}
         run: |
           printf '%s' "$ENV_BODY" > backend.env
@@ -122,8 +123,14 @@ jobs:
             #    so we can call pnpm directly. If migrate fails, this step exits
             #    non-zero (set -e) and the new backend never starts — old
             #    container keeps serving until we investigate.
-            docker compose --env-file ../.env run --rm --no-deps \
-              --entrypoint '' backend pnpm db:migrate
+            #
+            #    -T disables the pseudo-TTY and </dev/null detaches stdin —
+            #    without these, `compose run` inherits the SSH heredoc's stdin
+            #    and slurps every remaining line of this script (up, ps,
+            #    caddy reload) as input for pnpm, silently skipping them.
+            #    That was the "container never gets recreated" bug.
+            docker compose --env-file ../.env run --rm --no-deps -T \
+              --entrypoint '' backend pnpm db:migrate </dev/null
 
             # 3. Only if migrate succeeded, swap in the new container.
             #    --force-recreate guarantees the running container is replaced
