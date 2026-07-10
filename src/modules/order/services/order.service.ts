@@ -206,7 +206,6 @@ export class OrderService {
       let totalPrice = 0;
       let totalCapacity = 0;
       let addonsTotal = 0;
-      let miniCakesTotal = 0;
       let requiredMinPrepHours = 0;
 
       // addons processing
@@ -298,15 +297,6 @@ export class OrderService {
           requiredMinPrepHours,
           predesignedCake.totalMinPrepHours ?? 0,
         );
-
-        // save mini cakes total separately
-        if (
-          predesignedCake.configs.length === 1 &&
-          predesignedCake.configs[0].shape.size === 'mini'
-        ) {
-          miniCakesTotal += parseFloat(predesignedCake.price ?? '0') * qnt;
-        }
-
         orderItemsDetails.push({
           predesignedCake: predesignedCake,
           price: predesignedCake.price ?? '0',
@@ -384,6 +374,12 @@ export class OrderService {
 
       finalPrice = totalPrice - discountAmount;
 
+      const bastiPercentage =
+        type === 'big_cakes'
+          ? parseFloat(liveConfig.bastiPercentage) / 100
+          : parseFloat(liveConfig.miniCakePercentage) / 100;
+      const bastiAmount = bastiPercentage * finalPrice;
+
       const referenceNumber = this.generateOrderReference();
 
       const { newOrder, newItems } = await db.transaction(async (tx) => {
@@ -418,16 +414,15 @@ export class OrderService {
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
-            ...(liveConfig && {
-              bastiPercentage: (parseFloat(liveConfig.bastiPercentage) / 100).toFixed(2),
-              miniCakePercentage: (parseFloat(liveConfig.miniCakePercentage) / 100).toFixed(2),
-              deliveryAmount: liveConfig.deliveryAmount,
-              bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
-            }),
+
+            bastiPercentage: bastiPercentage.toFixed(2),
+            bastiAmount: bastiAmount.toFixed(2),
+            bakeryAmount: (finalPrice - bastiAmount).toFixed(2),
+            deliveryAmount: liveConfig.deliveryAmount,
+            bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
+            addonsTotal: addonsTotal, // without discount
+
             couponData: couponData || null,
-            addonsTotal: addonsTotal,
-            deliveryAmount: deliveryAmount,
-            miniCakesTotal: miniCakesTotal,
             totalCapacity: totalCapacity || 0,
             willDeliverAt: willDeliverAt,
             cartType: type,
