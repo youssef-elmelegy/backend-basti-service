@@ -8,6 +8,13 @@
       "when": 1783042950299,
       "tag": "0000_gigantic_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783874727583,
+      "tag": "0001_worthless_energizer",
+      "breakpoints": true
     }
   ]
 }
