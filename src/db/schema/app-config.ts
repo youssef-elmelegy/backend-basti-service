@@ -44,6 +44,7 @@ export const appConfig = pgTable('app_config', {
     }>()
     .notNull()
     .default(sql`'{"normal": 10, "suger": 20}'::jsonb`),
+  cardPrice: integer('card_price').notNull().default(0),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
   bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
   minMiniCakesRequired: integer('min_mini_cakes_required').notNull().default(1),

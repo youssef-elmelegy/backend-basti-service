@@ -79,6 +79,12 @@ export class ConfigResponseDto {
   printingFee!: PrintingFeeDto;
 
   @ApiProperty({
+    description: 'Card price applied to orders that include a card message',
+    example: 15,
+  })
+  cardPrice!: number;
+
+  @ApiProperty({
     description: 'Delivery amount applied to orders',
     example: 10,
   })
