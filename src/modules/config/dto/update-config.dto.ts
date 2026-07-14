@@ -174,6 +174,16 @@ export class UpdateConfigDto {
   printingFee?: PrintingFeeDto;
 
   @ApiProperty({
+    description: 'Card price applied to orders that include a card message',
+    example: 15,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cardPrice?: number;
+
+  @ApiProperty({
     description: 'Delivery amount applied to orders',
     example: 20,
     required: false,

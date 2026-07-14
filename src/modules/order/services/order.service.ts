@@ -336,6 +336,11 @@ export class OrderService {
       // financials calc) expect a 0-1 fraction, so we divide by 100 here.
       const [liveConfig] = await db.select().from(appConfig).limit(1);
 
+      // Card price: charged once per order when the order includes a card message.
+      if (cardMessage) {
+        totalPrice += liveConfig.cardPrice;
+      }
+
       const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
         type,
         wantedDeliveryDate,
