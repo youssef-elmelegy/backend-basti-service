@@ -16,6 +16,15 @@ class OrderFinancialsRowDto {
   @ApiProperty()
   bastiDeliveryAmount!: number;
 
+  @ApiProperty({ description: "Payment gateway: 'masarat' | 'tadawul' | '' (cash/wallet/unknown)" })
+  gatewayName!: string;
+
+  @ApiProperty({ description: 'Gateway fee (finalPrice * rate), deducted from Basti share' })
+  gatewayFee!: number;
+
+  @ApiProperty({ description: 'Basti amount after gateway fee (bastiAmount - gatewayFee)' })
+  bastiNet!: number;
+
   @ApiProperty()
   totalPrice!: number;
 
@@ -65,6 +74,12 @@ class OrderFinancialsTotalDto {
 
   @ApiProperty()
   bastiDeliveryAmount!: number;
+
+  @ApiProperty({ description: 'Sum of gateway fees across all matched orders' })
+  gatewayFeeTotal!: number;
+
+  @ApiProperty({ description: 'Sum of Basti amounts after gateway fees' })
+  bastiNetTotal!: number;
 
   @ApiProperty()
   totalPrice!: number;
