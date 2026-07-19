@@ -64,10 +64,11 @@ export class AdminAuthController {
   @AdminLoginEndpoint()
   async login(@Body() loginDto: AdminLoginDto, @Req() req: Request, @Res() res: Response) {
     this.logger.debug(`Admin login attempt: ${loginDto.email}`);
-    const result = await this.adminAuthService.login(loginDto);
 
     // Check if request is from mobile client
     const isMobileClient = req.headers['x-client-type'] === 'mobile';
+
+    const result = await this.adminAuthService.login(loginDto, isMobileClient);
 
     // Only set cookies if not from mobile
     if (!isMobileClient) {
