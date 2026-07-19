@@ -41,7 +41,7 @@ export class AdminAuthService {
     private emailService: EmailService,
   ) {}
 
-  async login(loginDto: AdminLoginDto) {
+  async login(loginDto: AdminLoginDto, isMobileClient: boolean) {
     const { email, password } = loginDto;
 
     const admin = await db.query.admins.findFirst({
@@ -62,7 +62,7 @@ export class AdminAuthService {
     }
 
     // Drivers are not allowed to sign in to the admin dashboard; they use the dedicated mobile app.
-    if (admin.role === 'driver') {
+    if (admin.role === 'driver' && !isMobileClient) {
       throw new UnauthorizedException('routes.admin.driver_login_not_allowed');
     }
 
