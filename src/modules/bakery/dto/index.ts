@@ -5,3 +5,4 @@ export * from './bakery-response.interface';
 export { PaginationDto, SortDto } from '@/common/dto';
 export * from './filter.dto';
 export * from './bakery-item-store.dto';
+export * from './get-biggest-capacity-bakery.dto';

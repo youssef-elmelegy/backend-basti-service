@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { env } from '@/env';
-import { orders } from '@/db/schema';
+import { appConfig, orders } from '@/db/schema';
 import { db } from '@/db';
 import { eq } from 'drizzle-orm';
 import {
@@ -16,6 +16,7 @@ import { handleErrorsAndThrow, SuccessResponse, successResponse } from '@/utils'
 @Injectable()
 export class TadawulService {
   private readonly logger = new Logger(TadawulService.name);
+  private static readonly DEFAULT_PAYMENT_FEE = 0.015; // 1.5% fee
 
   async initiatePayment(
     orderId: string,
@@ -100,6 +101,21 @@ export class TadawulService {
         throw new BadRequestException(err);
       }
 
+      let paymentFee = TadawulService.DEFAULT_PAYMENT_FEE; // default to 1.5% fee
+
+      const [config] = await db
+        .select({
+          paymentFee: appConfig.paymentFee,
+        })
+        .from(appConfig)
+        .limit(1);
+
+      if (config && config.paymentFee.tadawul) {
+        paymentFee = config.paymentFee.tadawul;
+      } else {
+        this.logger.warn('No config found, defaulting to 1% fee');
+      }
+
       // strip timestamp from the ref to get the orderId
       const resolvedOrderId = custom_ref.split('@')[0];
 
@@ -136,6 +152,7 @@ export class TadawulService {
             paymentGatewayName: 'tadawul',
             paymentGatewaySubName: payment_method,
             paymentGatewayRef: our_ref,
+            paymentGatewayFee: paymentFee,
           },
         })
         .where(eq(orders.id, resolvedOrderId))

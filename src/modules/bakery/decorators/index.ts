@@ -7,3 +7,4 @@ export * from './get-bakery-item-stores-endpoint.decorator';
 export * from './update-bakery-item-stock-endpoint.decorator';
 export { SortDecorator, PaginationDecorator } from '@/common/decorators';
 export * from './filter.decorator';
+export * from './get-biggest-capacity-bakery.decorator';

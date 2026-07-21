@@ -129,6 +129,7 @@ export const orders = pgTable(
       paymentGatewayName: string;
       paymentGatewaySubName: string;
       paymentGatewayRef: string;
+      paymentGatewayFee: number;
     }>(),
 
     orderStatus: orderStatusEnum('order_status'),

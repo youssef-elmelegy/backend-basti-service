@@ -53,6 +53,24 @@ export class PrintingFeeDto {
   suger!: number;
 }
 
+export class PaymentFeeDto {
+  @ApiProperty({
+    description: 'Masarat payment fee percentage',
+    example: 10,
+  })
+  @IsInt()
+  @Min(0)
+  masarat!: number;
+
+  @ApiProperty({
+    description: 'Tadawul payment fee percentage',
+    example: 20,
+  })
+  @IsInt()
+  @Min(0)
+  tadawul!: number;
+}
+
 export class UpdateConfigDto {
   @ApiProperty({
     description: 'Hour the bakery opens (0-23)',
@@ -172,6 +190,16 @@ export class UpdateConfigDto {
   @ValidateNested()
   @Type(() => PrintingFeeDto)
   printingFee?: PrintingFeeDto;
+
+  @ApiProperty({
+    description: 'Payment fees applied to orders',
+    example: { masarat: 10, tadawul: 15 },
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentFeeDto)
+  paymentFee?: PaymentFeeDto;
 
   @ApiProperty({
     description: 'Card price applied to orders that include a card message',

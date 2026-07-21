@@ -45,7 +45,7 @@ export interface SeedBakery {
   name: TranslationObject;
   locationDescription: TranslationObject;
   capacity: number;
-  bakeryTypes: Array<'large_cakes' | 'small_cakes' | 'others'>;
+  bakeryTypes: Array<'big_cakes' | 'small_cakes' | 'others'>;
   averageRating?: string;
   totalReviews?: number;
   createdAt: Date;
@@ -306,7 +306,7 @@ export function getSeedBakeries(
       name: { en: 'Downtown Bakery', ar: 'الباكيري المتحدة' },
       locationDescription: { en: '123 Main St, Downtown', ar: '123 شارع الرئيسي، وسط المدينة' },
       capacity: 50,
-      bakeryTypes: ['large_cakes', 'small_cakes', 'others'],
+      bakeryTypes: ['big_cakes', 'small_cakes', 'others'],
       averageRating: '4.5',
       totalReviews: 120,
       createdAt: new Date('2025-01-10'),

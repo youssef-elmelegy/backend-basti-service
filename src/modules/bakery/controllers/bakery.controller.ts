@@ -20,6 +20,7 @@ import {
   PaginationDto,
   SortDto,
   UpdateBakeryItemStockDto,
+  GetBiggestCapacityBakeryDto,
 } from '../dto';
 import {
   CreateBakeryDecorator,
@@ -32,11 +33,13 @@ import {
   PaginationDecorator,
   SortDecorator,
   FilterDecorator,
+  GetBiggestCapacityBakeryDecorator,
 } from '../decorators';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
 import { AdminRoles } from '@/common/guards/admin-roles.decorator';
 import { SuccessResponse } from '@/utils';
+import { JwtAuthGuard } from '@/common';
 
 @ApiTags('bakery')
 @Controller('bakeries')
@@ -118,6 +121,17 @@ export class BakeryController {
   async getBakeryItemStores(@Param('bakeryId') bakeryId: string) {
     this.logger.debug(`Retrieving item stores for bakery: ${bakeryId}`);
     return this.bakeryItemStoreService.getBakeryItemStores(bakeryId);
+  }
+
+  @Post('/biggest-capacity-bakery/:regionId')
+  @UseGuards(JwtAuthGuard)
+  @GetBiggestCapacityBakeryDecorator()
+  async getBiggestCapacityBakery(
+    @Param('regionId') regionId: string,
+    @Body() dto: GetBiggestCapacityBakeryDto,
+  ) {
+    this.logger.debug(`Retrieving biggest capacity bakery for region: ${regionId}`);
+    return this.bakeryService.getBiggestCapacityBakery(regionId, dto);
   }
 
   @Patch(':bakeryId/items/:storeId/stock')

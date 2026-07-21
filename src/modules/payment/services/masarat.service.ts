@@ -15,10 +15,12 @@ import { handleErrorsAndThrow, successResponse } from '@/utils';
 import { orders } from '@/db/schema/order';
 import { eq } from 'drizzle-orm/sql/expressions/conditions';
 import { db } from '@/db';
+import { appConfig } from '@/db/schema';
 
 @Injectable()
 export class MasaratService {
   private readonly logger = new Logger(MasaratService.name);
+  private static readonly DEFAULT_PAYMENT_FEE = 0.01; // 1% fee
 
   async signin() {
     try {
@@ -108,6 +110,20 @@ export class MasaratService {
 
   async completeSession(orderId: string, otp: string, token: string) {
     try {
+      let paymentFee = MasaratService.DEFAULT_PAYMENT_FEE; // default to 1% fee
+      const [config] = await db
+        .select({
+          paymentFee: appConfig.paymentFee,
+        })
+        .from(appConfig)
+        .limit(1);
+
+      if (config && config.paymentFee.masarat) {
+        paymentFee = config.paymentFee.masarat;
+      } else {
+        this.logger.warn('No config found, defaulting to 1% fee');
+      }
+
       const res = await fetch(`${env.MASARAT_URL}/CompleteSession`, {
         method: 'POST',
         headers: {
@@ -152,6 +168,7 @@ export class MasaratService {
             paymentGatewayName: 'masarat',
             paymentGatewaySubName: '',
             paymentGatewayRef: data.traceId,
+            paymentGatewayFee: paymentFee,
           },
         })
         .where(eq(orders.id, orderId));

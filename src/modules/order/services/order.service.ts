@@ -39,6 +39,7 @@ import {
   sweets,
   featuredCakes,
   bakeryItemStores,
+  reviews,
 } from '@/db/schema';
 import {
   and,
@@ -54,6 +55,7 @@ import {
   isNotNull,
   sql,
   or,
+  exists,
 } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { errorResponse, successResponse, handleErrorsAndThrow, buildSearchPattern } from '@/utils';
@@ -551,7 +553,15 @@ export class OrderService {
       }
 
       const [order] = await db
-        .select()
+        .select({
+          ...getTableColumns(orders),
+          isReviewed: exists(
+            db
+              .select({ _dummy: sql`1` }) // dummy 1 so that no needed columns are selected
+              .from(reviews)
+              .where(eq(reviews.orderId, orders.id)),
+          ).mapWith(Boolean),
+        })
         .from(orders)
         .where(and(...condition))
         .limit(1);
@@ -579,6 +589,7 @@ export class OrderService {
         totalPrice: parseFloat(order.totalPrice),
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
+        isReviewed: order.isReviewed,
       };
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.orders.failed_retrieve', this.logger);
@@ -725,7 +736,15 @@ export class OrderService {
       const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       let allOrders = await db
-        .select()
+        .select({
+          ...getTableColumns(orders),
+          isReviewed: exists(
+            db
+              .select({ _dummy: sql`1` }) // dummy 1 so that no needed columns are selected
+              .from(reviews)
+              .where(eq(reviews.orderId, orders.id)),
+          ).mapWith(Boolean),
+        })
         .from(orders)
         .where(and(...conditions))
         .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
@@ -2041,7 +2060,9 @@ export class OrderService {
     };
   }
 
-  private buildBasicOrderResponse(order: typeof orders.$inferSelect): OrderResponseDto {
+  private buildBasicOrderResponse(
+    order: typeof orders.$inferSelect & { isReviewed: boolean },
+  ): OrderResponseDto {
     return {
       addons: [],
       sweets: [],
@@ -2055,11 +2076,12 @@ export class OrderService {
       totalPrice: parseFloat(order.totalPrice),
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
+      isReviewed: order.isReviewed,
     };
   }
 
   private buildOrderResponse(
-    order: typeof orders.$inferSelect,
+    order: typeof orders.$inferSelect & { isReviewed: boolean },
     formattedItems: {
       customCakeItems: OrderResponseDto['customCakes'];
       predesignedCakeItems: OrderResponseDto['predesignedCakes'];
@@ -2081,6 +2103,7 @@ export class OrderService {
       totalPrice: parseFloat(order.totalPrice),
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
+      isReviewed: order.isReviewed,
     };
   }
 

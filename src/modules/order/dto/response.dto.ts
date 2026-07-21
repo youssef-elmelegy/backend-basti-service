@@ -357,6 +357,12 @@ export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items']
     example: [],
   })
   customCakes: OrderItemResponseDto<CustomCakeConfig>[];
+
+  @ApiProperty({
+    description: 'Whether the order has been reviewed',
+    example: true,
+  })
+  isReviewed!: boolean;
 }
 
 export class InvalidDeliveryDatesDto {

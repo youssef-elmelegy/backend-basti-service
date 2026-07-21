@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export interface TadawulError {
   message: string;
@@ -121,24 +121,31 @@ export class GetTransactionReceiptResponse {
 
 export class ConfirmPaymentWebhookDto {
   @ApiProperty()
+  @IsString()
   result!: string;
 
   @ApiProperty()
+  @IsString()
   amount!: string;
 
   @ApiProperty()
+  @IsString()
   store_id!: string;
 
   @ApiProperty()
+  @IsString()
   our_ref!: string;
 
   @ApiProperty()
+  @IsString()
   payment_method!: string;
 
   @ApiProperty()
+  @IsString()
   customer_phone!: string;
 
   @ApiProperty()
+  @IsString()
   custom_ref!: string;
 }
 
