@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ea443e29-1a5a-4a48-9024-8ccef6fd99a2",
+    "ref": "SEED-DRV-zliten-1-ready",
+    "basti_amount": "0.00",
+    "payment_data": null,
+    "payment_method_type": "cash"
+  },
+  {
+    "id": "4584eeca-7fbc-43fd-8633-3fa11852795a",
+    "ref": "SEED-DRV-zliten-1-out_for_delivery",
+    "basti_amount": "0.00",
+    "payment_data": null,
+    "payment_method_type": "cash"
+  },
+  {
+    "id": "2992e6f0-b5de-4268-9fe2-353575ad3949",
+    "ref": "SEED-DRV-zliten-1-delivered",
+    "basti_amount": "0.00",
+    "payment_data": null,
+    "payment_method_type": "cash"
+  },
+  {
+    "id": "9453fb26-62ed-4eb6-92c6-369062767613",
+    "ref": "SEED-DRV-zliten-2-ready",
+    "basti_amount": "0.00",
+    "payment_data": null,
+    "payment_method_type": "cash"
+  }
+]
