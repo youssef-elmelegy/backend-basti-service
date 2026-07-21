@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MOCK_DATA } from '@/constants/global.constants';
-import { EmergencyClosureDto, PrintingFeeDto } from './update-config.dto';
+import { EmergencyClosureDto, PaymentFeeDto, PrintingFeeDto } from './update-config.dto';
 
 export class ConfigResponseDto {
   @ApiProperty({
@@ -77,6 +77,12 @@ export class ConfigResponseDto {
     example: { normal: 10, suger: 20 },
   })
   printingFee!: PrintingFeeDto;
+
+  @ApiProperty({
+    description: 'Payment fees applied to orders',
+    example: { masarat: 10, tadawul: 15 },
+  })
+  paymentFee!: PaymentFeeDto;
 
   @ApiProperty({
     description: 'Card price applied to orders that include a card message',

@@ -100,21 +100,9 @@ export class OrderController {
   @AdminRoles('super_admin', 'admin')
   @Get()
   @GetAllOrdersDecorator()
-  async getAllOrders(
-    @Query('regionId') regionId?: string,
-    @Query('status') status?: string | string[],
-  ) {
+  async getAllOrders(@Query() query: GetAllQueryDto) {
     this.logger.debug('getting all orders');
-    // Normalize status to array format
-    const statusArray = status ? (Array.isArray(status) ? status : status.split(',')) : undefined;
-    const result = await this.orderService.getAll(
-      null,
-      { regionId, status: statusArray },
-      null,
-      null,
-      null,
-      null,
-    );
+    const result = await this.orderService.getAll(null, query, null, null, null, null);
     return successResponse(result.items, 'routes.orders.list_retrieved');
   }
 

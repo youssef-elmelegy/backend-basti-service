@@ -8,9 +8,16 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { bakeries, regions, orders } from '@/db/schema';
-import { eq, desc, asc, sql, getTableColumns, and, inArray } from 'drizzle-orm';
-import { CreateBakeryDto, UpdateBakeryDto, BakeryResponse, PaginationDto, SortDto } from '../dto';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { eq, desc, asc, sql, getTableColumns, and, inArray, arrayContains } from 'drizzle-orm';
+import {
+  CreateBakeryDto,
+  UpdateBakeryDto,
+  BakeryResponse,
+  PaginationDto,
+  SortDto,
+  GetBiggestCapacityBakeryDto,
+} from '../dto';
+import { errorResponse, handleErrorsAndThrow, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
 
 @Injectable()
@@ -49,7 +56,7 @@ export class BakeryService {
           locationDescription: locationDescriptionObject,
           regionId,
           capacity,
-          bakeryTypes: bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[],
+          bakeryTypes: bakeryTypes as ('big_cakes' | 'small_cakes' | 'others')[],
         })
         .returning({
           ...getTableColumns(bakeries),
@@ -286,9 +293,7 @@ export class BakeryService {
     const activeOrders = typeof count === 'string' ? parseInt(count, 10) : count;
 
     if (activeOrders > 0) {
-      this.logger.warn(
-        `Bakery deletion blocked: ${id} still has ${activeOrders} active order(s)`,
-      );
+      this.logger.warn(`Bakery deletion blocked: ${id} still has ${activeOrders} active order(s)`);
       throw new BadRequestException(
         errorResponse(
           'routes.bakery.has_active_orders',
@@ -321,6 +326,62 @@ export class BakeryService {
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
+      );
+    }
+  }
+
+  async getBiggestCapacityBakery(
+    regionId: string,
+    dto: GetBiggestCapacityBakeryDto,
+  ): Promise<SuccessResponse<BakeryResponse>> {
+    const { cartType } = dto;
+
+    try {
+      const allBakeries = await db
+        .select({
+          ...getTableColumns(bakeries),
+          name: this.translationService.getLocalized(bakeries.name, 'name'),
+          locationDescription: this.translationService.getLocalized(
+            bakeries.locationDescription,
+            'location_description',
+          ),
+        })
+        .from(bakeries)
+        .where(
+          and(
+            eq(bakeries.isDeleted, false),
+            eq(bakeries.regionId, regionId),
+            arrayContains(bakeries.bakeryTypes, [cartType]),
+          ),
+        );
+
+      if (!allBakeries.length || allBakeries.length === 0) {
+        this.logger.warn(`Bakery not found: ${regionId}`);
+        throw new NotFoundException(
+          errorResponse(
+            'routes.bakery.no_matching_bakery',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
+        );
+      }
+
+      const biggestCapacityBakery = allBakeries.reduce((prev, curr) => {
+        return prev.capacity > curr.capacity ? prev : curr;
+      });
+
+      this.logger.debug(`Bakery retrieved: ${regionId}`);
+
+      return successResponse(
+        this.formatBakeryResponse(biggestCapacityBakery),
+        'routes.bakery.retrieved_biggest_capacity_bakery',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(
+        error,
+        'routes.bakery.failed_retrieve_biggest_capacity_bakery',
+        this.logger,
       );
     }
   }

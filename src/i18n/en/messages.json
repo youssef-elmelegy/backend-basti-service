@@ -123,7 +123,11 @@
       "stock_negative": "Stock cannot be negative",
       "option_stock_negative": "Option stock cannot be negative",
       "stock_updated": "Stock updated successfully",
-      "failed_update_stock": "Failed to update stock"
+      "failed_update_stock": "Failed to update stock",
+
+      "no_matching_bakery": "No matching bakery found",
+      "retrieved_biggest_capacity_bakery": "Retrieved biggest capacity bakery",
+      "failed_retrieve_biggest_capacity_bakery": "Failed to retrieve biggest capacity bakery"
     },
 
     "cart": {

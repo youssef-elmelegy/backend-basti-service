@@ -95,6 +95,7 @@ export class ConfigService {
             miniCakePercentage: updateDto.miniCakePercentage.toFixed(2),
           }),
           ...(updateDto.printingFee !== undefined && { printingFee: updateDto.printingFee }),
+          ...(updateDto.paymentFee !== undefined && { paymentFee: updateDto.paymentFee }),
           ...(updateDto.minMiniCakesRequired !== undefined && {
             minMiniCakesRequired: updateDto.minMiniCakesRequired,
           }),
@@ -140,6 +141,7 @@ export class ConfigService {
       bastiDeliveryAmount: config.bastiDeliveryAmount,
       miniCakePercentage: parseFloat(config.miniCakePercentage),
       printingFee: config.printingFee,
+      paymentFee: config.paymentFee,
       cardPrice: config.cardPrice,
       minMiniCakesRequired: config.minMiniCakesRequired,
       createdAt: config.createdAt,

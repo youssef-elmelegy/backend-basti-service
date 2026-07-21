@@ -13,22 +13,17 @@ export class FinancialsService {
 
   constructor(private readonly translationService: TranslationService) {}
 
-  /**
-   * Gateway fee rate charged on the amount paid through the online payment gateway.
-   * Deducted from Basti's share. Cash/wallet or unknown gateways incur no fee.
-   */
-  private static readonly GATEWAY_FEE_RATES: Record<string, number> = {
-    masarat: 0.01, // 1%
-    tadawul: 0.015, // 1.5%
-  };
-
-  private gatewayFee(
-    paymentData: { paymentGatewayName?: string } | null,
+  private processPaymentData(
+    paymentData: (typeof orders.$inferSelect)['paymentData'],
     finalPrice: number,
-  ): { gatewayName: string; gatewayFee: number } {
-    const gatewayName = paymentData?.paymentGatewayName || '';
-    const rate = FinancialsService.GATEWAY_FEE_RATES[gatewayName] ?? 0;
-    return { gatewayName, gatewayFee: finalPrice * rate };
+  ) {
+    const name = paymentData?.paymentGatewayName || '';
+    const rate = paymentData?.paymentGatewayFee ?? 0;
+    return {
+      name,
+      fee: finalPrice * rate,
+      factor: 1 - rate, // factor to re-calculate the final share after deducting the gateway fee
+    };
   }
 
   async getOrdersFinancials(
@@ -132,8 +127,8 @@ export class FinancialsService {
               deliveryAmount: 0,
               bastiDeliveryAmount: 0,
               gatewayFeeTotal: 0,
-              bastiNetTotal: 0,
               miniCakesTotal: 0,
+              finalPriceBeforeGatewayFee: 0,
               miniCakePercentage: 0,
               bastiPercentage: 0,
               totalPrice: 0,
@@ -182,20 +177,24 @@ export class FinancialsService {
       const rows = ordersList.map((order) => {
         const bastiAmount = parseFloat(order.bastiAmount) || 0;
         const finalPrice = parseFloat(order.finalPrice) || 0;
-        const { gatewayName, gatewayFee } = this.gatewayFee(order.paymentData, finalPrice);
+        const {
+          name: gatewayName,
+          fee: gatewayFee,
+          factor,
+        } = this.processPaymentData(order.paymentData, finalPrice);
         return {
-          addonsTotal: order.addonsTotal,
+          addonsTotal: order.addonsTotal * factor,
           bastiPercentage: parseFloat(order.bastiPercentage) || 0,
-          bastiAmount,
-          bakeryAmount: parseFloat(order.bakeryAmount) || 0,
-          deliveryAmount: order.deliveryAmount, // total delivery price
-          bastiDeliveryAmount: order.bastiDeliveryAmount, // basti delivery price share
+          bastiAmount: bastiAmount * factor,
+          bakeryAmount: (parseFloat(order.bakeryAmount) || 0) * factor,
+          deliveryAmount: order.deliveryAmount * factor, // total delivery price
+          bastiDeliveryAmount: order.bastiDeliveryAmount * factor, // basti delivery price share
           gatewayName, // 'masarat' | 'tadawul' | '' (cash/wallet/unknown)
           gatewayFee, // finalPrice * rate; deducted from Basti's share
-          bastiNet: bastiAmount - gatewayFee, // Basti amount after gateway fee
           totalPrice: parseFloat(order.totalPrice) || 0,
-          finalPrice,
           discountAmount: parseFloat(order.discountAmount) || 0,
+          finalPriceBeforeGatewayFee: finalPrice,
+          finalPrice: finalPrice * factor,
           bakeryId: order.bakeryId || '',
           bakeryName: order.bakeryName || '',
           orderId: order.orderId,
@@ -212,18 +211,21 @@ export class FinancialsService {
         (acc, order) => {
           const bastiAmount = parseFloat(order.bastiAmount) || 0;
           const finalPrice = parseFloat(order.finalPrice) || 0;
-          const { gatewayFee } = this.gatewayFee(order.paymentData, finalPrice);
+          const { fee: gatewayFee, factor } = this.processPaymentData(
+            order.paymentData,
+            finalPrice,
+          );
           return {
-            addonsTotal: acc.addonsTotal + order.addonsTotal,
-            bastiTotal: acc.bastiTotal + bastiAmount,
-            bakeryTotal: acc.bakeryTotal + (parseFloat(order.bakeryAmount) || 0),
-            deliveryAmount: acc.deliveryAmount + order.deliveryAmount,
-            bastiDeliveryAmount: acc.bastiDeliveryAmount + order.bastiDeliveryAmount,
+            addonsTotal: acc.addonsTotal + order.addonsTotal * factor,
+            bastiTotal: acc.bastiTotal + bastiAmount * factor,
+            bakeryTotal: acc.bakeryTotal + (parseFloat(order.bakeryAmount) || 0) * factor,
+            deliveryAmount: acc.deliveryAmount + order.deliveryAmount * factor,
+            bastiDeliveryAmount: acc.bastiDeliveryAmount + order.bastiDeliveryAmount * factor,
             gatewayFeeTotal: acc.gatewayFeeTotal + gatewayFee,
-            bastiNetTotal: acc.bastiNetTotal + (bastiAmount - gatewayFee),
+            finalPriceBeforeGatewayFee: acc.finalPriceBeforeGatewayFee + finalPrice,
             totalPrice: acc.totalPrice + (parseFloat(order.totalPrice) || 0),
             discountAmount: acc.discountAmount + (parseFloat(order.discountAmount) || 0),
-            finalPrice: acc.finalPrice + finalPrice,
+            finalPrice: acc.finalPrice + finalPrice * factor,
             miniCakesTotal: 0, // TODO: remove
             miniCakePercentage: 0, // TODO: remove
           };
@@ -236,7 +238,7 @@ export class FinancialsService {
           deliveryAmount: 0,
           bastiDeliveryAmount: 0,
           gatewayFeeTotal: 0,
-          bastiNetTotal: 0,
+          finalPriceBeforeGatewayFee: 0,
           totalPrice: 0,
           discountAmount: 0,
           finalPrice: 0,

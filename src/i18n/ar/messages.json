@@ -123,7 +123,11 @@
       "stock_negative": "لا يمكن أن يكون المخزون بالسالب",
       "option_stock_negative": "لا يمكن أن يكون مخزون الخيار بالسالب",
       "stock_updated": "تم تحديث المخزون بنجاح",
-      "failed_update_stock": "تعذر تحديث المخزون"
+      "failed_update_stock": "تعذر تحديث المخزون",
+
+      "no_matching_bakery": "لم يتم العثور على مخبز مطابق",
+      "retrieved_biggest_capacity_bakery": "تم استرجاع المخبز ذو السعة الأكبر",
+      "failed_retrieve_biggest_capacity_bakery": "تعذر استرجاع المخبز ذو السعة الأكبر"
     },
 
     "cart": {

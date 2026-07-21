@@ -49,8 +49,8 @@ export class CreateBakeryDto {
   @ApiProperty({
     description: 'Types of cakes the bakery produces',
     type: [String],
-    enum: ['large_cakes', 'small_cakes', 'others'],
-    example: ['large_cakes', 'small_cakes'],
+    enum: ['big_cakes', 'small_cakes', 'others'],
+    example: ['big_cakes', 'small_cakes'],
   })
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one bakery type must be specified' })

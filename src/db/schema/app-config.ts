@@ -44,6 +44,15 @@ export const appConfig = pgTable('app_config', {
     }>()
     .notNull()
     .default(sql`'{"normal": 10, "suger": 20}'::jsonb`),
+
+  paymentFee: jsonb('payment_fee')
+    .$type<{
+      masarat: number;
+      tadawul: number;
+    }>()
+    .notNull()
+    .default(sql`'{"masarat": 1, "tadawul": 1.5}'::jsonb`),
+
   cardPrice: integer('card_price').notNull().default(0),
   deliveryAmount: integer('delivery_amount').notNull().default(10),
   bastiDeliveryAmount: integer('basti_delivery_amount').notNull().default(0),
