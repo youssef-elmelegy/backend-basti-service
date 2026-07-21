@@ -1,0 +1,1 @@
+ALTER TABLE "app_config" ADD COLUMN "payment_fee" jsonb DEFAULT '{"masarat": 1, "tadawul": 1.5}'::jsonb NOT NULL;
