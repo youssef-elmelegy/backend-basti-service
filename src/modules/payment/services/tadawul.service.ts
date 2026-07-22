@@ -12,6 +12,7 @@ import {
   ConfirmPaymentWebhookDto,
 } from '../dto/tadawul.dto';
 import { handleErrorsAndThrow, SuccessResponse, successResponse } from '@/utils';
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class TadawulService {
@@ -92,6 +93,8 @@ export class TadawulService {
   }
 
   async confirmPayment(body: ConfirmPaymentWebhookDto) {
+    this.logger.log(`Confirming payment with ref: ${body.custom_ref}`);
+
     const { result, amount, store_id, our_ref, payment_method, custom_ref } = body;
 
     try {
@@ -100,6 +103,8 @@ export class TadawulService {
         this.logger.error(err);
         throw new BadRequestException(err);
       }
+
+      this.logger.log('Payment status is success');
 
       let paymentFee = TadawulService.DEFAULT_PAYMENT_FEE; // default to 1.5% fee
 
@@ -118,6 +123,14 @@ export class TadawulService {
 
       // strip timestamp from the ref to get the orderId
       const resolvedOrderId = custom_ref.split('@')[0];
+
+      if (!isUUID(resolvedOrderId)) {
+        const err = `Invalid orderId extracted from custom_ref: ${resolvedOrderId}`;
+        this.logger.error(err);
+        throw new BadRequestException(err);
+      }
+
+      this.logger.log(`Resolved orderId: ${resolvedOrderId}`);
 
       const [order] = await db.select().from(orders).where(eq(orders.id, resolvedOrderId)).limit(1);
 
@@ -161,7 +174,7 @@ export class TadawulService {
       this.logger.log(`Order ${resolvedOrderId} confirmed successfully`);
       return successResponse({});
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
+      handleErrorsAndThrow(error, 'routes.payment.failed_confirm_payment', this.logger);
     }
   }
 
@@ -171,6 +184,12 @@ export class TadawulService {
     try {
       // strip timestamp from the ref to get the orderId
       const resolvedOrderId = ref.split('@')[0];
+
+      if (!isUUID(resolvedOrderId)) {
+        const err = `Invalid orderId extracted from custom_ref: ${resolvedOrderId}`;
+        this.logger.error(err);
+        throw new BadRequestException(err);
+      }
 
       const [order] = await db.select().from(orders).where(eq(orders.id, resolvedOrderId)).limit(1);
 

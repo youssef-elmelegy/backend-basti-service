@@ -660,6 +660,9 @@
       "receipt_retrieved": "Transaction receipt retrieved successfully",
       "failed_get_receipt": "Failed to retrieve transaction receipt",
 
+      "payment_confirmed": "Payment confirmed successfully",
+      "failed_confirm_payment": "Failed to confirm payment",
+
       "payment_signed_in": "Payment signed in successfully",
       "failed_sign_in": "Failed to sign in payment",
       "payment_session_opened": "Payment session opened successfully, an OTP has been sent",
