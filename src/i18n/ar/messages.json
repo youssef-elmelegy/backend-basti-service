@@ -625,6 +625,9 @@
       "receipt_retrieved": "تم استرجاع إيصال المعاملة بنجاح",
       "failed_get_receipt": "تعذر استرجاع إيصال المعاملة",
 
+      "payment_confirmed": "تم تأكيد الدفع بنجاح",
+      "failed_confirm_payment": "تعذر تأكيد الدفع",
+
       "payment_signed_in": "تم تسجيل الدفع بنجاح",
       "failed_sign_in": "تعذر تسجيل الدفع",
       "payment_session_opened": "تم فتح جلسة الدفع بنجاح، تم إرسال رمز التحقق (OTP)",
