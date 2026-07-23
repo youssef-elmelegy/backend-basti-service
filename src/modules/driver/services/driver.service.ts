@@ -5,10 +5,28 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { SQL, and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import {
+  SQL,
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { db } from '@/db';
-import { admins } from '@/db/schema';
-import { successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
+import { admins, bakeries } from '@/db/schema';
+import {
+  successResponse,
+  SuccessResponse,
+  buildSearchPattern,
+  handleErrorsAndThrow,
+} from '@/utils';
 import {
   CreateReportDto,
   DriverDataDto,
@@ -19,6 +37,7 @@ import {
 import { orders, reports, users } from '@/db/schema';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 import { NotificationService } from '@/modules/notification/services/notification.service';
+import { TranslationService } from '@/common/translation/translation.service';
 
 export interface PaginationMeta {
   total: number;
@@ -31,7 +50,10 @@ export interface PaginationMeta {
 export class DriverService {
   private readonly logger = new Logger(DriverService.name);
 
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly translationService: TranslationService,
+  ) {}
 
   async findAll(
     query: GetDriversQueryDto,
@@ -271,35 +293,48 @@ export class DriverService {
   }
 
   async getDriversOrders(driverId: string, isAssigned?: boolean) {
-    const conditions = [eq(orders.driverId, driverId)];
+    try {
+      const conditions = [eq(orders.driverId, driverId)];
 
-    if (isAssigned === true) {
-      conditions.push(isNotNull(orders.driverData));
+      if (isAssigned === true) {
+        conditions.push(isNotNull(orders.driverData));
+      }
+
+      if (isAssigned === false) {
+        conditions.push(isNull(orders.driverData));
+      }
+
+      const driverOrders = await db
+        .select({
+          id: orders.id,
+          referenceNumber: orders.referenceNumber,
+          orderStatus: orders.orderStatus,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+          driverData: orders.driverData,
+          userData: orders.userData,
+          locationData: orders.locationData,
+          willDeliverAt: orders.willDeliverAt,
+          createdAt: orders.createdAt,
+          updatedAt: orders.updatedAt,
+          bakeryData: {
+            ...getTableColumns(bakeries),
+            name: this.translationService.getLocalized(bakeries.name, 'name'),
+            locationDescription: this.translationService.getLocalized(
+              bakeries.locationDescription,
+              'locationDescription',
+            ),
+          },
+        })
+        .from(orders)
+        .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
+        .where(and(...conditions))
+        .orderBy(desc(orders.createdAt));
+
+      return successResponse(driverOrders, 'routes.driver.orders_retrieved', HttpStatus.OK);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.failed_list', this.logger);
     }
-
-    if (isAssigned === false) {
-      conditions.push(isNull(orders.driverData));
-    }
-
-    const driverOrders = await db
-      .select({
-        id: orders.id,
-        referenceNumber: orders.referenceNumber,
-        orderStatus: orders.orderStatus,
-        driverId: orders.driverId,
-        driverAssignedAt: orders.driverAssignedAt,
-        driverData: orders.driverData,
-        userData: orders.userData,
-        locationData: orders.locationData,
-        willDeliverAt: orders.willDeliverAt,
-        createdAt: orders.createdAt,
-        updatedAt: orders.updatedAt,
-      })
-      .from(orders)
-      .where(and(...conditions))
-      .orderBy(desc(orders.createdAt));
-
-    return successResponse(driverOrders, 'Driver orders retrieved successfully', HttpStatus.OK);
   }
 
   /**
