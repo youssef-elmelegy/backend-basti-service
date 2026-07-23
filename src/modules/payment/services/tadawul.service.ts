@@ -95,7 +95,16 @@ export class TadawulService {
   async confirmPayment(body: ConfirmPaymentWebhookDto) {
     this.logger.log(`Confirming payment with ref: ${body.custom_ref}`);
 
-    const { result, amount, store_id, our_ref, payment_method, custom_ref } = body;
+    const {
+      result,
+      amount,
+      // charges,
+      // net_amount,
+      store_id,
+      our_ref,
+      payment_method_en,
+      custom_ref,
+    } = body;
 
     try {
       if (result.toLowerCase() !== 'success') {
@@ -163,7 +172,7 @@ export class TadawulService {
             cardExpiryMonth: 0,
             cardExpiryYear: 0,
             paymentGatewayName: 'tadawul',
-            paymentGatewaySubName: payment_method,
+            paymentGatewaySubName: payment_method_en,
             paymentGatewayRef: our_ref,
             paymentGatewayFee: paymentFee,
           },
