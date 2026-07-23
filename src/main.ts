@@ -75,7 +75,7 @@ async function bootstrap() {
 
   // Configure CORS for frontend clients
   // const corsOrigins = env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : '*';
-  const corsOrigins = '*';
+  const corsOrigins = env.CORS_ORIGINS.length > 0 ? env.CORS_ORIGINS : '*';
   app.enableCors({
     origin: corsOrigins,
     credentials: true,
