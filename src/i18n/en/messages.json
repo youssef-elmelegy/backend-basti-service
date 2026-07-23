@@ -489,7 +489,10 @@
 
     "driver": {
       "not_found": "Driver not found",
-      "blocked": "This driver is blocked and cannot be assigned orders"
+      "blocked": "This driver is blocked and cannot be assigned orders",
+
+      "orders_retrieved": "Driver orders retrieved successfully",
+      "failed_list": "Failed to retrieve driver orders"
     },
 
     "Stock": {
