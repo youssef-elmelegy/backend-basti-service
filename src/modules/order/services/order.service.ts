@@ -379,6 +379,8 @@ export class OrderService {
         await this.couponservice.consume(couponData.id, userId);
       }
 
+      totalPrice += deliveryAmount;
+
       finalPrice = totalPrice - discountAmount;
 
       const bastiPercentage =

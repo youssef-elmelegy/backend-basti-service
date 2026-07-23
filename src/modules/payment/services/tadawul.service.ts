@@ -98,8 +98,8 @@ export class TadawulService {
     const {
       result,
       amount,
-      // charges,
-      // net_amount,
+      charges,
+      net_amount,
       store_id,
       our_ref,
       payment_method_en,
@@ -155,8 +155,11 @@ export class TadawulService {
         throw new BadRequestException(err);
       }
 
-      if (amount !== order.finalPrice) {
-        const err = `Amount mismatch, expected: ${order.finalPrice}, received: ${amount}`;
+      const parsedAmount = parseFloat(amount);
+      const parsedFinalPrice = parseFloat(order.finalPrice);
+
+      if (parsedAmount !== parsedFinalPrice) {
+        const err = `Amount mismatch, expected: ${parsedFinalPrice}, received: ${parsedAmount}`;
         this.logger.error(err);
         throw new BadRequestException(err);
       }
@@ -180,7 +183,9 @@ export class TadawulService {
         .where(eq(orders.id, resolvedOrderId))
         .returning();
 
-      this.logger.log(`Order ${resolvedOrderId} confirmed successfully`);
+      this.logger.log(
+        `Order ${resolvedOrderId} confirmed successfully, amount: ${amount}, charges: ${charges}, net_amount: ${net_amount}`,
+      );
       return successResponse({});
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.failed_confirm_payment', this.logger);
