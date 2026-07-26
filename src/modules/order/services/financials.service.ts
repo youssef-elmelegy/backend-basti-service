@@ -18,7 +18,8 @@ export class FinancialsService {
     finalPrice: number,
   ) {
     const name = paymentData?.paymentGatewayName || '';
-    const rate = paymentData?.paymentGatewayFee ?? 0;
+    let rate = paymentData?.paymentGatewayFee ?? 0;
+    rate /= 100;
     return {
       name,
       fee: finalPrice * rate,
