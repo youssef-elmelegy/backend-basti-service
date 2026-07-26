@@ -201,6 +201,7 @@ export class FinancialsService {
           orderId: order.orderId,
           referenceNumber: order.referenceNumber || '',
           orderStatus: order.orderStatus,
+          cartType: order.cartType,
           deliveredAt: order.deliveredAt,
           createdAt: order.createdAt,
           miniCakesTotal: 0, // TODO: remove
