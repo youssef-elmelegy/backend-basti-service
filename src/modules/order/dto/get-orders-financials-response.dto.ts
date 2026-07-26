@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CartTypeEnum } from '@/db/schema';
 
 class OrderFinancialsRowDto {
   @ApiProperty()
@@ -52,6 +53,13 @@ class OrderFinancialsRowDto {
 
   @ApiProperty()
   orderStatus!: string | null;
+
+  @ApiProperty({
+    description: 'Type of cart this order was created from',
+    enum: CartTypeEnum.enumValues,
+    example: 'big_cakes',
+  })
+  cartType!: (typeof CartTypeEnum.enumValues)[number];
 
   @ApiProperty()
   deliveredAt!: Date | null;
