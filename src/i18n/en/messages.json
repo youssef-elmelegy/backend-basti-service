@@ -484,7 +484,16 @@
       "financials_retrieved": "Orders financials retrieved successfully",
       "failed_financials": "Failed to retrieve orders financials",
       "no_financials": "No financials found",
-      "driver_region_mismatch": "This driver belongs to a different region than the order"
+      "driver_region_mismatch": "This driver belongs to a different region than the order",
+      "not_assigned_to_driver": "Order is not assigned to this driver",
+      "not_belong_to_user": "Order is not assigned to this user",
+      "delivery_code_invalid_state": "Order is not in out for delivery state",
+      "delivery_code_generated": "Delivery code generated successfully",
+      "failed_generate_delivery_code": "Failed to generate delivery code",
+      "delivery_code_not_generated": "Delivery code not generated",
+      "delivery_code_invalid": "Invalid delivery code",
+      "delivery_code_verified": "Delivery code verified successfully",
+      "failed_verify_delivery_code": "Failed to verify delivery code"
     },
 
     "driver": {

@@ -449,7 +449,16 @@
       "assinged_for_too_long": "لقد تم تعيين الطلب برقم: {orderId} لمخبز لأكثر من ساعة واحدة، لذلك لا يمكن إلغاء تعيينه",
       "final_images_required": "مطلوب صورة نهائية واحدة على الأقل لإنهاء الطلب",
       "not_assined_to_this_bakery": "الطلب برقم: {orderId} غير معين للمخبز {bakeryId}. المخبز الحالي: {currentBakeryId}",
-      "driver_region_mismatch": "هذا السائق ينتمي إلى منطقة مختلفة عن منطقة الطلب"
+      "driver_region_mismatch": "هذا السائق ينتمي إلى منطقة مختلفة عن منطقة الطلب",
+      "not_assigned_to_driver": "الطلب غير معين لهذا السائق",
+      "not_belong_to_user": "الطلب لا يخص هذا المستخدم",
+      "delivery_code_invalid_state": "الطلب ليس في حالة مُعد للتسليم",
+      "delivery_code_generated": "تم إنشاء رمز التسليم بنجاح",
+      "failed_generate_delivery_code": "فشل في إنشاء رمز التسليم",
+      "delivery_code_not_generated": "لم يتم إنشاء رمز التسليم",
+      "delivery_code_invalid": "رمز التسليم غير صالح",
+      "delivery_code_verified": "تم التحقق من رمز التسليم بنجاح",
+      "failed_verify_delivery_code": "فشل في التحقق من رمز التسليم"
     },
 
     "driver": {

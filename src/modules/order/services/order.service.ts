@@ -1491,82 +1491,90 @@ export class OrderService {
     return updatedOrder;
   }
 
-  async generateDeliveryCheckCode(orderId: string, driverId: string) {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  async generateDeliveryCheckCode(orderId: string, userId: string) {
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
-    if (!order) {
-      throw new NotFoundException('routes.orders.not_found');
+      if (!order) {
+        throw new NotFoundException('routes.orders.not_found');
+      }
+
+      if (order.userId !== userId) {
+        throw new BadRequestException('routes.orders.not_belong_to_user');
+      }
+
+      if (order.orderStatus !== 'out_for_delivery') {
+        throw new BadRequestException('routes.orders.delivery_code_invalid_state');
+      }
+
+      const deliveryCheckCode = randomInt(100000, 1000000).toString();
+      const deliveryCheckCodeHash = createHmac('sha256', env.JWT_ACCESS_SECRET)
+        .update(deliveryCheckCode)
+        .digest('hex');
+
+      await db
+        .update(orders)
+        .set({
+          deliveryCheckCodeHash,
+        })
+        .where(eq(orders.id, orderId));
+
+      return successResponse(
+        {
+          orderId,
+          deliveryCheckCode,
+        },
+        'routes.orders.delivery_code_generated',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.orders.failed_generate_delivery_code', this.logger);
     }
-
-    if (order.driverId !== driverId) {
-      throw new BadRequestException('routes.orders.not_assigned_to_driver');
-    }
-
-    if (order.orderStatus !== 'out_for_delivery') {
-      throw new BadRequestException('routes.orders.delivery_code_invalid_state');
-    }
-
-    const deliveryCheckCode = randomInt(100000, 1000000).toString();
-    const deliveryCheckCodeHash = createHmac('sha256', env.JWT_ACCESS_SECRET)
-      .update(deliveryCheckCode)
-      .digest('hex');
-
-    await db
-      .update(orders)
-      .set({
-        deliveryCheckCodeHash,
-      })
-      .where(eq(orders.id, orderId));
-
-    return successResponse(
-      {
-        orderId,
-        deliveryCheckCode,
-      },
-      'routes.orders.delivery_code_generated',
-      HttpStatus.OK,
-    );
   }
 
   async verifyDeliveryCheckCode(
     orderId: string,
-    userId: string,
+    driverId: string,
     { deliveryCheckCode }: VerifyDeliveryCodeDto,
   ) {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
-    if (!order) {
-      throw new NotFoundException('routes.orders.not_found');
+      if (!order) {
+        throw new NotFoundException('routes.orders.not_found');
+      }
+
+      if (order.driverId !== driverId) {
+        throw new BadRequestException('routes.orders.not_assigned_to_driver');
+      }
+
+      if (!order.deliveryCheckCodeHash) {
+        throw new BadRequestException('routes.orders.delivery_code_not_generated');
+      }
+
+      const providedHash = this.hashDeliveryCheckCode(deliveryCheckCode);
+      if (providedHash !== order.deliveryCheckCodeHash) {
+        throw new BadRequestException('routes.orders.delivery_code_invalid');
+      }
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          orderStatus: 'delivered',
+          deliveredAt: new Date(),
+          deliveryCheckCodeHash: null,
+        })
+        .where(eq(orders.id, orderId))
+        .returning({
+          id: orders.id,
+          status: orders.orderStatus,
+          deliveredAt: orders.deliveredAt,
+        });
+
+      return successResponse(updatedOrder, 'routes.orders.delivery_code_verified');
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.orders.failed_verify_delivery_code', this.logger);
     }
-
-    if (order.userId !== userId) {
-      throw new BadRequestException('routes.orders.not_authorized_for_verification');
-    }
-
-    if (!order.deliveryCheckCodeHash) {
-      throw new BadRequestException('routes.orders.delivery_code_not_generated');
-    }
-
-    const providedHash = this.hashDeliveryCheckCode(deliveryCheckCode);
-    if (providedHash !== order.deliveryCheckCodeHash) {
-      throw new BadRequestException('routes.orders.delivery_code_invalid');
-    }
-
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({
-        orderStatus: 'delivered',
-        deliveredAt: new Date(),
-        deliveryCheckCodeHash: null,
-      })
-      .where(eq(orders.id, orderId))
-      .returning({
-        id: orders.id,
-        status: orders.orderStatus,
-        deliveredAt: orders.deliveredAt,
-      });
-
-    return updatedOrder;
   }
 
   async unassignFromBakery(

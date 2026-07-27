@@ -259,30 +259,30 @@ export class OrderController {
     return successResponse(result, 'routes.orders.refused');
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post(':orderId/delivery-code')
-  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('driver')
   @GenerateDeliveryCheckCodeDecorator()
   async generateDeliveryCheckCode(
     @Param('orderId', ParseUUIDPipe) orderId: string,
-    @CurrentUser('id') driverId: string,
+    @CurrentUser('id') userId: string,
   ) {
-    this.logger.debug(`Driver ${driverId} generating delivery code for order: ${orderId}`);
-    return this.orderService.generateDeliveryCheckCode(orderId, driverId);
+    this.logger.debug(`Driver ${userId} generating delivery code for order: ${orderId}`);
+    return this.orderService.generateDeliveryCheckCode(orderId, userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('driver')
   @Post(':id/verify-delivery-code')
   @VerifyDeliveryCodeDecorator()
   async verifyDeliveryCode(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('sub') userId: string,
+    @CurrentUser('sub') driverId: string,
     @Body() verifyDeliveryCodeDto: VerifyDeliveryCodeDto,
   ) {
     this.logger.debug(`verifying delivery code for order: ${id}`);
     const result = await this.orderService.verifyDeliveryCheckCode(
       id,
-      userId,
+      driverId,
       verifyDeliveryCodeDto,
     );
     this.logger.debug(`delivery code verified for order: ${id}`);
