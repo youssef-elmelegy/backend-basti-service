@@ -198,7 +198,6 @@ export class FinancialsService {
           finalPrice: finalPrice * factor,
           bakeryId: order.bakeryId || '',
           bakeryName: order.bakeryName || '',
-          cartType: order.cartType,
           orderId: order.orderId,
           referenceNumber: order.referenceNumber || '',
           orderStatus: order.orderStatus,

@@ -20,9 +20,6 @@ class OrderFinancialsRowDto {
   @ApiProperty({ description: "Payment gateway: 'masarat' | 'tadawul' | '' (cash/wallet/unknown)" })
   gatewayName!: string;
 
-  @ApiProperty()
-  cartType!: string;
-
   @ApiProperty({
     description: 'Gateway fee (finalPriceBeforeGatewayFee * rate), deducted from Basti share',
   })
