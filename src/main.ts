@@ -11,8 +11,6 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { env } from './env';
 import { SentryLogger } from './sentry-logger';
-import { I18nExceptionFilter } from './common/filters/i18n-translation.filter';
-import { I18nResponseInterceptor } from './common/interceptors/i18n-transaltion.interceptor';
 
 // Map env log levels to NestJS logger levels
 type NestLogLevel = 'error' | 'warn' | 'log' | 'debug' | 'verbose' | 'fatal';
@@ -41,12 +39,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   /*
-    instead of replacing all response and exception messages with the i18n logic in 
+    instead of replacing all response and exception messages with the i18n logic in
     every single module, a filter and an interceptor are used to catch all messages
-    and translate them using the i18n context 
   */
-  app.useGlobalFilters(new I18nExceptionFilter());
-  app.useGlobalInterceptors(new I18nResponseInterceptor());
 
   //   /*
   //     instead of using the default validation pipe, a custom pipe is used to

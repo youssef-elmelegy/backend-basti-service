@@ -30,8 +30,10 @@ import { OfferModule } from './modules/offer/offer.module';
 import { HealthModule } from './modules/health/health.module';
 import { DriverModule } from './modules/driver/driver.module';
 import { ThrottlerModule, ThrottlerGuard, minutes } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PaymentModule } from './modules/payment/payment.module';
+import { I18nExceptionFilter } from '@/common/filters/i18n-translation.filter';
+import { I18nResponseInterceptor } from '@/common/interceptors/i18n-transaltion.interceptor';
 
 @Module({
   imports: [
@@ -39,7 +41,7 @@ import { PaymentModule } from './modules/payment/payment.module';
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
-        path: path.join(process.cwd(), '/src/i18n'),
+        path: path.join(__dirname, '/i18n'),
         watch: true,
       },
       resolvers: [
@@ -88,6 +90,14 @@ import { PaymentModule } from './modules/payment/payment.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard, // This applies the rate limit globally
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: I18nResponseInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: I18nExceptionFilter,
     },
   ],
 })

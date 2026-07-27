@@ -12,6 +12,9 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -62,7 +65,11 @@ export class AdminAuthController {
   @Public()
   @Post('login')
   @AdminLoginEndpoint()
-  async login(@Body() loginDto: AdminLoginDto, @Req() req: Request, @Res() res: Response) {
+  async login(
+    @Body() loginDto: AdminLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     this.logger.debug(`Admin login attempt: ${loginDto.email}`);
 
     // Check if request is from mobile client
@@ -105,32 +112,32 @@ export class AdminAuthController {
       responseData.refreshToken = result.data.refreshToken;
     }
 
-    return res.json({
+    return {
       code: result.code,
       success: result.success,
       message: result.message,
       data: responseData,
       timestamp: new Date().toISOString(),
-    });
+    };
   }
 
   @Public()
   @Post('forgot-password')
   @AdminForgotPasswordEndpoint()
-  async forgotPassword(@Body() forgotPasswordDto: AdminForgotPasswordDto, @Res() res: Response) {
+  async forgotPassword(@Body() forgotPasswordDto: AdminForgotPasswordDto) {
     this.logger.debug(`Forgot password request: ${forgotPasswordDto.email}`);
     const result = await this.adminAuthService.forgotPassword(forgotPasswordDto);
     this.logger.log(`OTP sent to: ${forgotPasswordDto.email}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Public()
   @Post('verify-otp')
   @AdminVerifyOtpEndpoint()
-  async verifyOtp(@Body() verifyOtpDto: AdminVerifyOtpDto, @Res() res: Response) {
+  async verifyOtp(
+    @Body() verifyOtpDto: AdminVerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     this.logger.debug(`OTP verification attempt: ${verifyOtpDto.email}`);
     const result = await this.adminAuthService.verifyOtp(verifyOtpDto);
 
@@ -143,7 +150,7 @@ export class AdminAuthController {
     });
 
     this.logger.log(`OTP verified for: ${verifyOtpDto.email}`);
-    return res.json({
+    return {
       success: result.success,
       message: result.message,
       data: {
@@ -151,7 +158,7 @@ export class AdminAuthController {
         resetToken: result.data.resetToken,
       },
       timestamp: new Date().toISOString(),
-    });
+    };
   }
 
   @Public()
@@ -160,7 +167,7 @@ export class AdminAuthController {
   async resetPassword(
     @Body() resetPasswordDto: AdminResetPasswordDto,
     @Req() req: Request,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     this.logger.debug('Reset password request');
 
@@ -177,10 +184,7 @@ export class AdminAuthController {
     res.clearCookie('resetToken');
 
     this.logger.log('Password reset completed');
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Patch('change-password')
@@ -190,7 +194,6 @@ export class AdminAuthController {
   async changePassword(
     @Body() changePasswordDto: AdminChangePasswordDto,
     @Req() req: AuthenticatedRequest,
-    @Res() res: Response,
   ) {
     const adminId = req.user.id;
     this.logger.debug(`Change password request for admin: ${adminId}`);
@@ -198,132 +201,120 @@ export class AdminAuthController {
     const result = await this.adminAuthService.changePassword(adminId, changePasswordDto);
 
     this.logger.log(`Password changed for admin: ${adminId}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @AdminLogoutEndpoint()
-  logout(@Res() res: Response) {
+  logout(@Res({ passthrough: true }) res: Response) {
     this.logger.log('Admin logout');
 
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
     res.clearCookie('resetToken');
 
-    const result = this.adminAuthService.logout();
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return this.adminAuthService.logout();
   }
 
   @Post('refresh')
   @Public()
   @AdminRefreshTokenEndpoint()
-  async refreshTokens(@Req() req: Request, @Res() res: Response): Promise<void> {
-    try {
-      // Check if request is from mobile client
-      const isMobileClient = req.headers['x-client-type'] === 'mobile';
+  async refreshTokens(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    // Check if request is from mobile client
+    const isMobileClient = req.headers['x-client-type'] === 'mobile';
 
-      // Get refresh token from either header (mobile) or cookies (web)
-      let refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
+    // Get refresh token from either header (mobile) or cookies (web)
+    let refreshToken = (req.cookies as Record<string, unknown>)?.refreshToken as string;
 
-      if (isMobileClient && !refreshToken) {
-        refreshToken = req.headers.authorization?.replace('Bearer ', '');
-      }
-
-      if (!refreshToken) {
-        this.logger.warn('Refresh token not found');
-        res.status(401).json({
-          code: 401,
-          success: false,
-          message: 'routes.auth.refresh_token_not_found',
-          error: 'Unauthorized',
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-
-      try {
-        const decoded = this.adminAuthService.verifyRefreshToken(refreshToken);
-        this.logger.debug(`Token refresh for admin: ${decoded.id} (mobile: ${isMobileClient})`);
-        const result = await this.adminAuthService.refreshTokens(decoded.id);
-
-        const accessToken = result.data.accessToken;
-        const newRefreshToken = result.data.refreshToken;
-        const adminData = result.data.admin;
-
-        // Only set cookies if not from mobile
-        if (!isMobileClient) {
-          res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: '/',
-          });
-
-          res.cookie('refreshToken', newRefreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            path: '/',
-          });
-        }
-
-        this.logger.log(`Tokens refreshed for admin: ${decoded.id}`);
-
-        const responseData: {
-          admin: typeof adminData;
-          accessToken?: string;
-          refreshToken?: string;
-        } = {
-          admin: adminData,
-        };
-
-        // Include tokens in response if from mobile
-        if (isMobileClient) {
-          responseData.accessToken = accessToken;
-          responseData.refreshToken = newRefreshToken;
-        }
-
-        res.json({
-          code: 200,
-          success: true,
-          message: 'routes.auth.tokens_refreshed',
-          data: responseData,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (jwtError) {
-        this.logger.warn(`Invalid refresh token: ${jwtError}`);
-        res.clearCookie('refreshToken');
-        res.status(401).json({
-          code: 401,
-          success: false,
-          message: 'routes.auth.invalid_or_expired_refresh_token',
-          error: 'Unauthorized',
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-    } catch (error) {
-      this.logger.error(`Token refresh failed: ${error}`);
-      throw error;
+    if (isMobileClient && !refreshToken) {
+      refreshToken = req.headers.authorization?.replace('Bearer ', '');
     }
+
+    if (!refreshToken) {
+      this.logger.warn('Refresh token not found');
+      // Thrown rather than written directly so I18nExceptionFilter translates it.
+      throw new UnauthorizedException('routes.auth.refresh_token_not_found');
+    }
+
+    let decoded: ReturnType<AdminAuthService['verifyRefreshToken']>;
+    try {
+      decoded = this.adminAuthService.verifyRefreshToken(refreshToken);
+    } catch (jwtError) {
+      this.logger.warn(`Invalid refresh token: ${jwtError}`);
+      res.clearCookie('refreshToken');
+      throw new UnauthorizedException('routes.auth.invalid_or_expired_refresh_token');
+    }
+
+    this.logger.debug(`Token refresh for admin: ${decoded.id} (mobile: ${isMobileClient})`);
+    const result = await this.adminAuthService.refreshTokens(decoded.id);
+
+    const accessToken = result.data.accessToken;
+    const newRefreshToken = result.data.refreshToken;
+    const adminData = result.data.admin;
+
+    // Only set cookies if not from mobile
+    if (!isMobileClient) {
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+
+      res.cookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+    }
+
+    this.logger.log(`Tokens refreshed for admin: ${decoded.id}`);
+
+    const responseData: {
+      admin: typeof adminData;
+      accessToken?: string;
+      refreshToken?: string;
+    } = {
+      admin: adminData,
+    };
+
+    // Include tokens in response if from mobile
+    if (isMobileClient) {
+      responseData.accessToken = accessToken;
+      responseData.refreshToken = newRefreshToken;
+    }
+
+    return {
+      code: 200,
+      success: true,
+      message: 'routes.auth.tokens_refreshed',
+      data: responseData,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('check-auth')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @AdminCheckAuthEndpoint()
-  async checkAuth(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+  async checkAuth(@Req() req: AuthenticatedRequest) {
     this.logger.debug('Check auth request');
+
+    const unauthenticated = (message: string) => ({
+      code: 200,
+      success: true,
+      message,
+      data: {
+        isAuthenticated: false,
+      },
+      timestamp: new Date().toISOString(),
+    });
+
     try {
       if (req.user?.id) {
         const admin = await this.adminAuthService.getAdminById(req.user.id);
@@ -331,18 +322,10 @@ export class AdminAuthController {
         // A still-valid access token must not keep a blocked admin "logged in":
         // report the session as unauthenticated so the client tears it down.
         if (admin.isBlocked) {
-          return res.json({
-            code: 200,
-            success: true,
-            message: 'routes.auth.check_completed',
-            data: {
-              isAuthenticated: false,
-            },
-            timestamp: new Date().toISOString(),
-          });
+          return unauthenticated('routes.auth.check_completed');
         }
 
-        return res.json({
+        return {
           code: 200,
           success: true,
           message: 'routes.auth.check_completed',
@@ -359,29 +342,13 @@ export class AdminAuthController {
             },
           },
           timestamp: new Date().toISOString(),
-        });
+        };
       }
 
-      return res.json({
-        code: 200,
-        success: true,
-        message: 'routes.auth.check_completed',
-        data: {
-          isAuthenticated: false,
-        },
-        timestamp: new Date().toISOString(),
-      });
+      return unauthenticated('routes.auth.check_completed');
     } catch (error) {
       this.logger.error(`Auth check failed: ${error}`);
-      return res.json({
-        code: 200,
-        success: true,
-        message: 'routes.auth.check_failed',
-        data: {
-          isAuthenticated: false,
-        },
-        timestamp: new Date().toISOString(),
-      });
+      return unauthenticated('routes.auth.check_failed');
     }
   }
 
@@ -390,16 +357,14 @@ export class AdminAuthController {
   @AdminRoles('super_admin')
   @ApiBearerAuth('access-token')
   @AdminCreateEndpoint()
-  async create(@Body() createAdminDto: CreateAdminDto, @Res() res: Response) {
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() createAdminDto: CreateAdminDto) {
     const { email } = createAdminDto as { email: string };
     this.logger.debug(`Creating new admin: ${email}`);
     const result = await this.adminAuthService.createAdmin(createAdminDto);
     const { data } = result as { data: { id: string } };
     this.logger.log(`Admin created: ${data.id}`);
-    return res.status(201).json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Patch(':id/block')
@@ -407,19 +372,12 @@ export class AdminAuthController {
   @AdminRoles('super_admin')
   @ApiBearerAuth('access-token')
   @AdminBlockEndpoint()
-  async blockAdmin(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() blockAdminDto: BlockAdminDto,
-    @Res() res: Response,
-  ) {
+  async blockAdmin(@Param('id', ParseUUIDPipe) id: string, @Body() blockAdminDto: BlockAdminDto) {
     this.logger.debug(`Updating block status for admin: ${id}`);
     const { isBlocked } = blockAdminDto;
     const result = await this.adminAuthService.blockAdmin(id, blockAdminDto);
     this.logger.log(`Admin block status updated: ${id} - blocked: ${isBlocked}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Patch(':id/update')
@@ -430,15 +388,11 @@ export class AdminAuthController {
   async updateAdmin(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAdminDto: UpdateAdminDto,
-    @Res() res: Response,
   ) {
     this.logger.debug(`Updating admin: ${id}`);
     const result = await this.adminAuthService.updateAdmin(id, updateAdminDto);
     this.logger.log(`Admin updated: ${id}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Delete(':id')
@@ -446,14 +400,11 @@ export class AdminAuthController {
   @AdminRoles('super_admin')
   @ApiBearerAuth('access-token')
   @AdminDeleteEndpoint()
-  async deleteAdmin(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+  async deleteAdmin(@Param('id', ParseUUIDPipe) id: string) {
     this.logger.debug(`Deleting admin: ${id}`);
     const result = await this.adminAuthService.deleteAdmin(id);
     this.logger.log(`Admin deleted: ${id}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 
   @Get()
@@ -462,15 +413,12 @@ export class AdminAuthController {
   @ApiBearerAuth('access-token')
   @AdminGetAllEndpoint()
   @PaginationDecorator()
-  async getAllAdmins(@Query() query: GetAdminsQueryDto, @Res() res: Response) {
+  async getAllAdmins(@Query() query: GetAdminsQueryDto) {
     const { page = 1, limit = 10 } = query;
     this.logger.debug(`Fetching admins: page ${page}, limit ${limit}`);
     const result = await this.adminAuthService.getAllAdmins(query);
     const { data } = result as { data: { items: unknown[]; pagination: { total: number } } };
     this.logger.log(`Fetched admins: ${data.pagination.total}`);
-    return res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
+    return result;
   }
 }
