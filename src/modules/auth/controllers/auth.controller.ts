@@ -5,6 +5,7 @@ import {
   SignupResponse,
   VerifyOtpResponse,
   SetupProfileResponse,
+  ProfileSetupRequiredResponse,
 } from '../services/auth.service';
 import {
   SignupDto,
@@ -96,10 +97,18 @@ export class AuthController {
   @Public()
   @Post('login')
   @AuthLoginDecorator()
-  async login(@Body() loginDto: LoginDto): Promise<SuccessResponse<AuthResponse>> {
+  async login(
+    @Body() loginDto: LoginDto,
+  ): Promise<SuccessResponse<AuthResponse | ProfileSetupRequiredResponse>> {
     this.logger.debug(`Login attempt: ${loginDto.email}`);
     const result = await this.authService.login(loginDto);
-    this.logger.log(`User logged in: ${result.data.user.id}`);
+
+    if ('profileSetupRequired' in result.data) {
+      this.logger.log(`Login pending profile setup: ${result.data.user.id}`);
+    } else {
+      this.logger.log(`User logged in: ${result.data.user.id}`);
+    }
+
     return result;
   }
 

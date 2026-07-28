@@ -61,6 +61,8 @@ export const AuthExamples = {
         message: 'Email verified successfully',
         data: {
           message: 'Email verified successfully',
+          tempToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInR5cGUiOiJzZXR1cC1wcm9maWxlIiwiaWF0IjoxNzMxNTcyMDAwLCJleHAiOjE3MzE1NzI2MDB9.signature',
           user: {
             id: MOCK_DATA.id.user,
             email: MOCK_DATA.email.user,
@@ -138,6 +140,13 @@ export const AuthExamples = {
         error: 'UnauthorizedException',
         timestamp: '2025-01-11T10:00:00.000Z',
       },
+      phoneExists: {
+        code: 409,
+        success: false,
+        message: 'This phone number is already registered to another account',
+        error: 'ConflictException',
+        timestamp: '2025-01-11T10:00:00.000Z',
+      },
       validationError: {
         code: 400,
         success: false,
@@ -191,11 +200,23 @@ export const AuthExamples = {
         error: 'ForbiddenException',
         timestamp: '2025-01-11T10:00:00.000Z',
       },
-      profileNotSetup: {
-        code: 403,
-        success: false,
+      profileSetupRequired: {
+        code: 200,
+        success: true,
         message: 'Profile setup incomplete. Please complete your profile setup',
-        error: 'ForbiddenException',
+        data: {
+          message: 'Profile setup incomplete. Please complete your profile setup',
+          profileSetupRequired: true,
+          tempToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInR5cGUiOiJzZXR1cC1wcm9maWxlIiwiaWF0IjoxNzMxNTcyMDAwLCJleHAiOjE3MzE1NzI2MDB9.signature',
+          user: {
+            id: MOCK_DATA.id.user,
+            email: MOCK_DATA.email.user,
+            firstName: 'John',
+            lastName: 'Doe',
+            isEmailVerified: true,
+          },
+        },
         timestamp: '2025-01-11T10:00:00.000Z',
       },
       unauthorized: {
