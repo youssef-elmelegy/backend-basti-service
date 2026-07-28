@@ -40,6 +40,24 @@ export interface VerifyOtpResponse {
   };
 }
 
+/**
+ * Returned by login when the account is valid and email-verified but the
+ * profile is still incomplete. Carries a short-lived setup token instead of
+ * the normal access/refresh pair.
+ */
+export interface ProfileSetupRequiredResponse {
+  message: string;
+  profileSetupRequired: true;
+  tempToken: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    isEmailVerified: boolean;
+  };
+}
+
 export interface SetupProfileResponse {
   accessToken: string;
   refreshToken: string;

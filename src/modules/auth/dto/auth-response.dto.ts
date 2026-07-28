@@ -122,8 +122,41 @@ export class VerifyOtpResponseDto {
   message: string;
 
   @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'Short-lived token used to authorize the profile setup request',
+  })
+  tempToken: string;
+
+  @ApiProperty({
     type: UserDataDto,
     description: 'User information after verification',
+  })
+  user: UserDataDto;
+}
+
+export class ProfileSetupRequiredResponseDto {
+  @ApiProperty({
+    example: 'Profile setup incomplete. Please complete your profile setup',
+    description: 'Message explaining that profile setup must be completed',
+  })
+  message: string;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Always true. Signals the client to route the user to profile setup instead of the app',
+  })
+  profileSetupRequired: boolean;
+
+  @ApiProperty({
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'Short-lived token used to authorize the profile setup request',
+  })
+  tempToken: string;
+
+  @ApiProperty({
+    type: UserDataDto,
+    description: 'User information for the account pending profile setup',
   })
   user: UserDataDto;
 }

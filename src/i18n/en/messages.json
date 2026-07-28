@@ -392,6 +392,7 @@
       "updated": "Profile updated successfully",
       "setup_complete": "Profile setup completed successfully",
       "setup_incomplete": "Profile setup incomplete. Please complete your profile setup",
+      "phone_exists": "This phone number is already registered to another account",
       "failed_setup": "Failed to complete profile setup",
       "failed_retrieve": "Failed to retrieve profile",
       "failed_update": "Failed to update profile",

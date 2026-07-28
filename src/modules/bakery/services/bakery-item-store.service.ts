@@ -117,9 +117,9 @@ export class BakeryItemStoreService {
    */
   async getBakeryItemStores(bakeryId: string): Promise<SuccessResponse<any[]>> {
     try {
-      // Validate bakery exists
+      // Validate bakery exists (and read its types, which gate addon stock)
       const [bakeryExists] = await db
-        .select({ id: bakeries.id })
+        .select({ id: bakeries.id, bakeryTypes: bakeries.bakeryTypes })
         .from(bakeries)
         .where(eq(bakeries.id, bakeryId))
         .limit(1);
@@ -128,6 +128,17 @@ export class BakeryItemStoreService {
         throw new NotFoundException(
           errorResponse('routes.bakery.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
         );
+      }
+
+      // Only "others" bakeries hold stock. Big/small cake bakeries produce
+      // custom cakes to order and carry no sweets, featured cakes or addons.
+      // `big_cakes` and `large_cakes` are the same type stored under two
+      // spellings, but neither carries stock, so both simply fail this check.
+      const carriesStock = (bakeryExists.bakeryTypes ?? []).includes('others');
+
+      if (!carriesStock) {
+        this.logger.debug(`Bakery ${bakeryId} is not a stock-carrying type; returning no items`);
+        return successResponse([], 'routes.bakery.item_stores_retrieved', HttpStatus.OK);
       }
 
       // Get stores with region item price details

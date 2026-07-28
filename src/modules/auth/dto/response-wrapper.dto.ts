@@ -3,6 +3,7 @@ import {
   SignupResponseDto,
   VerifyOtpResponseDto,
   SetupProfileResponseDto,
+  ProfileSetupRequiredResponseDto,
   AuthResponseDto,
   RefreshTokenResponseDto,
   LogoutResponseDto,
@@ -128,6 +129,38 @@ export class AuthResponseWrapperDto {
     description: 'Response data containing tokens and user information',
   })
   data: AuthResponseDto;
+
+  @ApiProperty({
+    example: '2025-01-11T10:00:00.000Z',
+    description: 'Response timestamp',
+  })
+  timestamp: string;
+}
+
+export class ProfileSetupRequiredResponseWrapperDto {
+  @ApiProperty({
+    example: 200,
+    description: 'HTTP status code',
+  })
+  code: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the request was successful',
+  })
+  success: boolean;
+
+  @ApiProperty({
+    example: 'Profile setup incomplete. Please complete your profile setup',
+    description: 'Message explaining that profile setup must be completed',
+  })
+  message: string;
+
+  @ApiProperty({
+    type: ProfileSetupRequiredResponseDto,
+    description: 'Response data containing the setup token and user information',
+  })
+  data: ProfileSetupRequiredResponseDto;
 
   @ApiProperty({
     example: '2025-01-11T10:00:00.000Z',

@@ -13,7 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { env } from '@/env';
 import {
   SignupDto,
@@ -39,6 +39,19 @@ export interface SignupResponse {
 
 export interface VerifyOtpResponse {
   message: string;
+  tempToken: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    isEmailVerified: boolean;
+  };
+}
+
+export interface ProfileSetupRequiredResponse {
+  message: string;
+  profileSetupRequired: true;
   tempToken: string;
   user: {
     id: string;
@@ -246,6 +259,23 @@ export class AuthService {
       );
     }
 
+    // Reject a phone number already claimed by a different account. Excludes the
+    // current user so re-submitting an unchanged number is not a conflict.
+    if (phoneNumber) {
+      const [phoneOwner] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.phoneNumber, phoneNumber), ne(users.id, userId)))
+        .limit(1);
+
+      if (phoneOwner) {
+        this.logger.warn(`Profile setup failed: Phone number already in use - ${userId}`);
+        throw new ConflictException(
+          errorResponse('routes.profile.phone_exists', HttpStatus.CONFLICT, 'ConflictException'),
+        );
+      }
+    }
+
     try {
       await db
         .update(users)
@@ -386,7 +416,9 @@ export class AuthService {
   /**
    * User login with email verification and profile setup checks
    */
-  async login(loginDto: LoginDto): Promise<SuccessResponse<AuthResponse>> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<SuccessResponse<AuthResponse | ProfileSetupRequiredResponse>> {
     const { email, password } = loginDto;
 
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
@@ -422,14 +454,28 @@ export class AuthService {
       );
     }
 
+    // Profile still incomplete: issue a short-lived setup token instead of a
+    // full session so the client can finish onboarding without logging in again.
     if (!user.phoneNumber) {
-      this.logger.warn(`Login failed: Profile not set up - ${email}`);
-      throw new ForbiddenException(
-        errorResponse(
-          'routes.profile.setup_incomplete',
-          HttpStatus.FORBIDDEN,
-          'ForbiddenException',
-        ),
+      this.logger.log(`Login pending profile setup: ${user.id} (${email})`);
+
+      const tempToken = this.generateTemporaryToken(user.id, user.email);
+
+      return successResponse(
+        {
+          message: 'routes.profile.setup_incomplete',
+          profileSetupRequired: true as const,
+          tempToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isEmailVerified: user.isEmailVerified,
+          },
+        },
+        'routes.profile.setup_incomplete',
+        HttpStatus.OK,
       );
     }
 
