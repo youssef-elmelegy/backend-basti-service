@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { bakeries, regions, orders } from '@/db/schema';
+import { bakeries, regions, orders, bakeryItemStores, regionItemPrices } from '@/db/schema';
 import { eq, desc, asc, sql, getTableColumns, and, inArray, arrayContains } from 'drizzle-orm';
 import {
   CreateBakeryDto,
@@ -228,18 +228,31 @@ export class BakeryService {
         updateData.bakeryTypes = bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[];
       updateData.updatedAt = new Date();
 
-      const [updatedBakery] = await db
-        .update(bakeries)
-        .set(updateData)
-        .where(eq(bakeries.id, id))
-        .returning({
-          ...getTableColumns(bakeries),
-          name: this.translationService.getLocalized(bakeries.name, 'name'),
-          locationDescription: this.translationService.getLocalized(
-            bakeries.locationDescription,
-            'location_description',
-          ),
-        });
+      // A region change re-points stock at the new region's prices, so both
+      // writes share a transaction — a moved bakery must never be left holding
+      // stock priced in the region it came from.
+      const isMovingRegion = regionId !== undefined && regionId !== existingBakery.regionId;
+
+      const [updatedBakery] = await db.transaction(async (tx) => {
+        const updated = await tx
+          .update(bakeries)
+          .set(updateData)
+          .where(eq(bakeries.id, id))
+          .returning({
+            ...getTableColumns(bakeries),
+            name: this.translationService.getLocalized(bakeries.name, 'name'),
+            locationDescription: this.translationService.getLocalized(
+              bakeries.locationDescription,
+              'location_description',
+            ),
+          });
+
+        if (isMovingRegion) {
+          await this.migrateStockToRegion(tx, id, regionId);
+        }
+
+        return updated;
+      });
 
       this.logger.log(`Bakery updated: ${id}`);
 
@@ -384,6 +397,111 @@ export class BakeryService {
         this.logger,
       );
     }
+  }
+
+  /**
+   * Identifies which product a region price refers to. Stock is only ever kept
+   * for addons, sweets and featured cakes, so those are the only keys that can
+   * carry across a region move.
+   */
+  private stockableProductKey(price: {
+    addonId: string | null;
+    sweetId: string | null;
+    featuredCakeId: string | null;
+  }): string | null {
+    if (price.addonId) return `addon:${price.addonId}`;
+    if (price.sweetId) return `sweet:${price.sweetId}`;
+    if (price.featuredCakeId) return `featured_cake:${price.featuredCakeId}`;
+    return null;
+  }
+
+  /**
+   * Re-points a bakery's stock at its new region.
+   *
+   * Stock rows reference `regionItemPriceId`, and prices belong to a region, so
+   * a region change would otherwise leave every row pointing at the region the
+   * bakery just left. Rows whose product is also priced in the new region are
+   * remapped and keep their quantities; rows with no counterpart are dropped;
+   * anything else priced in the new region is seeded at zero stock.
+   */
+  private async migrateStockToRegion(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    bakeryId: string,
+    newRegionId: string,
+  ): Promise<void> {
+    const existingStock = await tx
+      .select({
+        id: bakeryItemStores.id,
+        stock: bakeryItemStores.stock,
+        optionsStock: bakeryItemStores.optionsStock,
+        addonId: regionItemPrices.addonId,
+        sweetId: regionItemPrices.sweetId,
+        featuredCakeId: regionItemPrices.featuredCakeId,
+      })
+      .from(bakeryItemStores)
+      .innerJoin(regionItemPrices, eq(bakeryItemStores.regionItemPriceId, regionItemPrices.id))
+      .where(eq(bakeryItemStores.bakeryId, bakeryId));
+
+    // Every stockable price in the destination region, keyed by product
+    const newRegionPrices = await tx
+      .select({
+        id: regionItemPrices.id,
+        addonId: regionItemPrices.addonId,
+        sweetId: regionItemPrices.sweetId,
+        featuredCakeId: regionItemPrices.featuredCakeId,
+      })
+      .from(regionItemPrices)
+      .where(eq(regionItemPrices.regionId, newRegionId));
+
+    const pricesByProduct = new Map<string, string>();
+    for (const price of newRegionPrices) {
+      const key = this.stockableProductKey(price);
+      // First price wins if a product is somehow priced twice in a region
+      if (key && !pricesByProduct.has(key)) pricesByProduct.set(key, price.id);
+    }
+
+    // Carry quantities across for products the new region also sells
+    const carriedKeys = new Set<string>();
+    for (const row of existingStock) {
+      const key = this.stockableProductKey(row);
+      if (!key) continue;
+
+      const newPriceId = pricesByProduct.get(key);
+      if (!newPriceId) continue;
+
+      await tx
+        .update(bakeryItemStores)
+        .set({ regionItemPriceId: newPriceId, updatedAt: new Date() })
+        .where(eq(bakeryItemStores.id, row.id));
+
+      carriedKeys.add(key);
+    }
+
+    // Drop rows with no counterpart — they point at the old region's prices
+    const orphanIds = existingStock
+      .filter((row) => {
+        const key = this.stockableProductKey(row);
+        return !key || !pricesByProduct.has(key);
+      })
+      .map((row) => row.id);
+
+    if (orphanIds.length > 0) {
+      await tx.delete(bakeryItemStores).where(inArray(bakeryItemStores.id, orphanIds));
+    }
+
+    // Seed everything else the new region sells at zero stock
+    const toSeed = [...pricesByProduct.entries()]
+      .filter(([key]) => !carriedKeys.has(key))
+      .map(([, priceId]) => ({ bakeryId, regionItemPriceId: priceId, stock: 0 }));
+
+    if (toSeed.length > 0) {
+      await tx.insert(bakeryItemStores).values(toSeed);
+    }
+
+    this.logger.log(
+      `Bakery ${bakeryId} moved to region ${newRegionId}: ` +
+        `${carriedKeys.size} carried, ${orphanIds.length} dropped, ${toSeed.length} seeded`,
+    );
   }
 
   private formatBakeryResponse(bakery: {
