@@ -1,5 +1,6 @@
 export {
   genderEnum,
+  languageEnum,
   adminRoleEnum,
   bakeryTypeEnum,
   orderStatusEnum,

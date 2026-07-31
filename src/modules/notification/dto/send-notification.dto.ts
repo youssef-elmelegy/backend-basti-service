@@ -30,6 +30,9 @@ export const ACTION_REQUIRED_NOTIFICATION_TYPES = [
 export const NOTIFICATION_RECIPIENT_TYPES = ['user', 'admin'] as const;
 export type NotificationRecipientType = (typeof NOTIFICATION_RECIPIENT_TYPES)[number];
 
+export const NOTIFICATION_LANGUAGES = ['en', 'ar'] as const;
+export type NotificationLanguage = (typeof NOTIFICATION_LANGUAGES)[number];
+
 export class SendNotificationDto {
   @ApiProperty({
     description: 'Notification title',

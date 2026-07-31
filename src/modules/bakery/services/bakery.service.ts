@@ -19,12 +19,16 @@ import {
 } from '../dto';
 import { errorResponse, handleErrorsAndThrow, successResponse, SuccessResponse } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
+import { BakeryItemStoreService, bakeryCarriesStock } from './bakery-item-store.service';
 
 @Injectable()
 export class BakeryService {
   private readonly logger = new Logger(BakeryService.name);
 
-  constructor(private readonly translationService: TranslationService) {}
+  constructor(
+    private readonly translationService: TranslationService,
+    private readonly bakeryItemStoreService: BakeryItemStoreService,
+  ) {}
 
   async create(createBakeryDto: CreateBakeryDto): Promise<SuccessResponse<BakeryResponse>> {
     const { name, locationDescription, regionId, capacity, bakeryTypes } = createBakeryDto;
@@ -49,23 +53,36 @@ export class BakeryService {
       await this.translationService.getTranslationObject(locationDescription);
 
     try {
-      const [newBakery] = await db
-        .insert(bakeries)
-        .values({
-          name: nameObject,
-          locationDescription: locationDescriptionObject,
-          regionId,
-          capacity,
-          bakeryTypes: bakeryTypes as ('big_cakes' | 'small_cakes' | 'others')[],
-        })
-        .returning({
-          ...getTableColumns(bakeries),
-          name: this.translationService.getLocalized(bakeries.name, 'name'),
-          locationDescription: this.translationService.getLocalized(
-            bakeries.locationDescription,
-            'location_description',
-          ),
-        });
+      const [newBakery] = await db.transaction(async (tx) => {
+        const inserted = await tx
+          .insert(bakeries)
+          .values({
+            name: nameObject,
+            locationDescription: locationDescriptionObject,
+            regionId,
+            capacity,
+            bakeryTypes: bakeryTypes as ('big_cakes' | 'small_cakes' | 'others')[],
+          })
+          .returning({
+            ...getTableColumns(bakeries),
+            name: this.translationService.getLocalized(bakeries.name, 'name'),
+            locationDescription: this.translationService.getLocalized(
+              bakeries.locationDescription,
+              'location_description',
+            ),
+          });
+
+        const [created] = inserted;
+
+        // A new bakery starts carrying everything its region already sells,
+        // at zero stock, so it shows up in the region's catalogue right away
+        // instead of silently returning an empty item list.
+        if (bakeryCarriesStock(created.bakeryTypes)) {
+          await this.bakeryItemStoreService.createStoresForBakery(created.id, regionId, tx);
+        }
+
+        return inserted;
+      });
 
       this.logger.log(`Bakery created: ${newBakery.id} (${name})`);
 

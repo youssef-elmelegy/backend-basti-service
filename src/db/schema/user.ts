@@ -1,6 +1,7 @@
 import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import {
+  languageEnum,
   locations,
   orders,
   cartItems,
@@ -27,6 +28,8 @@ export const users = pgTable(
     otpExpiresAt: timestamp('otp_expires_at', { mode: 'date' }),
     profileImage: text('profile_image'),
     fcmToken: text('fcm_token'),
+    // Language the FCM push is delivered in — see languageEnum.
+    language: languageEnum('language').default('ar').notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
   },

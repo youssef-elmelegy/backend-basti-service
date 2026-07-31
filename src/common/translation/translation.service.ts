@@ -110,28 +110,80 @@ export class TranslationService {
   //   }
   // }
 
+  /**
+   * Calls the MT provider, retrying once on failure with a longer timeout.
+   * The retry is deliberately small: it covers a dropped connection or a
+   * momentary rate limit without turning a real outage into a slow request.
+   */
+  private async translateWithRetry(
+    text: string,
+    sourceLang: string,
+    targetLang: string,
+  ): Promise<string> {
+    const attempts = [8000, 15000];
+    let lastError: unknown;
+
+    for (let i = 0; i < attempts.length; i++) {
+      try {
+        const res = await this.lara.translate(text, sourceLang, targetLang, {
+          contentType: 'text/plain',
+          style: 'fluid',
+          timeoutInMillis: attempts[i],
+          priority: 'normal',
+        });
+        if (i > 0) {
+          this.logger.log(`Translation succeeded on retry for text "${text}"`);
+        }
+        return res.translation;
+      } catch (error) {
+        lastError = error;
+        const errMsg = error instanceof Error ? error.message : String(error);
+        if (i < attempts.length - 1) {
+          this.logger.warn(`Translation attempt ${i + 1} failed ("${text}"): ${errMsg} — retrying`);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
   async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponse>> {
     const { text, targetLang, sourceLang } = dto;
 
     try {
-      const res = await this.lara.translate(text, sourceLang, targetLang, {
-        contentType: 'text/plain',
-        style: 'fluid',
-        timeoutInMillis: 8000,
-        priority: 'normal',
-      });
+      // Retried because callers translate title and body as two independent
+      // parallel calls: a single transient failure (timeout, rate limit) makes
+      // only one of them fall back to source text, so a notification is stored
+      // half-translated. One cheap retry turns the common transient case into
+      // a success instead of a permanently wrong row.
+      const res = await this.translateWithRetry(text, sourceLang, targetLang);
 
-      return successResponse({ result: res.translation }, 'Translation successful', 200);
+      return successResponse({ result: res }, 'Translation successful', 200);
     } catch (error) {
       if (error instanceof Error) {
-        this.logger.error(`Translation failed for text: ${text}`, error.stack);
-        throw new InternalServerErrorException(error.stack);
+        // Log the provider's own message (rate limit, timeout, bad key…) — it
+        // is what tells you why a translation fell back, and it is lost if we
+        // only propagate a generic wrapper.
+        this.logger.error(
+          `Translation failed (${sourceLang}->${targetLang}) for text "${text}": ${error.message}`,
+          error.stack,
+        );
+        throw new InternalServerErrorException(error.message);
       }
       this.logger.error(`Translation failed for text: ${text}`);
       throw new InternalServerErrorException('Translation failed');
     }
   }
 
+  /**
+   * Machine-translates free text into a bilingual { en, ar } object.
+   *
+   * The source language decides the direction: whichever language the text was
+   * written in is stored verbatim, and only the *other* side is translated. Get
+   * this wrong and the admin's own words get round-tripped through the
+   * translator — e.g. English copy stored under `ar` and re-translated into
+   * garbage English. Falls back to the request's I18n language, then 'en'.
+   */
   async getTranslationObject(text, lang?: string): Promise<TranslationObject> {
     const context = I18nContext.current();
     const sourceLang = lang ? lang : context?.lang || 'en';
@@ -140,15 +192,14 @@ export class TranslationService {
       throw new Error('Unsupported language');
     }
 
-    let translationObject: TranslationObject;
+    const targetLang = sourceLang === 'ar' ? 'en' : 'ar';
 
     try {
-      const tr = await this.dynamicTranslate({ text, targetLang: 'en', sourceLang: 'ar' });
-      translationObject = {
-        en: tr.data.result,
-        ar: text,
-      };
-      return translationObject;
+      const tr = await this.dynamicTranslate({ text, targetLang, sourceLang });
+      return {
+        [sourceLang]: text,
+        [targetLang]: tr.data.result,
+      } as TranslationObject;
     } catch (error) {
       if (error instanceof Error) {
         this.logger.error(`Translation failed for text: ${text}`, error.stack);
