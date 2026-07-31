@@ -33,7 +33,9 @@ export const orderItems = pgTable(
     sweetId: uuid('sweet_id').references(() => sweets.id),
     predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id),
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id),
-    featuredCakeVarients: jsonb('featured_cake_variants').$type<FeaturedCakeVarient[]>(),
+    featuredCakeVarients: jsonb('featured_cake_variants')
+      .$type<FeaturedCakeVarient[]>()
+      .default(sql`'[]'::jsonb`),
 
     addon: jsonb('addon').$type<AddonData>(),
     sweet: jsonb('sweet').$type<SweetData>(),
