@@ -265,6 +265,7 @@ export class OrderService {
         featuredCakesItems.map((item) => ({
           id: item.featuredCakeId,
           quantity: item.quantity,
+          varients: item.featuredCakeVarients,
         })),
         regionId,
       );
@@ -279,6 +280,7 @@ export class OrderService {
           listPrice: featuredCake.listPrice,
           offer: featuredCake.offer,
           quantity: qnt,
+          featuredCakeVarients: featuredCake.featuredCakeVarients,
           selectedOptions: [],
         });
       }
@@ -457,6 +459,7 @@ export class OrderService {
           listPrice: item.listPrice,
           offer: item.offer,
           selectedOptions: item.selectedOptions,
+          featuredCakeVarients: item.featuredCakeVarients,
         }));
 
         if (itemsToInsert.length === 0) {
@@ -519,6 +522,7 @@ export class OrderService {
           sweetId: item.sweetId,
           featuredCakeId: item.featuredCakeId,
           predesignedCakeId: item.predesignedCakeId,
+          featuredCakeVarients: item.featuredCakeVarients || [],
           customCake: null,
           quantity: item.quantity,
           size: item.size,
@@ -2247,7 +2251,7 @@ export class OrderService {
         }
       } else if (item.featuredCakeId) {
         const [fc] = await this.itemService.getFeaturedCakes(
-          [{ id: item.featuredCakeId }],
+          [{ id: item.featuredCakeId, varients: item.featuredCakeVarients ?? [] }],
           regionId,
         );
         if (fc) {
@@ -2260,6 +2264,7 @@ export class OrderService {
               capacity: fc.capacity,
               flavorList: fc.flavorList,
               pipingPaletteList: fc.pipingPaletteList,
+              featuredCakeVarients: fc.featuredCakeVarients,
               tagName: fc.tagName || '',
               isActive: fc.isActive,
               price: fc.price ?? '0',

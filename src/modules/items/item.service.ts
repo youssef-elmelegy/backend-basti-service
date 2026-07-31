@@ -35,6 +35,7 @@ import { errorResponse, handleErrorsAndThrow } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 import { ConfigService } from '../config/services/config.service';
+import { FeaturedCakeVarient } from '../order/dto';
 
 @Injectable()
 export class ItemService {
@@ -277,7 +278,7 @@ export class ItemService {
   }
 
   async getFeaturedCakes(
-    featuredCakesIdsAndQnt: { id: string; quantity?: number }[],
+    featuredCakesIdsAndQnt: { id: string; quantity?: number; varients?: FeaturedCakeVarient[] }[],
     regionId?: string,
   ): Promise<FeaturedCakeData[]> {
     try {
@@ -339,6 +340,7 @@ export class ItemService {
             tagName: featuredCake.tagName ?? '',
             sizesPrices: featuredCake.sizesPrices ?? undefined,
             quantity: featuredCakeRequest.quantity ?? 1,
+            featuredCakeVarients: featuredCakeRequest.varients ?? [],
             price: finalPrice.toFixed(2),
             listPrice: featuredCake.price,
           });
@@ -370,6 +372,7 @@ export class ItemService {
             description: featuredCake.description ?? '',
             tagId: featuredCake.tagId ?? '',
             tagName: featuredCake.tagName ?? '',
+            featuredCakeVarients: featuredCakeRequest.varients ?? [],
             offer: null,
           });
         }

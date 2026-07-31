@@ -100,6 +100,20 @@ export class RecipientDto {
   phoneNumber!: string;
 }
 
+export class FeaturedCakeVarient {
+  @ApiProperty({
+    description: 'The unique identifier of the featured cake varient.',
+  })
+  @IsString()
+  flavor!: string;
+
+  @ApiProperty({
+    description: 'The piping palette for the featured cake varient.',
+  })
+  @IsString()
+  pipingPalette!: string;
+}
+
 export class WantedDeliveryTimeSlotDto {
   @ApiProperty({ required: false })
   @IsOptional()
@@ -265,6 +279,17 @@ export class OrderItemDto {
   @IsOptional()
   @IsUUID()
   featuredCakeId?: string;
+
+  @ApiProperty({
+    description: 'The featured cake varients to be ordered.',
+    required: false,
+    type: () => [FeaturedCakeVarient],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FeaturedCakeVarient)
+  featuredCakeVarients?: FeaturedCakeVarient[];
 
   @ApiProperty({
     description: 'The unique identifier of the addon to be ordered.',
