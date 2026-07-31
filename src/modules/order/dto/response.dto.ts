@@ -7,15 +7,32 @@ import { PredesignedCakeDataDto } from '@/modules/custom-cakes/dto/predesigned-c
 import { CustomCakeConfig } from '@/modules/cart/dto';
 import { ConfigResponseDto } from '@/modules/config/dto';
 import { QADto } from './finalize-order.dto';
+import { FeaturedCakeVarient } from './create.dto';
 
 export class CreateOrderItemResponseDto {
-  id: string;
-  orderId: string;
-  addonId: string | null;
-  sweetId: string | null;
-  predesignedCakeId: string | null;
-  featuredCakeId: string | null;
-  customCake: {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  orderId!: string;
+
+  @ApiProperty()
+  addonId!: string | null;
+
+  @ApiProperty()
+  sweetId!: string | null;
+
+  @ApiProperty()
+  predesignedCakeId!: string | null;
+
+  @ApiProperty()
+  featuredCakeId!: string | null;
+
+  @ApiProperty()
+  featuredCakeVarients!: FeaturedCakeVarient[];
+
+  @ApiProperty()
+  customCake!: {
     shapeId: string;
     flavorId: string;
     decorationId: string;
@@ -30,41 +47,80 @@ export class CreateOrderItemResponseDto {
     snapshotTop?: string;
     snapshotSliced?: string;
   } | null;
-  quantity: number;
-  size: string | null;
-  flavor: string | null;
-  price: string;
+
+  @ApiProperty()
+  quantity!: number;
+
+  @ApiProperty()
+  size!: string | null;
+
+  @ApiProperty()
+  flavor!: string | null;
+
+  @ApiProperty()
+  price!: string;
+
+  @ApiProperty()
   selectedOptions?: {
     optionId: string;
     type: string;
     label: string;
     value: string;
   }[];
-  createdAt: Date;
-  updatedAt: Date;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  updatedAt!: Date;
 }
 
 export class UserDataDto {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty()
+  firstName!: string;
+
+  @ApiProperty()
+  lastName!: string;
+
+  @ApiProperty()
+  phoneNumber!: string;
 }
 
 export class LocationDataDto {
-  label: string;
-  latitude: number;
-  longitude: number;
-  buildingNo: string;
-  street: string;
-  description: string;
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  latitude!: number;
+
+  @ApiProperty()
+  longitude!: number;
+
+  @ApiProperty()
+  buildingNo!: string;
+
+  @ApiProperty()
+  street!: string;
+
+  @ApiProperty()
+  description!: string;
 }
 
 export class CardMessageDataDto {
-  to: string;
-  from: string;
-  message: string;
-  link: string;
+  @ApiProperty()
+  to!: string;
+
+  @ApiProperty()
+  from!: string;
+
+  @ApiProperty()
+  message!: string;
+
+  @ApiProperty()
+  link!: string;
 }
 
 export class RecipientDataDto {
@@ -322,6 +378,11 @@ export class OrderItemResponseDto<T> {
   updatedAt: Date;
 }
 
+export class UpdatedFeaturedCakeDto extends FeaturedCakeDataDto {
+  @ApiProperty()
+  featuredCakeVarients?: FeaturedCakeVarient[];
+}
+
 export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items'] as const) {
   @ApiProperty({
     description: 'List of addons in the order',
@@ -342,7 +403,7 @@ export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items']
     type: [OrderItemResponseDto],
     example: [],
   })
-  featuredCakes: OrderItemResponseDto<FeaturedCakeDataDto>[];
+  featuredCakes: OrderItemResponseDto<UpdatedFeaturedCakeDto>[];
 
   @ApiProperty({
     description: 'List of predesigned cakes in the order',
