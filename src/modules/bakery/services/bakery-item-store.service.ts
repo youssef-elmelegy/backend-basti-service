@@ -16,7 +16,7 @@ import {
   sweets,
   featuredCakes,
 } from '@/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { OptionsStockDto } from '../dto';
 import { TranslationService } from '@/common/translation/translation.service';
@@ -36,6 +36,36 @@ export interface UpdateStockDto {
   optionsStock?: OptionsStockDto[];
 }
 
+// Accepts either the plain db handle or a transaction, so callers can bundle
+// stock seeding with another write (e.g. bakery creation) atomically.
+type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Only "others" bakeries hold stock. Big/small cake bakeries produce custom
+ * cakes to order and carry no sweets, featured cakes or addons. `big_cakes`
+ * and `large_cakes` are the same type stored under two spellings, but neither
+ * carries stock, so both simply fail this check.
+ */
+export function bakeryCarriesStock(bakeryTypes: string[] | null | undefined): boolean {
+  return (bakeryTypes ?? []).includes('others');
+}
+
+/**
+ * A region item price points at exactly one of seven item kinds, but only
+ * addons, sweets and featured cakes are things a bakery physically stocks.
+ * The rest (decorations, flavors, shapes, predesigned cakes) are customizer
+ * components priced per region and built to order, so they must never get a
+ * `bakery_item_stores` row — one would render as a product-less "Unknown
+ * Item" card, since `getBakeryItemStores` can only resolve the three
+ * stockable kinds.
+ */
+const stockableItemPrice = () =>
+  or(
+    isNotNull(regionItemPrices.addonId),
+    isNotNull(regionItemPrices.sweetId),
+    isNotNull(regionItemPrices.featuredCakeId),
+  );
+
 @Injectable()
 export class BakeryItemStoreService {
   private readonly logger = new Logger(BakeryItemStoreService.name);
@@ -47,6 +77,19 @@ export class BakeryItemStoreService {
    */
   async createStoresForRegionItemPrice(regionItemPriceId: string, regionId: string) {
     try {
+      // Customizer components (decorations/flavors/shapes/predesigned cakes)
+      // are priced per region but never stocked, so they get no store rows.
+      const [stockablePrice] = await db
+        .select({ id: regionItemPrices.id })
+        .from(regionItemPrices)
+        .where(and(eq(regionItemPrices.id, regionItemPriceId), stockableItemPrice()))
+        .limit(1);
+
+      if (!stockablePrice) {
+        this.logger.log(`Region item price ${regionItemPriceId} is not stockable; skipping stores`);
+        return [];
+      }
+
       // Get all active (non-deleted) bakeries in the region
       const bakeriesInRegion = await db
         .select()
@@ -75,6 +118,54 @@ export class BakeryItemStoreService {
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to create bakery item stores: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.bakery.failed_create_item_stores',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Create bakery item stores for a new bakery, one per region item price
+   * already priced in its region. Mirrors createStoresForRegionItemPrice
+   * (same seeding at zero stock), just keyed the other way around: one
+   * bakery against every existing price instead of one price against every
+   * existing bakery.
+   */
+  async createStoresForBakery(bakeryId: string, regionId: string, dbClient: DbClient = db) {
+    try {
+      const pricesInRegion = await dbClient
+        .select({ id: regionItemPrices.id })
+        .from(regionItemPrices)
+        .where(and(eq(regionItemPrices.regionId, regionId), stockableItemPrice()));
+
+      if (pricesInRegion.length === 0) {
+        this.logger.log(`No stockable region item prices found in region ${regionId}`);
+        return [];
+      }
+
+      const storeRecords = pricesInRegion.map((price) => ({
+        bakeryId,
+        regionItemPriceId: price.id,
+        stock: 0,
+        optionsStock: [],
+      }));
+
+      const createdStores = await dbClient
+        .insert(bakeryItemStores)
+        .values(storeRecords)
+        .returning();
+
+      this.logger.log(
+        `Created ${createdStores.length} bakery item stores for bakery ${bakeryId} in region ${regionId}`,
+      );
+      return createdStores;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to create bakery item stores for bakery: ${errMsg}`);
       throw new InternalServerErrorException(
         errorResponse(
           'routes.bakery.failed_create_item_stores',
@@ -130,13 +221,7 @@ export class BakeryItemStoreService {
         );
       }
 
-      // Only "others" bakeries hold stock. Big/small cake bakeries produce
-      // custom cakes to order and carry no sweets, featured cakes or addons.
-      // `big_cakes` and `large_cakes` are the same type stored under two
-      // spellings, but neither carries stock, so both simply fail this check.
-      const carriesStock = (bakeryExists.bakeryTypes ?? []).includes('others');
-
-      if (!carriesStock) {
+      if (!bakeryCarriesStock(bakeryExists.bakeryTypes)) {
         this.logger.debug(`Bakery ${bakeryId} is not a stock-carrying type; returning no items`);
         return successResponse([], 'routes.bakery.item_stores_retrieved', HttpStatus.OK);
       }
@@ -250,9 +335,25 @@ export class BakeryItemStoreService {
         }),
       );
 
-      this.logger.debug(`Retrieved ${enrichedStores.length} item stores for bakery ${bakeryId}`);
+      // Rows whose product could not be resolved are not renderable — they are
+      // either legacy stores seeded against a non-stockable price, or an item
+      // deleted out from under the store. Drop them rather than let the
+      // dashboard show a nameless card.
+      const renderableStores = enrichedStores.filter((store) => store.product !== null);
+      const skipped = enrichedStores.length - renderableStores.length;
+      if (skipped > 0) {
+        this.logger.warn(
+          `Skipped ${skipped} item store(s) with unresolvable products for bakery ${bakeryId}`,
+        );
+      }
 
-      return successResponse(enrichedStores, 'routes.bakery.item_stores_retrieved', HttpStatus.OK);
+      this.logger.debug(`Retrieved ${renderableStores.length} item stores for bakery ${bakeryId}`);
+
+      return successResponse(
+        renderableStores,
+        'routes.bakery.item_stores_retrieved',
+        HttpStatus.OK,
+      );
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

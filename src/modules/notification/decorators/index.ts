@@ -1,4 +1,5 @@
 export * from './register-token-endpoint.decorator';
+export * from './update-language-endpoint.decorator';
 export * from './clear-token-endpoint.decorator';
 export * from './get-all-notifications-endpoint.decorator';
 export * from './unread-count-endpoint.decorator';

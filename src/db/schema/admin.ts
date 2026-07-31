@@ -9,7 +9,7 @@ import {
   decimal,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { adminRoleEnum, bakeries, notifications, orders, regions, reports } from '.';
+import { adminRoleEnum, bakeries, languageEnum, notifications, orders, regions, reports } from '.';
 
 export const admins = pgTable(
   'admins',
@@ -26,6 +26,8 @@ export const admins = pgTable(
     bakeryId: uuid('bakery_id'),
     regionId: uuid('region_id').references(() => regions.id),
     fcmToken: text('fcm_token'),
+    // Language the FCM push is delivered in — see languageEnum.
+    language: languageEnum('language').default('ar').notNull(),
 
     otpCode: varchar('otp_code', { length: 10 }),
     otpExpiresAt: timestamp('otp_expires_at', { mode: 'date' }),

@@ -2,6 +2,14 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 
 export const genderEnum = pgEnum('gender_enum', ['male', 'female']);
 
+/**
+ * Preferred language of a user/admin, used to pick which side of a bilingual
+ * { en, ar } notification is delivered as the FCM push. Persisted per recipient
+ * because a push's language belongs to the recipient, not to the request that
+ * triggered it (a bakery admin accepting an order pushes to the customer).
+ */
+export const languageEnum = pgEnum('language_enum', ['en', 'ar']);
+
 export const adminRoleEnum = pgEnum('admin_role_enum', [
   'super_admin',
   'admin',

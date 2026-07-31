@@ -634,6 +634,8 @@
       "failed_register_fcm": "Failed to register FCM token",
       "fcm_token_cleared": "FCM token cleared successfully",
       "failed_clear_fcm": "Failed to clear FCM token",
+      "language_updated": "Language updated successfully",
+      "failed_update_language": "Failed to update language",
       "failed_retrieve": "Failed to retrieve notifications",
       "unread_count_retrieved": "Unread count retrieved successfully",
       "failed_unread_count": "Failed to retrieve unread count",

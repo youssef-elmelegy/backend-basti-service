@@ -2,13 +2,7 @@ import { IsString, IsEnum, MinLength, MaxLength, IsOptional, IsIn } from 'class-
 import { ApiProperty } from '@nestjs/swagger';
 import { NOTIFICATION_TYPES, NotificationType } from './send-notification.dto';
 
-export const BROADCAST_AUDIENCES = [
-  'all',
-  'users',
-  'admins',
-  'bakery_owners',
-  'drivers',
-] as const;
+export const BROADCAST_AUDIENCES = ['all', 'users', 'admins', 'bakery_owners', 'drivers'] as const;
 export type BroadcastAudience = (typeof BROADCAST_AUDIENCES)[number];
 
 export class BroadcastNotificationDto {

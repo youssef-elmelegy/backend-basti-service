@@ -599,6 +599,8 @@
       "failed_register_fcm": "تعذر تسجيل رمز FCM",
       "fcm_token_cleared": "تم مسح رمز FCM بنجاح",
       "failed_clear_fcm": "تعذر مسح رمز FCM",
+      "language_updated": "تم تحديث اللغة بنجاح",
+      "failed_update_language": "تعذر تحديث اللغة",
       "failed_retrieve": "تعذر استرجاع الإشعارات",
       "unread_count_retrieved": "تم استرجاع عدد الإشعارات غير المقروءة بنجاح",
       "failed_unread_count": "تعذر استرجاع عدد الإشعارات غير المقروءة",

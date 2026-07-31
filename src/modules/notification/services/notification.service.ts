@@ -25,6 +25,16 @@ export type RecipientKind = 'user' | 'admin';
 
 type AdminRole = 'super_admin' | 'admin' | 'manager' | 'driver';
 
+/** Languages a push can be delivered in — mirrors the `language_enum` column. */
+export type RecipientLanguage = 'en' | 'ar';
+
+/**
+ * Narrows a persisted language column to a key of a bilingual TranslationObject.
+ * Defaults to 'en' so a null/unexpected value can never break a push.
+ */
+const toLanguage = (value: string | null | undefined): RecipientLanguage =>
+  value === 'ar' ? 'ar' : 'en';
+
 interface NotificationMeta {
   type: NotificationType;
   redirectId?: string | null;
@@ -118,6 +128,59 @@ export class NotificationService {
       throw new InternalServerErrorException(
         errorResponse(
           'routes.notifications.failed_register_fcm',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Persists the recipient's preferred language. This drives which side of the
+   * bilingual { en, ar } notification is delivered as the FCM push, and is
+   * stored per recipient because the request that triggers a push usually
+   * belongs to someone else (e.g. a bakery admin accepting a customer's order).
+   */
+  async updateLanguage(
+    recipientKind: RecipientKind,
+    recipientId: string,
+    language: RecipientLanguage,
+  ): Promise<SuccessResponse<{ language: RecipientLanguage }>> {
+    try {
+      const table = recipientKind === 'user' ? users : admins;
+
+      const [updated] = await db
+        .update(table)
+        .set({ language, updatedAt: new Date() })
+        .where(eq(table.id, recipientId))
+        .returning({ language: table.language });
+
+      if (!updated) {
+        throw new NotFoundException(
+          errorResponse(
+            recipientKind === 'user'
+              ? 'routes.notifications.user_not_found'
+              : 'routes.notifications.admin_not_found',
+            HttpStatus.NOT_FOUND,
+            'NotFoundException',
+          ),
+        );
+      }
+
+      this.logger.log(`Language set to "${language}" for ${recipientKind} ${recipientId}`);
+
+      return successResponse(
+        { language: toLanguage(updated.language) },
+        'routes.notifications.language_updated',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update language: ${errMsg}`);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.notifications.failed_update_language',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),
@@ -249,10 +312,11 @@ export class NotificationService {
     const { type, recipientType, recipientId, redirectId, data } = params;
 
     let fcmToken: string | null = null;
+    let pushLanguage: RecipientLanguage = 'en';
 
     if (recipientType === 'user') {
       const [user] = await db
-        .select({ id: users.id, fcmToken: users.fcmToken })
+        .select({ id: users.id, fcmToken: users.fcmToken, language: users.language })
         .from(users)
         .where(eq(users.id, recipientId))
         .limit(1);
@@ -267,9 +331,10 @@ export class NotificationService {
         );
       }
       fcmToken = user.fcmToken;
+      pushLanguage = toLanguage(user.language);
     } else {
       const [admin] = await db
-        .select({ id: admins.id, fcmToken: admins.fcmToken })
+        .select({ id: admins.id, fcmToken: admins.fcmToken, language: admins.language })
         .from(admins)
         .where(eq(admins.id, recipientId))
         .limit(1);
@@ -284,6 +349,7 @@ export class NotificationService {
         );
       }
       fcmToken = admin.fcmToken;
+      pushLanguage = toLanguage(admin.language);
     }
 
     const { title: titleObject, body: bodyObject } = await this.resolveContent(params);
@@ -319,8 +385,8 @@ export class NotificationService {
       try {
         const result = await this.firebaseService.sendToToken(
           fcmToken,
-          titleObject.en,
-          bodyObject.en,
+          titleObject[pushLanguage],
+          bodyObject[pushLanguage],
           pushPayload,
         );
 
@@ -387,8 +453,8 @@ export class NotificationService {
 
     if ('custom' in content && content.custom) {
       const [title, body] = await Promise.all([
-        this.translateCustom(content.title),
-        this.translateCustom(content.body),
+        this.translateCustom(content.title, 'title'),
+        this.translateCustom(content.body, 'body'),
       ]);
       return { title, body };
     }
@@ -405,13 +471,18 @@ export class NotificationService {
    * provider. Best-effort: on failure it logs and stores the source text for
    * both languages so a translation outage never blocks the notification.
    */
-  private async translateCustom(text: string): Promise<TranslationObject> {
+  private async translateCustom(text: string, field = 'text'): Promise<TranslationObject> {
     try {
       return await this.translationService.getTranslationObject(text);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
+      // Include the field and the source text: title and body are translated
+      // independently, so one can fall back while the other succeeds, and the
+      // stored row then looks like a partial translation rather than an
+      // outage. Without the field name the log can't tell you which side lost.
       this.logger.warn(
-        `Custom notification translation failed; storing source text for both languages: ${errMsg}`,
+        `Custom notification translation failed for ${field} ("${text}"); ` +
+          `storing source text for both languages: ${errMsg}`,
       );
       return { en: text, ar: text };
     }
@@ -533,7 +604,9 @@ export class NotificationService {
     payload: NotificationPayload,
   ): Promise<{ totalUsers: number; pushedCount: number; failedCount: number }> {
     try {
-      const allUsers = await db.select({ id: users.id, fcmToken: users.fcmToken }).from(users);
+      const allUsers = await db
+        .select({ id: users.id, fcmToken: users.fcmToken, language: users.language })
+        .from(users);
 
       if (allUsers.length === 0) {
         return { totalUsers: 0, pushedCount: 0, failedCount: 0 };
@@ -552,8 +625,8 @@ export class NotificationService {
         })),
       );
 
-      const withToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
-        Boolean(u.fcmToken),
+      const withToken = allUsers.filter(
+        (u): u is (typeof allUsers)[number] & { fcmToken: string } => Boolean(u.fcmToken),
       );
 
       let pushedCount = 0;
@@ -569,10 +642,11 @@ export class NotificationService {
       await Promise.all(
         withToken.map(async (u) => {
           try {
+            const lang = toLanguage(u.language);
             const result = await this.firebaseService.sendToToken(
               u.fcmToken,
-              titleObject.en,
-              bodyObject.en,
+              titleObject[lang],
+              bodyObject[lang],
               pushPayloadBase,
             );
             if (result.success) {
@@ -628,13 +702,20 @@ export class NotificationService {
         ? and(eq(admins.isBlocked, false), inArray(admins.role, adminRoleFilter))
         : eq(admins.isBlocked, false);
 
-      const emptyRecipients = Promise.resolve([] as { id: string; fcmToken: string | null }[]);
+      const emptyRecipients = Promise.resolve(
+        [] as { id: string; fcmToken: string | null; language: RecipientLanguage }[],
+      );
       const [allUsers, allAdmins] = await Promise.all([
         includeUsers
-          ? db.select({ id: users.id, fcmToken: users.fcmToken }).from(users)
+          ? db
+              .select({ id: users.id, fcmToken: users.fcmToken, language: users.language })
+              .from(users)
           : emptyRecipients,
         includeAdmins
-          ? db.select({ id: admins.id, fcmToken: admins.fcmToken }).from(admins).where(adminWhere)
+          ? db
+              .select({ id: admins.id, fcmToken: admins.fcmToken, language: admins.language })
+              .from(admins)
+              .where(adminWhere)
           : emptyRecipients,
       ]);
 
@@ -680,11 +761,11 @@ export class NotificationService {
         `Broadcast notification stored for ${allUsers.length} users + ${allAdmins.length} admins (type=${type}, audience=${audience})`,
       );
 
-      const usersWithToken = allUsers.filter((u): u is { id: string; fcmToken: string } =>
-        Boolean(u.fcmToken),
+      const usersWithToken = allUsers.filter(
+        (u): u is (typeof allUsers)[number] & { fcmToken: string } => Boolean(u.fcmToken),
       );
-      const adminsWithToken = allAdmins.filter((a): a is { id: string; fcmToken: string } =>
-        Boolean(a.fcmToken),
+      const adminsWithToken = allAdmins.filter(
+        (a): a is (typeof allAdmins)[number] & { fcmToken: string } => Boolean(a.fcmToken),
       );
 
       let pushedCount = 0;
@@ -701,10 +782,11 @@ export class NotificationService {
       await Promise.all([
         ...usersWithToken.map(async (u) => {
           try {
+            const lang = toLanguage(u.language);
             const result = await this.firebaseService.sendToToken(
               u.fcmToken,
-              titleObject.en,
-              bodyObject.en,
+              titleObject[lang],
+              bodyObject[lang],
               pushPayloadBase,
             );
 
@@ -724,10 +806,11 @@ export class NotificationService {
         }),
         ...adminsWithToken.map(async (a) => {
           try {
+            const lang = toLanguage(a.language);
             const result = await this.firebaseService.sendToToken(
               a.fcmToken,
-              titleObject.en,
-              bodyObject.en,
+              titleObject[lang],
+              bodyObject[lang],
               pushPayloadBase,
             );
 
