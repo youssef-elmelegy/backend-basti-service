@@ -1,0 +1,1 @@
+ALTER TABLE "order_items" ADD COLUMN "featured_cake_variants" jsonb DEFAULT '[]'::jsonb;
