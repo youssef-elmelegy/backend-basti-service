@@ -2091,6 +2091,7 @@ export class OrderService {
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
       isReviewed: order.isReviewed,
+      cancellationReason: order.cancellationReason || undefined,
     };
   }
 
@@ -2118,6 +2119,7 @@ export class OrderService {
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
       isReviewed: order.isReviewed,
+      cancellationReason: order.cancellationReason || undefined,
     };
   }
 
