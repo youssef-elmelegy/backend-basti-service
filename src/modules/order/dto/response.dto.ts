@@ -424,6 +424,11 @@ export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items']
     example: true,
   })
   isReviewed!: boolean;
+
+  @ApiProperty({
+    description: 'Order cancellationReason reason',
+  })
+  cancellationReason?: string;
 }
 
 export class InvalidDeliveryDatesDto {
