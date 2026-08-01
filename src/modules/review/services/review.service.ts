@@ -9,7 +9,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { reviews, users, orders, bakeries } from '@/db/schema';
+import { reviews, users, orders, bakeries, admins } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { errorResponse, SuccessResponse, successResponse } from '@/utils';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
@@ -167,10 +167,29 @@ export class ReviewService {
   async findAllByBakery(
     bakeryId: string,
     paginationDto: PaginationDto,
+    requester?: { id: string; role: string },
   ): Promise<SuccessResponse<PaginatedBakeyReviewsResponseDto>> {
     const page = paginationDto.page ?? PAGINATION_DEFAULTS.PAGE;
     const limit = paginationDto.limit ?? PAGINATION_DEFAULTS.LIMIT;
     const offset = (page - 1) * limit;
+
+    // Managers are scoped to their own bakery. The JWT carries only id/email/role,
+    // so the assignment has to be read from the admins table rather than trusted
+    // from the token or the path param.
+    if (requester?.role === 'manager') {
+      const [admin] = await db
+        .select({ bakeryId: admins.bakeryId })
+        .from(admins)
+        .where(eq(admins.id, requester.id))
+        .limit(1);
+
+      if (!admin?.bakeryId || admin.bakeryId !== bakeryId) {
+        this.logger.warn(
+          `Manager ${requester.id} attempted to read reviews for bakery ${bakeryId}`,
+        );
+        throw new ForbiddenException('You can only view reviews for your own bakery');
+      }
+    }
 
     try {
       const [bakery] = await db
