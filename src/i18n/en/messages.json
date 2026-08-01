@@ -825,10 +825,6 @@
       "title": "Order unassigned",
       "body": "Order {ref} is no longer assigned to your bakery."
     },
-    "ready_for_review": {
-      "title": "Your order is ready for review",
-      "body": "Final preview images have been uploaded for order {ref}."
-    },
     "order_needs_driver": {
       "title": "Order needs a new driver",
       "body": "Order {ref} was refused by the driver and needs reassignment."

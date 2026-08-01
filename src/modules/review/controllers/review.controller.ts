@@ -12,7 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '@/common';
+import { CurrentUser, CurrentAdmin } from '@/common';
 import { JwtAuthGuard, AdminRoles, AdminRolesGuard, JwtWithAdminGuard } from '@/common/guards';
 import { ReviewService } from '../services/review.service';
 import { CreateReviewDto, UpdateReviewDto } from '../dto';
@@ -46,15 +46,16 @@ export class ReviewController {
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
-  @AdminRoles('super_admin', 'admin')
+  @AdminRoles('super_admin', 'admin', 'manager')
   @Get('bakery/:bakeryId')
   @GetReviewsByBakeryDecorator()
   async findAllByBakery(
     @Param('bakeryId', ParseUUIDPipe) bakeryId: string,
     @Query() paginationDto: PaginationDto,
+    @CurrentAdmin() admin: { id: string; email: string; role: string },
   ) {
     this.logger.debug(`Fetching reviews for bakery: ${bakeryId}`);
-    return await this.reviewService.findAllByBakery(bakeryId, paginationDto);
+    return await this.reviewService.findAllByBakery(bakeryId, paginationDto, admin);
   }
 
   @UseGuards(JwtAuthGuard)
