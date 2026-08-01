@@ -44,6 +44,8 @@ import {
   GetAllReportsDecorator,
   GetReportsListDecorator,
   GetDriverOrdersHistoryDecorator,
+  ClientRefusedOrderDecorator,
+  ClientNotRespondingDecorator,
 } from '../decorators';
 import { AdminAuthService } from '@/modules/admin-auth/services/admin-auth.service';
 import { BlockAdminDto } from '@/modules/admin-auth/dto';
@@ -242,5 +244,27 @@ export class DriverController {
   ) {
     this.logger.debug(`Retrieving reports for driver: ${driverId}`);
     return this.driverService.getDriverReports(driverId, query);
+  }
+
+  @Post('orders/:orderId/client-refused-order')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('driver')
+  @ClientRefusedOrderDecorator()
+  async clientRefusedOrder(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') driverId: string,
+  ) {
+    return this.driverService.cancelOrder(orderId, driverId, 'العميل رفض استلام الطلب');
+  }
+
+  @Post('orders/:orderId/client-not-responding')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('driver')
+  @ClientNotRespondingDecorator()
+  async clientNotResponding(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @CurrentUser('id') driverId: string,
+  ) {
+    return this.driverService.cancelOrder(orderId, driverId, 'العميل لا يرد على المكالمات');
   }
 }
