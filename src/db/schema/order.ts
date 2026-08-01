@@ -162,6 +162,8 @@ export const orders = pgTable(
       notes: string[];
     }>(),
 
+    cancellationReason: text('cancellation_reason'),
+
     willDeliverAt: timestamp('will_deliver_at', { mode: 'date' }).notNull(),
     deliveredAt: timestamp('delivered_at', { mode: 'date' }),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

@@ -590,6 +590,36 @@ export class DriverService {
     );
   }
 
+  async cancelOrder(
+    orderId: string,
+    driverId: string,
+    cancellationReason: string,
+  ): Promise<SuccessResponse<any>> {
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+      if (!order) {
+        throw new NotFoundException('routes.orders.not_found');
+      }
+
+      if (order.driverId !== driverId) {
+        throw new BadRequestException('routes.orders.not_assigned_to_driver');
+      }
+
+      await db
+        .update(orders)
+        .set({
+          orderStatus: 'cancelled',
+          cancellationReason,
+        })
+        .where(eq(orders.id, orderId));
+
+      return successResponse({}, 'routes.orders.cancelled', HttpStatus.OK);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.orders.failed_cancel', this.logger);
+    }
+  }
+
   private mapDriverData(driver: {
     id: string;
     name: string | null;

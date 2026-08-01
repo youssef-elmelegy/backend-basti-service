@@ -13,3 +13,5 @@ export * from './driver-delete-endpoint.decorator';
 export * from './get-driver-orders.decorator';
 export * from './accept-driver-order.decorator';
 export * from './refuse-driver-order.decorator';
+export * from './client-not-responding.decorator';
+export * from './client-refused-order.decorator';

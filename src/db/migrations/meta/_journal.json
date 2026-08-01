@@ -43,6 +43,13 @@
       "when": 1785528813821,
       "tag": "0005_brave_zzzax",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785597745590,
+      "tag": "0006_noisy_black_bolt",
+      "breakpoints": true
     }
   ]
 }
