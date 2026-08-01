@@ -592,6 +592,7 @@ export class OrderService {
         predesignedCakes: formattedItems.predesignedCakeItems,
         customCakes: formattedItems.customCakeItems,
         ...this.exposeOrderFields(order, 'user'),
+        cancellationReason: order.cancellationReason ?? undefined,
         totalPrice: parseFloat(order.totalPrice),
         discountAmount: parseFloat(order.discountAmount),
         finalPrice: parseFloat(order.finalPrice),
@@ -1905,19 +1906,6 @@ export class OrderService {
         .returning({ id: orders.id, qa: orders.qa, bakeryId: orders.bakeryId });
 
       this.logger.log(`Order ${orderId} finalized successfully`);
-
-      if (order.userId) {
-        await this.notificationService.pushNotificationSafe({
-          titleKey: 'notification_templates.ready_for_review.title',
-          bodyKey: 'notification_templates.ready_for_review.body',
-          args: { ref: order.referenceNumber ?? '' },
-          type: 'order_update',
-          recipientType: 'user',
-          recipientId: order.userId,
-          redirectId: orderId,
-          data: { orderId, event: 'qa_finalized' },
-        });
-      }
 
       return {
         id: updatedOrder.id,
