@@ -65,6 +65,9 @@ const envSchema = z.object({
   // Google cloud translation
   GOOGLE_CLOUD_PROJECT_ID: z.string().min(1, 'GOOGLE_CLOUD_PROJECT_ID is required'),
   GOOGLE_CLOUD_KEY_FILE: z.string().min(1, 'GOOGLE_CLOUD_KEY_FILE is required'),
+  GCP_PROJECT_ID: z.string().min(1, 'GCP_PROJECT_ID is required').optional().default('null'),
+  GCP_CLIENT_EMAIL: z.string().min(1, 'GCP_CLIENT_EMAIL is required').optional().default('null'),
+  GCP_PRIVATE_KEY: z.string().min(1, 'GCP_PRIVATE_KEY is required').optional().default('null'),
 
   // lara translation
   LARA_ACCESS_KEY_ID: z.string().min(1, 'LARA_ACCESS_KEY_ID is required'),
