@@ -91,7 +91,8 @@ export class AdminVerifyOtpResponseDto {
 
   @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'Temporary reset token (set in HTTP-only cookie)',
+    description:
+      'Temporary reset token. Returned ONLY to mobile clients (`x-client-type: mobile`). Web clients receive it as an httpOnly cookie and this field is absent.',
     required: false,
   })
   resetToken?: string;

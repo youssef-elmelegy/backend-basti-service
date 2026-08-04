@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
+import { env } from '@/env';
 import { AdminAuthService } from '../services/admin-auth.service';
 
 interface AuthenticatedRequest extends Request {
@@ -26,6 +27,24 @@ interface AuthenticatedRequest extends Request {
     [key: string]: unknown;
   };
 }
+
+/**
+ * Cookie attributes for the password-reset token.
+ *
+ * Scoped to the reset endpoint so the token is not attached to every API
+ * request, and `strict` so it is never sent cross-site — this cookie is the
+ * only carrier of the reset credential, so it must not be CSRF-reachable.
+ *
+ * `clearCookie` must be passed the same attributes or the browser will not
+ * match the cookie, so both set and clear read from here.
+ */
+const RESET_TOKEN_COOKIE = 'resetToken';
+const RESET_TOKEN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  path: '/api/admin-auth/reset-password',
+};
 import {
   AdminLoginDto,
   AdminForgotPasswordDto,
@@ -136,26 +155,35 @@ export class AdminAuthController {
   @AdminVerifyOtpEndpoint()
   async verifyOtp(
     @Body() verifyOtpDto: AdminVerifyOtpDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     this.logger.debug(`OTP verification attempt: ${verifyOtpDto.email}`);
+
+    // Mobile clients cannot use cookies, so they receive the token in the body —
+    // same split as login/refresh. Web clients get the httpOnly cookie only:
+    // returning the token in the body there would hand the credential to JS and
+    // defeat the point of the cookie.
+    const isMobileClient = req.headers['x-client-type'] === 'mobile';
+
     const result = await this.adminAuthService.verifyOtp(verifyOtpDto);
 
-    res.cookie('resetToken', result.data.resetToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 15 * 60 * 1000, // TODO: update this and the other to don't be hard coded
-      path: '/',
-    });
+    if (!isMobileClient) {
+      res.cookie(RESET_TOKEN_COOKIE, result.data.resetToken, {
+        ...RESET_TOKEN_COOKIE_OPTIONS,
+        // Matches the reset token's own expiry so the cookie and the JWT
+        // expire together (env value is in seconds; maxAge wants ms).
+        maxAge: env.JWT_ACCESS_EXPIRES_IN * 1000,
+      });
+    }
 
-    this.logger.log(`OTP verified for: ${verifyOtpDto.email}`);
+    this.logger.log(`OTP verified for: ${verifyOtpDto.email} (mobile: ${isMobileClient})`);
     return {
       success: result.success,
       message: result.message,
       data: {
         email: result.data.email,
-        resetToken: result.data.resetToken,
+        ...(isMobileClient ? { resetToken: result.data.resetToken } : {}),
       },
       timestamp: new Date().toISOString(),
     };
@@ -169,19 +197,25 @@ export class AdminAuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    this.logger.debug('Reset password request');
+    const isMobileClient = req.headers['x-client-type'] === 'mobile';
+    this.logger.debug(`Reset password request (mobile: ${isMobileClient})`);
 
-    // Prefer token from body, fallback to cookie
-    const resetTokenFromBody = resetPasswordDto.resetToken;
-    const resetTokenFromCookie = (req.cookies as Record<string, unknown>)?.resetToken as
-      | string
-      | undefined;
-    const resetToken = resetTokenFromBody || resetTokenFromCookie || '';
+    // Mobile clients hold the token themselves and send it in the body. Web
+    // clients must use the httpOnly cookie — accepting a body token from them
+    // would let any JS-readable copy stand in for the cookie, which is exactly
+    // what this split exists to prevent. The source is chosen by client type,
+    // never by "whichever happens to be present".
+    const resetToken = isMobileClient
+      ? (resetPasswordDto.resetToken ?? '')
+      : (((req.cookies as Record<string, unknown>)?.[RESET_TOKEN_COOKIE] as string | undefined) ??
+        '');
 
     const result = await this.adminAuthService.resetPassword(resetToken, resetPasswordDto);
 
-    // Clear cookie if present
-    res.clearCookie('resetToken');
+    if (!isMobileClient) {
+      // Must pass the same attributes used to set it, or the browser won't match.
+      res.clearCookie(RESET_TOKEN_COOKIE, RESET_TOKEN_COOKIE_OPTIONS);
+    }
 
     this.logger.log('Password reset completed');
     return result;
@@ -213,7 +247,7 @@ export class AdminAuthController {
 
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
-    res.clearCookie('resetToken');
+    res.clearCookie(RESET_TOKEN_COOKIE, RESET_TOKEN_COOKIE_OPTIONS);
 
     return this.adminAuthService.logout();
   }

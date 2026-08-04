@@ -10,11 +10,11 @@ export function AdminResetPasswordEndpoint() {
     ApiOperation({
       summary: 'Reset Password',
       description:
-        'Reset password using temporary token from OTP verification. The temporary reset token can be provided in an HTTP-only cookie or in the request body (`resetToken`).',
+        'Reset password using the temporary token from OTP verification. Web clients: the token is read exclusively from the HTTP-only `resetToken` cookie set by `verify-otp` and is NOT accepted in the body — send the request with credentials. Mobile clients (`x-client-type: mobile`): send the token in the body as `resetToken`.',
     }),
     ApiBody({
       type: AdminResetPasswordDto,
-      description: 'Reset token and new password',
+      description: 'New password, plus `resetToken` for mobile clients only',
     }),
     ApiResponse({
       status: HttpStatus.OK,

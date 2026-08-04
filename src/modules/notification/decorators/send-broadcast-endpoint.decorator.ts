@@ -23,6 +23,16 @@ export function SendBroadcastNotificationDecorator() {
       type: ErrorResponseDto,
     }),
     ApiResponse({
+      status: HttpStatus.UNAUTHORIZED,
+      description: 'Unauthorized - missing or invalid token',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
+      status: HttpStatus.FORBIDDEN,
+      description: 'Forbidden - insufficient permissions',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       description: 'Failed to send broadcast notification',
       type: ErrorResponseDto,

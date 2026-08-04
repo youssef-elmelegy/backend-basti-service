@@ -100,7 +100,6 @@ export const AdminAuthExamples = {
         message: 'OTP verified successfully',
         data: {
           email: 'admin@example.com',
-          resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
         timestamp: '2025-01-11T10:00:00.000Z',
       },
@@ -136,8 +135,8 @@ export const AdminAuthExamples = {
   },
 
   resetPassword: {
+    // The reset token travels in the httpOnly `resetToken` cookie, not the body.
     request: {
-      resetToken: 'eyJhbGciOiJIUzI1NiIs...',
       newPassword: 'NewSecurePass123',
     },
     response: {
