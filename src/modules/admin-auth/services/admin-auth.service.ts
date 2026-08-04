@@ -218,6 +218,18 @@ export class AdminAuthService {
 
     const adminId = decoded.id;
 
+    // Make the reset token single-use. The JWT stays cryptographically valid for
+    // its full lifetime, so without this a captured token could reset the password
+    // repeatedly. Clearing otpCode below is what spends it — this check is what
+    // makes that clearing load-bearing.
+    const admin = await db.query.admins.findFirst({
+      where: eq(admins.id, adminId),
+    });
+
+    if (!admin?.otpCode) {
+      throw new UnauthorizedException('routes.auth.reset_token_invalid');
+    }
+
     const hashedPassword = await bcrypt.hash(password, env.BCRYPT_SALT_ROUNDS);
 
     await db

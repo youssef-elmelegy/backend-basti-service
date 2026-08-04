@@ -12,8 +12,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, orders, reviews, couponUsages } from '@/db/schema';
 import { and, eq, ne } from 'drizzle-orm';
+import { DELETED_USER } from '@/constants/global.constants';
 import { env } from '@/env';
 import {
   SignupDto,
@@ -971,6 +972,17 @@ export class AuthService {
         );
       }
 
+      if (userId === DELETED_USER.ID) {
+        this.logger.warn('Delete profile failed: sentinel user is not deletable');
+        throw new ForbiddenException(
+          errorResponse(
+            'routes.auth.failed_delete_account',
+            HttpStatus.FORBIDDEN,
+            'ForbiddenException',
+          ),
+        );
+      }
+
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (!isPasswordValid) {
@@ -984,7 +996,62 @@ export class AuthService {
         );
       }
 
-      await db.delete(users).where(eq(users.id, userId));
+      /*
+        Anonymize rather than cascade. Orders, reviews and coupon usages
+        reference users without ON DELETE CASCADE, so a plain delete fails with
+        a foreign key violation (23503); cascading instead would erase completed
+        orders and corrupt bakery revenue reporting. Repointing them at the
+        sentinel keeps the records and their totals while removing the person.
+
+        Deleting the real row (rather than soft-deleting it) is what frees the
+        unique email so the user can register again with the same address.
+      */
+      await db.transaction(async (tx) => {
+        await tx
+          .update(orders)
+          .set({
+            userId: DELETED_USER.ID,
+            // user_data is a notNull PII snapshot copied onto every order, so
+            // it has to be scrubbed too or the email and phone survive here.
+            userData: {
+              email: DELETED_USER.EMAIL,
+              firstName: DELETED_USER.FIRST_NAME,
+              lastName: DELETED_USER.LAST_NAME,
+              phoneNumber: DELETED_USER.PHONE_NUMBER,
+            },
+            /*
+              locations and payment_methods cascade away with the user, but
+              orders references both with NO ACTION, so leaving these set makes
+              that cascade fail with its own 23503. Both columns are nullable
+              and the order keeps its own copies of what matters —
+              location_data holds the address, payment_method_type holds how it
+              was paid — so detaching loses nothing the order needs.
+            */
+            locationId: null,
+            paymentMethodId: null,
+            // location_data is the delivery address — PII, scrubbed like user_data.
+            locationData: {
+              label: DELETED_USER.LOCATION_LABEL,
+              latitude: 0,
+              longitude: 0,
+              buildingNo: '',
+              street: '',
+              description: '',
+            },
+          })
+          .where(eq(orders.userId, userId));
+
+        await tx.update(reviews).set({ userId: DELETED_USER.ID }).where(eq(reviews.userId, userId));
+
+        await tx
+          .update(couponUsages)
+          .set({ userId: DELETED_USER.ID })
+          .where(eq(couponUsages.userId, userId));
+
+        // Remaining references (cart items, locations, payment methods,
+        // notifications, reports) are ON DELETE CASCADE and go with the row.
+        await tx.delete(users).where(eq(users.id, userId));
+      });
 
       this.logger.log(`Account deleted for user: ${userId} (${user.email})`);
       const responseData: DeleteProfileResponseDto = {

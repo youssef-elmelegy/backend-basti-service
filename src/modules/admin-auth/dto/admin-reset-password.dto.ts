@@ -3,7 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminResetPasswordDto {
   @ApiProperty({
-    description: 'Reset token from OTP verification (can be in cookie or body)',
+    description:
+      'Reset token from OTP verification. MOBILE CLIENTS ONLY — must be sent with `x-client-type: mobile`. Web clients send the token in the httpOnly `resetToken` cookie and this field is ignored for them.',
     example: 'eyJhbGciOiJIUzI1NiIs...',
     required: false,
   })

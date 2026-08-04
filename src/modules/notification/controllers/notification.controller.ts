@@ -35,8 +35,8 @@ import {
   SendBroadcastNotificationDecorator,
   PaginationDecorator,
 } from '../decorators';
-import { FlexibleJwtGuard } from '@/common/guards';
-import { CurrentUser, JwtPayload, Public } from '@/common/decorators';
+import { AdminRoles, AdminRolesGuard, FlexibleJwtGuard, JwtWithAdminGuard } from '@/common/guards';
+import { CurrentUser, JwtPayload } from '@/common/decorators';
 import { errorResponse } from '@/utils';
 
 @ApiTags('notifications')
@@ -64,8 +64,13 @@ export class NotificationController {
     return this.notificationService.clearFcmToken(kind, id);
   }
 
+  // Sending notifications is an admin operation: it pushes arbitrary titles and
+  // bodies to other people's devices, so it is restricted to the roles that
+  // manage the platform rather than any authenticated admin (a bakery manager
+  // has no reason to message users outside their own bakery).
   @Post('send')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @SendNotificationDecorator()
   async send(@Body() dto: SendNotificationDto) {
     this.logger.debug(
@@ -75,7 +80,8 @@ export class NotificationController {
   }
 
   @Post('send-broadcast')
-  @Public()
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
   @SendBroadcastNotificationDecorator()
   async sendBroadcast(@Body() dto: BroadcastNotificationDto) {
     this.logger.debug(

@@ -73,3 +73,18 @@ export const BAKERY_DEFAULTS = {
   BAKERY_CLOSE_HOUR: 18,
   MIN_HOURS_TO_PREPARE: 24,
 } as const;
+
+/**
+ * Account deletion anonymizes rather than cascades: orders, reviews and coupon
+ * usages are repointed at this sentinel user so historical records survive,
+ * then the real user row is deleted. Seeded by migration
+ * 0007_deleted_user_sentinel.
+ */
+export const DELETED_USER = {
+  ID: '00000000-0000-0000-0000-000000000000',
+  FIRST_NAME: 'Deleted',
+  LAST_NAME: 'User',
+  EMAIL: 'deleted-user@deleted.invalid',
+  PHONE_NUMBER: '',
+  LOCATION_LABEL: 'Deleted address',
+} as const;

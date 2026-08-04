@@ -32,6 +32,16 @@ export function SendNotificationDecorator() {
       type: ErrorResponseDto,
     }),
     ApiResponse({
+      status: HttpStatus.UNAUTHORIZED,
+      description: 'Unauthorized - missing or invalid token',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
+      status: HttpStatus.FORBIDDEN,
+      description: 'Forbidden - insufficient permissions',
+      type: ErrorResponseDto,
+    }),
+    ApiResponse({
       status: HttpStatus.NOT_FOUND,
       description: 'Recipient (user or admin) not found',
       type: ErrorResponseDto,
