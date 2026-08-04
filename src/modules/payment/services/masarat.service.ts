@@ -38,9 +38,10 @@ export class MasaratService {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        this.logger.error(`Failed to sign in to Masarat: ${JSON.stringify(err)}`);
-        throw new InternalServerErrorException('routes.payment.failed_sign_in', err);
+        const err = (await res.json()) as unknown;
+        const description = JSON.stringify(err);
+        this.logger.error(`Failed to sign in to Masarat: ${description}`);
+        throw new InternalServerErrorException('routes.payment.failed_sign_in', description);
       }
 
       const data = (await res.json()) as MasaratSigninResponse;
@@ -89,9 +90,10 @@ export class MasaratService {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        this.logger.error(`Failed to open session with Masarat: ${JSON.stringify(err)}`);
-        throw new InternalServerErrorException('routes.payment.failed_open_session', err);
+        const err = (await res.json()) as unknown;
+        const description = JSON.stringify(err);
+        this.logger.error(`Failed to open session with Masarat: ${description}`);
+        throw new InternalServerErrorException('routes.payment.failed_open_session', description);
       }
 
       const data = (await res.json()) as MasaratOpenSessionResponse;
@@ -136,9 +138,13 @@ export class MasaratService {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        this.logger.error(`Failed to complete session with Masarat: ${JSON.stringify(err)}`);
-        throw new InternalServerErrorException('routes.payment.failed_complete_session', err);
+        const err = (await res.json()) as unknown;
+        const description = JSON.stringify(err);
+        this.logger.error(`Failed to complete session with Masarat: ${description}`);
+        throw new InternalServerErrorException(
+          'routes.payment.failed_complete_session',
+          description,
+        );
       }
 
       const data = (await res.json()) as MasaratCompleteSessionResponse;

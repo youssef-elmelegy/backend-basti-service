@@ -97,7 +97,7 @@ export class SliderImageService {
 
       this.logger.log('Deleted all existing slider images');
 
-      const imagesToInsert: any[] = [];
+      const imagesToInsert: (typeof sliderImages.$inferInsert)[] = [];
 
       for (const image of images) {
         const imageObject = await this.translationService.getTranslationObject(image.title);

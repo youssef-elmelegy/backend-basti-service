@@ -27,7 +27,7 @@ import {
   designedCakeConfigs,
   offers,
 } from '@/db/schema';
-import { eq, desc, asc, sql, and, inArray, getTableColumns } from 'drizzle-orm';
+import { eq, desc, asc, sql, and, inArray, getTableColumns, type SQL } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
 import { validateTagExists } from '@/utils';
@@ -41,6 +41,11 @@ type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'desc
 type FlattenedOffer = Omit<typeof offers.$inferSelect, 'name'> & {
   name: string;
 };
+
+/** `asc`/`desc` from drizzle, as chosen by the `order` query param. */
+type SortOrder = typeof asc | typeof desc;
+/** Column the list endpoints sort by (title or createdAt). */
+type SortColumn = typeof decorations.title | typeof decorations.createdAt;
 
 @Injectable()
 export class DecorationService {
@@ -149,8 +154,8 @@ export class DecorationService {
   private async findDecorationsByShapeAndRegion(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
@@ -192,7 +197,7 @@ export class DecorationService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -239,7 +244,7 @@ export class DecorationService {
         .limit(query.limit)
         .offset(offset);
 
-      const whereConditionsCount: any[] = [];
+      const whereConditionsCount: SQL[] = [];
       whereConditionsCount.push(
         sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
       );
@@ -331,8 +336,8 @@ export class DecorationService {
   private async findDecorationsByShape(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
@@ -356,7 +361,7 @@ export class DecorationService {
       eq(shapeVariantImages.shapeId, query.shapeId),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -394,7 +399,7 @@ export class DecorationService {
         .limit(query.limit)
         .offset(offset);
 
-      const whereConditionsCount: any[] = [];
+      const whereConditionsCount: SQL[] = [];
       whereConditionsCount.push(
         sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
       );
@@ -475,8 +480,8 @@ export class DecorationService {
   private async findDecorationsByRegion(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
@@ -487,7 +492,7 @@ export class DecorationService {
       eq(regionItemPrices.regionId, query.regionId),
     ] as const;
 
-    const whereConditions: any[] = [];
+    const whereConditions: SQL[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -593,14 +598,14 @@ export class DecorationService {
   private async findDecorationsByTag(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
     totalPages: number;
   }> {
-    const whereConditions: any[] = [eq(decorations.tagId, query.tagId)];
+    const whereConditions: SQL[] = [eq(decorations.tagId, query.tagId)];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }
@@ -645,15 +650,15 @@ export class DecorationService {
   private async findDecorationsBySearch(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
     totalPages: number;
   }> {
     const searchPattern = buildSearchPattern(query.search);
-    const whereConditions: any[] = [];
+    const whereConditions: SQL[] = [];
     whereConditions.push(
       sql`LOWER(${this.translationService.getLocalized(decorations.title, null, 'en')}) LIKE LOWER(${searchPattern})`,
     );
@@ -701,14 +706,14 @@ export class DecorationService {
   private async getAllDecorations(
     query: GetDecorationsQueryDto,
     offset: number,
-    sortOrder: any,
-    sortColumn: any,
+    sortOrder: SortOrder,
+    sortColumn: SortColumn,
   ): Promise<{
     items: DecorationDataDto[];
     total: number;
     totalPages: number;
   }> {
-    const whereConditions: any[] = [];
+    const whereConditions: SQL[] = [];
     if (query.isActive !== undefined) {
       whereConditions.push(eq(decorations.isActive, query.isActive));
     }

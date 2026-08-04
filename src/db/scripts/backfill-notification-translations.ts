@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 /**
  * Backfill bilingual { en, ar } title/body for EXISTING notification rows.
  *
@@ -56,7 +55,8 @@ interface Row {
 type CatNode = { [k: string]: string | CatNode };
 function loadCatalogue(lang: 'en' | 'ar'): CatNode {
   const raw = readFileSync(join(process.cwd(), `src/i18n/${lang}/messages.json`), 'utf8');
-  return JSON.parse(raw).notification_templates as CatNode;
+  const parsed = JSON.parse(raw) as { notification_templates: CatNode };
+  return parsed.notification_templates;
 }
 const EN = loadCatalogue('en');
 const AR = loadCatalogue('ar');
@@ -218,7 +218,7 @@ async function main(): Promise<void> {
         // custom / junk — translate each side from the hand map
         let resolvedAny = false;
         if (tNeeds) {
-          const en = r.title!.en;
+          const en = r.title.en;
           const ar = customTranslate(en);
           if (ar !== null) {
             plan.title = { en, ar };
@@ -228,7 +228,7 @@ async function main(): Promise<void> {
           }
         }
         if (bNeeds) {
-          const en = r.body!.en;
+          const en = r.body.en;
           const ar = customTranslate(en);
           if (ar !== null) {
             plan.body = { en, ar };
