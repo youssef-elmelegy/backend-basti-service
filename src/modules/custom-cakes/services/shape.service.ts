@@ -341,10 +341,10 @@ export class ShapeService {
         Object.entries(updateDto).filter(([, value]) => value !== undefined),
       );
 
-      if (updateData.title !== undefined) {
+      if (typeof updateData.title === 'string') {
         updateData.title = await this.translationService.getTranslationObject(updateData.title);
       }
-      if (updateData.description !== undefined) {
+      if (typeof updateData.description === 'string') {
         updateData.description = await this.translationService.getTranslationObject(
           updateData.description,
         );

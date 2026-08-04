@@ -179,7 +179,7 @@ export class TranslationService {
   //   }
   // }
 
-  async getTranslationObject(text, lang?: string): Promise<TranslationObject> {
+  async getTranslationObject(text: string, lang?: string): Promise<TranslationObject> {
     const context = I18nContext.current();
     const sourceLang = lang ? lang : context?.lang || 'en';
 

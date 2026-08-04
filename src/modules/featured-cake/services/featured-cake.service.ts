@@ -393,10 +393,10 @@ export class FeaturedCakeService {
 
       updateData.updatedAt = new Date();
 
-      if (updateData.name !== undefined) {
+      if (typeof updateData.name === 'string') {
         updateData.name = await this.translationService.getTranslationObject(updateData.name);
       }
-      if (updateData.description !== undefined) {
+      if (typeof updateData.description === 'string') {
         updateData.description = await this.translationService.getTranslationObject(
           updateData.description,
         );

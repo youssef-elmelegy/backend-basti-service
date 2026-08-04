@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-base-to-string */
+/* eslint-disable @typescript-eslint/no-base-to-string */
 import { config } from 'dotenv';
 import { Pool } from 'pg';
 
