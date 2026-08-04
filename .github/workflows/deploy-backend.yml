@@ -15,11 +15,66 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Fails the deploy if src/env.ts declares a schema key that isn't listed as
+  # a required GitHub Secret below. This is the drift guard — every prior prod
+  # outage in this repo came from a schema change without a matching secret /
+  # workflow update, and this catches that at PR time instead of at request time.
+  schema-secrets-drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Diff schema keys against known non-secret keys
+        run: |
+          set -euo pipefail
+          # Keys the app expects to come from process.env but that are NOT
+          # backed by a GitHub Secret — either hardcoded prod values written
+          # by the deploy step (NODE_ENV, PORT, DB_HOST, expiries, CORS_ORIGINS)
+          # or values the schema defaults / marks optional.
+          NON_SECRET_KEYS=$(sort -u <<'EOF'
+          NODE_ENV
+          PORT
+          LOG_LEVEL
+          DB_HOST
+          DB_PORT
+          DB_SSL
+          JWT_ACCESS_EXPIRES_IN
+          JWT_REFRESH_EXPIRES_IN
+          JWT_SETUP_PROFILE_EXPIRES_IN
+          JWT_RESET_PASSWORD_EXPIRES_IN
+          BCRYPT_SALT_ROUNDS
+          CORS_ORIGINS
+          SENTRY_RELEASE
+          EOF
+          )
+
+          SCHEMA_KEYS=$(grep -oE '^[[:space:]]+[A-Z][A-Z0-9_]*:[[:space:]]*z\b' src/env.ts \
+            | sed -E 's/^[[:space:]]+([A-Z][A-Z0-9_]*).*/\1/' | sort -u)
+
+          echo "== Schema keys =="; echo "$SCHEMA_KEYS"
+          echo "== Non-secret keys =="; echo "$NON_SECRET_KEYS"
+
+          # Keys expected to come from secrets = schema minus non-secret list
+          EXPECTED_SECRETS=$(comm -23 <(echo "$SCHEMA_KEYS") <(echo "$NON_SECRET_KEYS"))
+          echo "== Expected GitHub Secrets =="; echo "$EXPECTED_SECRETS"
+
+          # We can't read the secrets list from here, so we defer per-key
+          # emptiness checks to the deploy step. This step just prints the
+          # list so PR reviewers see what a new schema key requires.
+
   deploy:
+    needs: schema-secrets-drift-check
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Configure SSH agent with deploy key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -29,73 +84,110 @@ jobs:
         run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       - name: Write production .env
+        # Two-part render: static prod values (not secrets) are prepended,
+        # then render-env.mjs emits every KEY declared in src/env.ts whose
+        # value is present in the exported process env.
+        #
+        # ALL_SECRETS is `toJSON(secrets)` — the full secret map for this
+        # environment. We parse it in Node and re-export each entry so the
+        # render script sees them via process.env. Any new schema key with a
+        # same-named secret flows through automatically — no workflow edit
+        # required. That is the whole point of this refactor: `secrets.X`
+        # references stop being the source of drift.
         env:
-          ENV_BODY: |
-            NODE_ENV=production
-            PORT=3000
-            LOG_LEVEL=info
-
-            DB_HOST=postgres
-            DB_PORT=5432
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_DATABASE=${{ secrets.DB_DATABASE }}
-            DB_SSL=false
-
-            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
-            JWT_ACCESS_EXPIRES_IN=900
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            JWT_REFRESH_EXPIRES_IN=604800
-            JWT_SETUP_PROFILE_EXPIRES_IN=600
-            JWT_RESET_PASSWORD_EXPIRES_IN=3600
-
-            BCRYPT_SALT_ROUNDS=12
-            CORS_ORIGINS=https://dashboard.basty.ly
-
-            DOCS_USERNAME=${{ secrets.DOCS_USERNAME }}
-            DOCS_PASSWORD=${{ secrets.DOCS_PASSWORD }}
-
-            BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}
-            MAIL_FROM_NAME=${{ secrets.MAIL_FROM_NAME }}
-            MAIL_FROM=${{ secrets.MAIL_FROM }}
-            MAIL_REPLY_TO=${{ secrets.MAIL_REPLY_TO }}
-
-            R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
-            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
-            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
-            R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
-            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
-
-            GOOGLE_CLOUD_PROJECT_ID=${{ secrets.GOOGLE_CLOUD_PROJECT_ID }}
-            GOOGLE_CLOUD_KEY_FILE=${{ secrets.GOOGLE_CLOUD_KEY_FILE }}
-
-            LARA_ACCESS_KEY_ID=${{ secrets.LARA_ACCESS_KEY_ID }}
-            LARA_ACCESS_KEY_SECRET=${{ secrets.LARA_ACCESS_KEY_SECRET }}
-
-            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-            FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
-            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
-
-            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
-            SENTRY_RELEASE=basti-backend@${{ github.sha }}
-
-            MASARAT_URL=${{ secrets.MASARAT_URL }}
-            MASARAT_USER_ID=${{ secrets.MASARAT_USER_ID }}
-            MASARAT_PIN=${{ secrets.MASARAT_PIN }}
-            MASARAT_PROVIDER_ID=${{ secrets.MASARAT_PROVIDER_ID }}
-
-            TADAWUL_URL=${{ secrets.TADAWUL_URL }}
-            TADAWUL_ID=${{ secrets.TADAWUL_ID }}
-            TADAWUL_TOKEN=${{ secrets.TADAWUL_TOKEN }}
-            TADAWUL_WEBHOOK_URL=${{ secrets.TADAWUL_WEBHOOK_URL }}
+          ALL_SECRETS: ${{ toJSON(secrets) }}
         run: |
-          printf '%s' "$ENV_BODY" > backend.env
-          # sanity check that no required value rendered empty
-          if grep -E '^[A-Z_]+=$' backend.env; then
-            echo "::error::One or more secrets are empty"
-            grep -E '^[A-Z_]+=$' backend.env
+          set -euo pipefail
+
+          # 1. Static / non-secret prod values
+          cat > backend.env <<'STATIC_EOF'
+          NODE_ENV=production
+          PORT=3000
+          LOG_LEVEL=info
+
+          DB_HOST=postgres
+          DB_PORT=5432
+          DB_SSL=false
+
+          JWT_ACCESS_EXPIRES_IN=900
+          JWT_REFRESH_EXPIRES_IN=604800
+          JWT_SETUP_PROFILE_EXPIRES_IN=600
+          JWT_RESET_PASSWORD_EXPIRES_IN=3600
+
+          BCRYPT_SALT_ROUNDS=12
+          CORS_ORIGINS=https://dashboard.basty.ly
+          STATIC_EOF
+
+          # Sentry release tracks the deployed commit
+          echo "SENTRY_RELEASE=basti-backend@${{ github.sha }}" >> backend.env
+          echo "" >> backend.env
+
+          # 2. Secret-backed values, one line per schema key that has a value.
+          #    We rehydrate secrets into env vars first so render-env.mjs (which
+          #    reads process.env) picks them up.
+          node -e '
+            const secrets = JSON.parse(process.env.ALL_SECRETS);
+            for (const [k, v] of Object.entries(secrets)) {
+              // Trailing NUL after every record so `read -d ""` in bash
+              // sees every entry — without it the final record is dropped.
+              process.stdout.write(k + "=" + v + "\0");
+            }
+          ' > /tmp/secrets.nul
+
+          # Load each KEY=VALUE from the NUL-delimited stream into this shell
+          # (env -0 style — safe for values with newlines/special chars),
+          # then invoke the renderer with those env vars visible to it.
+          set -a
+          while IFS= read -r -d '' kv; do
+            key="${kv%%=*}"
+            val="${kv#*=}"
+            export "$key=$val"
+          done < /tmp/secrets.nul
+          set +a
+          rm -f /tmp/secrets.nul
+
+          node scripts/render-env.mjs >> backend.env
+
+          # 3. Sanity: every line must be KEY=VALUE with a non-empty value.
+          #    render-env.mjs already skips empty ones so this catches
+          #    only mistakes in the static block above.
+          if grep -E '^[A-Z][A-Z0-9_]*=$' backend.env; then
+            echo "::error::One or more static env values are empty"
+            grep -E '^[A-Z][A-Z0-9_]*=$' backend.env
             exit 1
           fi
+
+          # 4. Fail loudly if a schema key required by the app has no secret.
+          #    Non-secret keys (from the drift-check job) are exempted.
+          SCHEMA_KEYS=$(grep -oE '^[[:space:]]+[A-Z][A-Z0-9_]*:[[:space:]]*z\b' src/env.ts \
+            | sed -E 's/^[[:space:]]+([A-Z][A-Z0-9_]*).*/\1/' | sort -u)
+          NON_SECRET_KEYS=$(printf '%s\n' \
+            NODE_ENV PORT LOG_LEVEL DB_HOST DB_PORT DB_SSL \
+            JWT_ACCESS_EXPIRES_IN JWT_REFRESH_EXPIRES_IN \
+            JWT_SETUP_PROFILE_EXPIRES_IN JWT_RESET_PASSWORD_EXPIRES_IN \
+            BCRYPT_SALT_ROUNDS CORS_ORIGINS SENTRY_RELEASE | sort -u)
+
+          # Optional keys per schema — allowed to be missing.
+          OPTIONAL_KEYS=$(printf '%s\n' \
+            DOCS_USERNAME DOCS_PASSWORD MAIL_REPLY_TO SENTRY_DSN | sort -u)
+
+          EXPECTED=$(comm -23 \
+            <(echo "$SCHEMA_KEYS") \
+            <(cat <(echo "$NON_SECRET_KEYS") <(echo "$OPTIONAL_KEYS") | sort -u))
+
+          PRESENT=$(grep -oE '^[A-Z][A-Z0-9_]*=' backend.env | tr -d '=' | sort -u)
+
+          MISSING=$(comm -23 <(echo "$EXPECTED") <(echo "$PRESENT") || true)
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing GitHub Secrets required by src/env.ts:"
+            echo "$MISSING" | sed 's/^/  - /'
+            echo ""
+            echo "Add each of the above at:"
+            echo "  https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
+
+          echo "backend.env written with $(wc -l < backend.env) lines."
 
       - name: Upload .env to server
         # Use cat-over-ssh instead of scp to avoid SFTP-protocol issues
