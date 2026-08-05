@@ -57,7 +57,10 @@ import {
   or,
   exists,
 } from 'drizzle-orm';
-import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
+import {
+  PAGINATION_DEFAULTS,
+  BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS,
+} from '@/constants/global.constants';
 import { errorResponse, successResponse, handleErrorsAndThrow, buildSearchPattern } from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
@@ -1642,7 +1645,8 @@ export class OrderService {
     if (
       !bypassTimeLimit &&
       order.assigningDate &&
-      new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+      new Date().getTime() - new Date(order.assigningDate).getTime() >
+        BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS
     ) {
       this.logger.warn(
         `Order with id: ${orderId} has been assigned to a bakery since more than 1 hour, so it cannot be unassigned`,
@@ -2011,17 +2015,20 @@ export class OrderService {
         order.orderStatus === 'pending' &&
         order.bakeryId &&
         order.assigningDate &&
-        new Date().getTime() - new Date(order.assigningDate).getTime() > 60 * 60 * 1000
+        new Date().getTime() - new Date(order.assigningDate).getTime() >
+          BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS
       ) {
         this.logger.warn(
           `Order with id: ${order.id} has been assigned to a bakery for more than 1 hour, it cannot be unassigned, now changing its status to confirmed`,
         );
+        // Re-check the status in the UPDATE: `order` was read earlier in the
+        // request, and the bakery may have confirmed or declined since.
         await db
           .update(orders)
           .set({
             orderStatus: 'confirmed',
           })
-          .where(eq(orders.id, order.id));
+          .where(and(eq(orders.id, order.id), eq(orders.orderStatus, 'pending')));
       }
     } catch (error) {
       this.logger.error(
