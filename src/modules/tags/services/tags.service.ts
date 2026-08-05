@@ -5,12 +5,22 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { tags } from '@/db/schema';
+import {
+  tags,
+  sweets,
+  addons,
+  decorations,
+  predesignedCakes,
+  featuredCakes,
+  sliderImages,
+} from '@/db/schema';
 import { asc, eq, and, lt, gt, gte, lte, sql, getTableColumns } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { TagDto, CreateTagDto, UpdateTagDto, FindAllQueryDto } from '../dto';
+import { TagDto, CreateTagDto, UpdateTagDto, FindAllQueryDto, TagUsageDto } from '../dto';
 import { TranslationService } from '@/common/translation/translation.service';
 import { getErrorMessage } from '@/utils';
 
@@ -259,29 +269,143 @@ export class TagsService {
   }
 
   /**
-   * Delete a tag by ID
+   * Count everything that references a tag, so the admin can be shown the blast
+   * radius before deleting it.
    */
-  async remove(id: string): Promise<SuccessResponse<{ message: string }>> {
-    try {
-      const tag = await db.select().from(tags).where(eq(tags.id, id)).limit(1);
+  private async collectUsage(id: string): Promise<TagUsageDto> {
+    const [tag] = await db
+      .select({
+        id: tags.id,
+        name: this.translationService.getLocalized(tags.name, 'name'),
+      })
+      .from(tags)
+      .where(eq(tags.id, id))
+      .limit(1);
 
-      if (tag.length === 0) {
-        throw new NotFoundException(
-          errorResponse('routes.tags.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+    if (!tag) {
+      throw new NotFoundException(
+        errorResponse('routes.tags.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+      );
+    }
+
+    const countFor = async (
+      table:
+        | typeof sweets
+        | typeof addons
+        | typeof decorations
+        | typeof predesignedCakes
+        | typeof featuredCakes,
+      column: AnyPgColumn,
+    ): Promise<number> => {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(table)
+        .where(eq(column, id));
+      return Number(row?.count ?? 0);
+    };
+
+    const [
+      sweetsCount,
+      addonsCount,
+      decorationsCount,
+      predesignedCount,
+      featuredCount,
+      linkedSliders,
+    ] = await Promise.all([
+      countFor(sweets, sweets.tagId),
+      countFor(addons, addons.tagId),
+      countFor(decorations, decorations.tagId),
+      countFor(predesignedCakes, predesignedCakes.tagId),
+      countFor(featuredCakes, featuredCakes.tagId),
+      db
+        .select({
+          id: sliderImages.id,
+          title: this.translationService.getLocalized(sliderImages.title, 'title'),
+        })
+        .from(sliderImages)
+        .where(eq(sliderImages.tagId, id)),
+    ]);
+
+    const totalProducts =
+      sweetsCount + addonsCount + decorationsCount + predesignedCount + featuredCount;
+
+    return {
+      tagId: tag.id,
+      tagName: tag.name,
+      sweets: sweetsCount,
+      addons: addonsCount,
+      decorations: decorationsCount,
+      predesignedCakes: predesignedCount,
+      featuredCakes: featuredCount,
+      totalProducts,
+      sliderImages: linkedSliders,
+      canDeleteSafely: totalProducts === 0 && linkedSliders.length === 0,
+    };
+  }
+
+  /**
+   * Report what a tag is attached to, without changing anything.
+   */
+  async getUsage(id: string): Promise<SuccessResponse<TagUsageDto>> {
+    const usage = await this.collectUsage(id);
+    return successResponse(usage, 'routes.tags.usage_retrieved', HttpStatus.OK);
+  }
+
+  /**
+   * Delete a tag by ID.
+   *
+   * There is no FK from products to tags, so an unguarded delete would strand
+   * every product still pointing at it — those records then fail validation on
+   * save and become uneditable. So a tag that is still in use is refused with a
+   * 409 carrying the usage breakdown, and only proceeds when the admin
+   * explicitly confirms via `force`.
+   */
+  async remove(id: string, force = false): Promise<SuccessResponse<TagUsageDto>> {
+    try {
+      const usage = await this.collectUsage(id);
+
+      if (!usage.canDeleteSafely && !force) {
+        throw new ConflictException(
+          errorResponse('routes.tags.in_use', HttpStatus.CONFLICT, 'ConflictException', usage),
         );
       }
 
-      await db.delete(tags).where(eq(tags.id, id));
+      await db.transaction(async (tx) => {
+        // Clear the reference on every product carrying this tag.
+        await Promise.all([
+          tx.update(sweets).set({ tagId: null, updatedAt: new Date() }).where(eq(sweets.tagId, id)),
+          tx.update(addons).set({ tagId: null, updatedAt: new Date() }).where(eq(addons.tagId, id)),
+          tx
+            .update(decorations)
+            .set({ tagId: null, updatedAt: new Date() })
+            .where(eq(decorations.tagId, id)),
+          tx
+            .update(predesignedCakes)
+            .set({ tagId: null, updatedAt: new Date() })
+            .where(eq(predesignedCakes.tagId, id)),
+          tx
+            .update(featuredCakes)
+            .set({ tagId: null, updatedAt: new Date() })
+            .where(eq(featuredCakes.tagId, id)),
+        ]);
 
-      this.logger.log(`Tag deleted: ${id}`);
+        // A slider image exists to link to a tag, so one whose tag is gone has
+        // nothing to point at: hide it until an admin attaches a new tag.
+        await tx
+          .update(sliderImages)
+          .set({ isHidden: true, tagId: null })
+          .where(eq(sliderImages.tagId, id));
 
-      return successResponse(
-        { message: 'routes.tags.deleted' },
-        'routes.tags.deleted',
-        HttpStatus.OK,
+        await tx.delete(tags).where(eq(tags.id, id));
+      });
+
+      this.logger.log(
+        `Tag deleted: ${id} (force=${force}, products cleared=${usage.totalProducts}, sliders hidden=${usage.sliderImages.length})`,
       );
+
+      return successResponse(usage, 'routes.tags.deleted', HttpStatus.OK);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
       this.logger.error(`Tag deletion error: ${getErrorMessage(error)}`);

@@ -18,7 +18,12 @@ import {
 import { errorResponse, SuccessResponse, successResponse, buildSearchPattern } from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '../../../common/translation/translation.service';
-import { validateTagExists, validateRegionExists, validateAddonExists } from '@/utils';
+import {
+  validateTagExists,
+  validateTagForUpdate,
+  validateRegionExists,
+  validateAddonExists,
+} from '@/utils';
 import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedAddon = Omit<typeof addons.$inferSelect, 'name' | 'description'> & {
@@ -313,9 +318,7 @@ export class AddonService {
         );
       }
 
-      if (updateAddonDto.tagId !== undefined) {
-        await validateTagExists(updateAddonDto.tagId);
-      }
+      await validateTagForUpdate(updateAddonDto.tagId, existingAddon.tagId);
 
       // Build update object with only provided fields
       const updateData: Record<string, any> = {};
@@ -658,6 +661,9 @@ export class AddonService {
       category: addon.category,
       tagId: addon.tagId,
       tagName: tagName || null,
+      // True when the add-on still references a force-deleted tag; see the
+      // matching flag on the featured-cake response.
+      tagMissing: Boolean(addon.tagId) && !tagName,
       price: price || undefined,
       offer: offer
         ? {

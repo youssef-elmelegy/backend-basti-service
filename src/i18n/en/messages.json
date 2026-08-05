@@ -567,7 +567,8 @@
       "images_failed_update": "Failed to update slider images",
       "image_deleted": "Slider image deleted successfully",
       "image_failed_delete": "Failed to delete slider image",
-      "not_found": "Slider image not found"
+      "not_found": "Slider image not found",
+      "duplicate_tag": "Each tag can be linked to only one slider image"
     },
 
     "sweet": {
@@ -609,7 +610,9 @@
       "failed_delete": "Failed to delete tag",
       "failed_update": "Failed to update tag",
       "invalid_display_order_range": "Invalid order position. Must be between 1 and {max}",
-      "failed_change_order": "Failed to change tag order"
+      "failed_change_order": "Failed to change tag order",
+      "usage_retrieved": "Tag usage retrieved successfully",
+      "in_use": "This tag is still linked to products or slider images. Confirm to delete it anyway."
     },
 
     "upload": {

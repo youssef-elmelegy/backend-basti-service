@@ -30,12 +30,27 @@ export class SliderImageController {
 
   constructor(private readonly sliderImageService: SliderImageService) {}
 
+  /** Customer-facing listing: hidden images are never served here. */
   @Public()
   @Get()
   @GetSliderImagesDecorator()
   async findAll(): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
-    this.logger.debug('Retrieving all slider images');
-    return this.sliderImageService.findAll();
+    this.logger.debug('Retrieving visible slider images');
+    return this.sliderImageService.findAll(false);
+  }
+
+  /**
+   * Admin listing, which also returns images hidden by a tag deletion so they
+   * can be re-linked. Kept as its own route because the public one above skips
+   * JWT parsing entirely, leaving no identity to authorize a query flag against.
+   */
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Get('admin')
+  @GetSliderImagesDecorator()
+  async findAllForAdmin(): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
+    this.logger.debug('Retrieving all slider images (admin)');
+    return this.sliderImageService.findAll(true);
   }
 
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)

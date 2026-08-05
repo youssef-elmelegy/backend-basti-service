@@ -19,7 +19,14 @@ import {
 import { db } from '@/db';
 import { sweets, tags, regionItemPrices, regions, offers } from '@/db/schema';
 import { eq, desc, asc, and, sql, getTableColumns } from 'drizzle-orm';
-import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
+import {
+  errorResponse,
+  successResponse,
+  SuccessResponse,
+  buildSearchPattern,
+  validateTagExists,
+  validateTagForUpdate,
+} from '@/utils';
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common/translation/translation.service';
 import { isOfferActive } from '@/db/utils/helpers';
@@ -42,33 +49,11 @@ export class SweetService {
     private readonly translationService: TranslationService,
   ) {}
 
-  /**
-   * Validate that a tag exists by ID
-   */
-  private async validateTagExists(tagId: string): Promise<void> {
-    const tagResult = await db
-      .select({ id: tags.id })
-      .from(tags)
-      .where(eq(tags.id, tagId))
-      .limit(1);
-
-    if (tagResult.length === 0) {
-      throw new BadRequestException(
-        errorResponse(
-          `routes.tags.not_found_with_id`,
-          HttpStatus.BAD_REQUEST,
-          'BadRequestException',
-          { tagId },
-        ),
-      );
-    }
-  }
-
   async create(createDto: CreateSweetDto): Promise<SuccessResponse<SweetDataDto>> {
     try {
       // Validate tag exists if tagId is provided
       if (createDto.tagId) {
-        await this.validateTagExists(createDto.tagId);
+        await validateTagExists(createDto.tagId);
       }
 
       const nameObject = await this.translationService.getTranslationObject(createDto.name);
@@ -363,6 +348,21 @@ export class SweetService {
 
   async update(id: string, updateDto: UpdateSweetDto): Promise<SuccessResponse<SweetDataDto>> {
     try {
+      const [existingSweet] = await db
+        .select({ tagId: sweets.tagId })
+        .from(sweets)
+        .where(eq(sweets.id, id))
+        .limit(1);
+
+      if (!existingSweet) {
+        this.logger.warn(`Sweet not found for update: ${id}`);
+        throw new NotFoundException(
+          errorResponse('routes.sweet.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+        );
+      }
+
+      await validateTagForUpdate(updateDto.tagId, existingSweet.tagId);
+
       const nameObject = await this.translationService.getTranslationObject(updateDto.name);
       const descriptionObject = await this.translationService.getTranslationObject(
         updateDto.description,
@@ -684,6 +684,9 @@ export class SweetService {
       description: sweet.description,
       tagId: sweet.tagId || undefined,
       tagName: tagName,
+      // True when the sweet still references a force-deleted tag; see the
+      // matching flag on the featured-cake response.
+      tagMissing: Boolean(sweet.tagId) && !tagName,
       images: sweet.images,
       sizes: sweet.sizes,
       price: price || undefined,

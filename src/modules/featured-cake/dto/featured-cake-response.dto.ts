@@ -72,6 +72,12 @@ export class FeaturedCakeDataDto {
   tagName: string;
 
   @ApiProperty({
+    description: 'True when tagId points at a tag that no longer exists',
+    example: false,
+  })
+  tagMissing?: boolean;
+
+  @ApiProperty({
     description: 'Whether the featured cake is active and visible',
     example: true,
   })

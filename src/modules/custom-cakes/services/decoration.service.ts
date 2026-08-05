@@ -30,7 +30,7 @@ import {
 import { eq, desc, asc, sql, and, inArray, getTableColumns, type SQL } from 'drizzle-orm';
 import { errorResponse, successResponse, SuccessResponse, buildSearchPattern } from '@/utils';
 import { TranslationService } from '@/common/translation/translation.service';
-import { validateTagExists } from '@/utils';
+import { validateTagExists, validateTagForUpdate } from '@/utils';
 import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedDecoration = Omit<typeof decorations.$inferSelect, 'title' | 'description'> & {
@@ -69,6 +69,9 @@ export class DecorationService {
       capacity: decoration.capacity || 1,
       isFeatured: decoration.isFeatured,
       tagName,
+      // True when the decoration still references a force-deleted tag; see the
+      // matching flag on the featured-cake response.
+      tagMissing: Boolean(decoration.tagId) && !tagName,
       createdAt: decoration.createdAt,
       offer: offer
         ? {
@@ -872,7 +875,7 @@ export class DecorationService {
     try {
       // Check if decoration exists
       const existingDecoration = await db
-        .select({ id: decorations.id })
+        .select({ id: decorations.id, tagId: decorations.tagId })
         .from(decorations)
         .where(eq(decorations.id, id))
         .limit(1);
@@ -884,9 +887,7 @@ export class DecorationService {
       }
 
       // Validate new tag if provided
-      if (updateDto.tagId) {
-        await validateTagExists(updateDto.tagId);
-      }
+      await validateTagForUpdate(updateDto.tagId, existingDecoration[0].tagId);
 
       // Update only provided fields
       const updateFields: Record<string, any> = {};
