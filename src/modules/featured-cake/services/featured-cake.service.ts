@@ -25,7 +25,7 @@ import {
 import { BakeryItemStoreService } from '../../bakery/services/bakery-item-store.service';
 import { TranslationService } from '@/common';
 import { getErrorMessage } from '@/utils';
-import { validateTagExists, validateRegionExists } from '@/utils';
+import { validateTagExists, validateTagForUpdate, validateRegionExists } from '@/utils';
 import { isOfferActive } from '@/db/utils/helpers';
 
 type FlattenedFeaturedCake = Omit<typeof featuredCakes.$inferSelect, 'name' | 'description'> & {
@@ -383,9 +383,7 @@ export class FeaturedCakeService {
         );
       }
 
-      if (updateFeaturedCakeDto.tagId) {
-        await validateTagExists(updateFeaturedCakeDto.tagId);
-      }
+      await validateTagForUpdate(updateFeaturedCakeDto.tagId, existingCake.tagId);
 
       const updateData: Record<string, unknown> = Object.fromEntries(
         Object.entries(updateFeaturedCakeDto).filter(([, value]) => value !== undefined),
@@ -684,6 +682,10 @@ export class FeaturedCakeService {
       pipingPaletteList: cake.pipingPaletteList,
       tagId: cake.tagId,
       tagName: tagName || null,
+      // Set when the cake still points at a tag that was force-deleted. The join
+      // above yields no name in that case, so the admin form can prompt for a
+      // replacement instead of silently showing an empty tag picker.
+      tagMissing: Boolean(cake.tagId) && !tagName,
       capacity: cake.capacity,
       isActive: cake.isActive,
       isFeatured: cake.isFeatured,

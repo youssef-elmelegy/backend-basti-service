@@ -130,6 +130,9 @@ export class PredesignedCakeDataDto {
   })
   tagName: string;
 
+  @ApiProperty({ description: 'True when tagId points at a tag that no longer exists' })
+  tagMissing?: boolean;
+
   @ApiProperty({ type: () => [DesignedCakeConfigDto] })
   configs: DesignedCakeConfigDto[];
 

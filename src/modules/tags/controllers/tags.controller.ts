@@ -9,6 +9,7 @@ import {
   UseGuards,
   Patch,
   Query,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TagsService } from '../services/tags.service';
@@ -18,7 +19,14 @@ import {
   DeleteTagDecorator,
   UpdateTagDecorator,
 } from '../decorators';
-import { CreateTagDto, FindAllQueryDto, TagDto, UpdateTagDto, ChangeTagOrderDto } from '../dto';
+import {
+  CreateTagDto,
+  FindAllQueryDto,
+  TagDto,
+  UpdateTagDto,
+  ChangeTagOrderDto,
+  TagUsageDto,
+} from '../dto';
 import { Public } from '@/common';
 import { SuccessResponse } from '@/utils';
 import { AdminRolesGuard } from '@/common/guards/admin-roles.guard';
@@ -60,13 +68,24 @@ export class TagsController {
     return this.tagsService.update(editTagDto, id);
   }
 
+  @Get(':id/usage')
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  async getUsage(@Param('id') id: string): Promise<SuccessResponse<TagUsageDto>> {
+    this.logger.debug(`Retrieving usage for tag: ${id}`);
+    return this.tagsService.getUsage(id);
+  }
+
   @Delete(':id')
   @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
   @AdminRoles('super_admin', 'admin')
   @DeleteTagDecorator()
-  async remove(@Param('id') id: string): Promise<SuccessResponse<{ message: string }>> {
-    this.logger.debug(`Deleting tag: ${id}`);
-    return this.tagsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Query('force', new ParseBoolPipe({ optional: true })) force?: boolean,
+  ): Promise<SuccessResponse<TagUsageDto>> {
+    this.logger.debug(`Deleting tag: ${id} (force=${force ?? false})`);
+    return this.tagsService.remove(id, force ?? false);
   }
 
   @Patch(':id/order')

@@ -24,6 +24,9 @@ export class DecorationDataDto {
   @ApiProperty({ example: 'Decorations', required: false })
   tagName?: string;
 
+  @ApiProperty({ description: 'True when tagId points at a tag that no longer exists' })
+  tagMissing?: boolean;
+
   @ApiProperty({ example: '2024-02-07T10:00:00Z' })
   createdAt: Date;
 

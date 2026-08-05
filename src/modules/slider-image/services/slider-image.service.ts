@@ -4,13 +4,14 @@ import {
   HttpStatus,
   Logger,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { db } from '@/db';
 import { sliderImages, tags } from '@/db/schema';
 import { SliderImageWithTagsResponseDto, SliderImageResponseDto, SliderImageItemDto } from '../dto';
 import { TagDto } from '@/modules/tags/dto';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
-import { eq, getTableColumns } from 'drizzle-orm';
+import { errorResponse, successResponse, SuccessResponse, validateTagExists } from '@/utils';
+import { eq, getTableColumns, inArray, sql } from 'drizzle-orm';
 import { TranslationService } from '@/common/translation/translation.service';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class SliderImageService {
   /**
    * Get all slider images with tags matching the same display order
    */
-  async findAll(): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
+  async findAll(includeHidden = false): Promise<SuccessResponse<SliderImageWithTagsResponseDto[]>> {
     try {
       const rows = await db
         .select({
@@ -30,6 +31,7 @@ export class SliderImageService {
           title: this.translationService.getLocalized(sliderImages.title, 'title'),
           imageUrl: sliderImages.imageUrl,
           displayOrder: sliderImages.displayOrder,
+          isHidden: sliderImages.isHidden,
           createdAt: sliderImages.createdAt,
           tagId: tags.id,
           tagTypes: tags.types,
@@ -39,7 +41,10 @@ export class SliderImageService {
           tagUpdatedAt: tags.updatedAt,
         })
         .from(sliderImages)
-        .leftJoin(tags, eq(sliderImages.displayOrder, tags.displayOrder))
+        // Joined on the real FK. This used to match on equal display_order, which
+        // silently reassigned tags whenever either side was reordered.
+        .leftJoin(tags, eq(sliderImages.tagId, tags.id))
+        .where(includeHidden ? undefined : eq(sliderImages.isHidden, false))
         .orderBy(sliderImages.displayOrder);
 
       const imageMap = new Map<string, Omit<SliderImageWithTagsResponseDto, 'tags'>>();
@@ -52,6 +57,8 @@ export class SliderImageService {
             title: row.title,
             imageUrl: row.imageUrl,
             displayOrder: row.displayOrder,
+            tagId: row.tagId,
+            isHidden: row.isHidden,
             createdAt: row.createdAt,
           });
           tagsMap.set(row.id, []);
@@ -89,37 +96,98 @@ export class SliderImageService {
   }
 
   /**
-   * Update slider images - deletes all existing ones and creates new ones in bulk
+   * Replace the slider set with the supplied list.
+   *
+   * Rows carrying an `id` are updated in place rather than recreated: this used
+   * to delete every row and re-insert, which minted new ids and wiped the
+   * `isHidden` flag on every unrelated save. Rows absent from the payload are
+   * deleted, so the endpoint still expresses the full desired state.
    */
   async update(images: SliderImageItemDto[]): Promise<SuccessResponse<SliderImageResponseDto[]>> {
     try {
-      await db.delete(sliderImages);
-
-      this.logger.log('Deleted all existing slider images');
-
-      const imagesToInsert: (typeof sliderImages.$inferInsert)[] = [];
-
-      for (const image of images) {
-        const imageObject = await this.translationService.getTranslationObject(image.title);
-        imagesToInsert.push({
-          title: imageObject,
-          imageUrl: image.imageUrl,
-          displayOrder: image.displayOrder,
-        });
+      // Reject duplicate tags up front — display_order is unique and a tag is
+      // meant to front exactly one slider.
+      const suppliedTagIds = images.map((image) => image.tagId).filter(Boolean);
+      if (new Set(suppliedTagIds).size !== suppliedTagIds.length) {
+        throw new BadRequestException(
+          errorResponse(
+            'routes.slider.duplicate_tag',
+            HttpStatus.BAD_REQUEST,
+            'BadRequestException',
+          ),
+        );
       }
 
-      const insertedImages = await db
-        .insert(sliderImages)
-        .values(imagesToInsert)
-        .returning({
-          ...getTableColumns(sliderImages),
-          title: this.translationService.getLocalized(sliderImages.title, 'title'),
-        });
+      for (const tagId of suppliedTagIds) {
+        await validateTagExists(tagId);
+      }
 
-      this.logger.log(`Inserted ${insertedImages.length} new slider images in bulk`);
+      const result = await db.transaction(async (tx) => {
+        const existing = await tx.select({ id: sliderImages.id }).from(sliderImages);
+        const existingIds = new Set(existing.map((row) => row.id));
 
-      return successResponse(insertedImages, 'routes.slider.images_updated', HttpStatus.OK);
+        const keptIds = images
+          .map((image) => image.id)
+          .filter((id): id is string => Boolean(id) && existingIds.has(id));
+
+        // Drop rows the admin removed from the list.
+        const removedIds = [...existingIds].filter((id) => !keptIds.includes(id));
+        if (removedIds.length > 0) {
+          await tx.delete(sliderImages).where(inArray(sliderImages.id, removedIds));
+        }
+
+        // display_order is UNIQUE, so shift everything clear before reassigning
+        // to avoid transient collisions while rows swap positions.
+        if (keptIds.length > 0) {
+          await tx
+            .update(sliderImages)
+            .set({ displayOrder: sql`${sliderImages.displayOrder} + 100000` })
+            .where(inArray(sliderImages.id, keptIds));
+        }
+
+        for (const image of images) {
+          const titleObject = await this.translationService.getTranslationObject(image.title);
+          const tagId = image.tagId ?? null;
+
+          if (image.id && existingIds.has(image.id)) {
+            await tx
+              .update(sliderImages)
+              .set({
+                title: titleObject,
+                imageUrl: image.imageUrl,
+                displayOrder: image.displayOrder,
+                tagId,
+                // Attaching a tag is the only way out of the hidden state; an
+                // image left without one keeps whatever flag it already had.
+                ...(tagId ? { isHidden: false } : {}),
+              })
+              .where(eq(sliderImages.id, image.id));
+          } else {
+            await tx.insert(sliderImages).values({
+              title: titleObject,
+              imageUrl: image.imageUrl,
+              displayOrder: image.displayOrder,
+              tagId,
+            });
+          }
+        }
+
+        return tx
+          .select({
+            ...getTableColumns(sliderImages),
+            title: this.translationService.getLocalized(sliderImages.title, 'title'),
+          })
+          .from(sliderImages)
+          .orderBy(sliderImages.displayOrder);
+      });
+
+      this.logger.log(`Slider images updated: ${result.length} rows`);
+
+      return successResponse(result, 'routes.slider.images_updated', HttpStatus.OK);
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       this.logger.error('Failed to update slider images', error);
       throw new InternalServerErrorException(
         errorResponse(

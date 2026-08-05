@@ -27,6 +27,20 @@ export class SliderImageResponseDto {
   displayOrder: number;
 
   @ApiProperty({
+    description: 'Tag this image links to, or null when its tag was deleted',
+    example: '550e8400-e29b-41d4-a716-446655441002',
+    nullable: true,
+  })
+  tagId: string | null;
+
+  @ApiProperty({
+    description:
+      'Set automatically when the linked tag is deleted. Hidden images are not served to customers; attaching a new tag clears the flag.',
+    example: false,
+  })
+  isHidden: boolean;
+
+  @ApiProperty({
     description: 'Creation timestamp',
     example: '2025-11-27T10:00:00.000Z',
   })

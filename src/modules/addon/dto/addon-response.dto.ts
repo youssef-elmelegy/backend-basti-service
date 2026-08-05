@@ -90,6 +90,12 @@ export class AddonDataDto {
   tagName: string;
 
   @ApiProperty({
+    description: 'True when tagId points at a tag that no longer exists',
+    example: false,
+  })
+  tagMissing?: boolean;
+
+  @ApiProperty({
     description: 'Price for a specific region',
     example: '50',
     nullable: true,

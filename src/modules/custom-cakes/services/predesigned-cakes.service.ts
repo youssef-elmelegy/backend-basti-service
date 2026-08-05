@@ -159,7 +159,7 @@ export class PredesignedCakesService {
 
       this.logger.log(`Predesigned cake created: ${newCake.id}`);
       return successResponse(
-        { ...newCake, tagName, configs },
+        { ...newCake, tagName, tagMissing: Boolean(newCake.tagId) && !tagName, configs },
         'routes.predesigned_cakes.created',
         HttpStatus.CREATED,
       );
@@ -313,6 +313,7 @@ export class PredesignedCakesService {
             const item = {
               ...result.cake,
               tagName,
+              tagMissing: Boolean(result.cake.tagId) && !tagName,
               configs,
               ...(result.price && { price: result.price }),
               offer: result.offer
@@ -380,7 +381,7 @@ export class PredesignedCakesService {
 
       this.logger.log(`Retrieved predesigned cake: ${id}`);
       return successResponse(
-        { ...cake[0], tagName, configs },
+        { ...cake[0], tagName, tagMissing: Boolean(cake[0].tagId) && !tagName, configs },
         'routes.predesigned_cakes.retrieved',
         HttpStatus.OK,
       );
@@ -527,7 +528,7 @@ export class PredesignedCakesService {
 
       this.logger.log(`Predesigned cake updated: ${id}`);
       return successResponse(
-        { ...updatedCake, tagName, configs },
+        { ...updatedCake, tagName, tagMissing: Boolean(updatedCake.tagId) && !tagName, configs },
         'routes.predesigned_cakes.updated',
         HttpStatus.OK,
       );

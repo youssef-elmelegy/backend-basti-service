@@ -25,6 +25,42 @@ export async function validateTagExists(tagId: string): Promise<void> {
   }
 }
 
+/**
+ * Returns true when `tagId` points at a tag that no longer exists.
+ *
+ * Products keep their `tag_id` when a tag is force-deleted only until an admin
+ * re-picks one, so the forms need to tell "no tag" apart from "tag vanished".
+ */
+export async function isTagMissing(tagId: string | null | undefined): Promise<boolean> {
+  if (!tagId) return false;
+
+  const [tagExists] = await db
+    .select({ id: tags.id })
+    .from(tags)
+    .where(eq(tags.id, tagId))
+    .limit(1);
+
+  return !tagExists;
+}
+
+/**
+ * Tag validation for update paths.
+ *
+ * A record may already carry a stale `tag_id` (its tag was force-deleted), which
+ * would make the record permanently unsaveable if we rejected every unknown id.
+ * So an incoming id is validated only when it actually differs from the stored
+ * one — re-submitting the stale value, or clearing it, is always allowed.
+ */
+export async function validateTagForUpdate(
+  incomingTagId: string | null | undefined,
+  currentTagId: string | null | undefined,
+): Promise<void> {
+  if (!incomingTagId) return;
+  if (incomingTagId === currentTagId) return;
+
+  await validateTagExists(incomingTagId);
+}
+
 export async function validateRegionExists(regionId: string): Promise<void> {
   const [regionExists] = await db
     .select({ id: regions.id })
