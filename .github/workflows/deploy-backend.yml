@@ -95,7 +95,62 @@ jobs:
         # required. That is the whole point of this refactor: `secrets.X`
         # references stop being the source of drift.
         env:
-          ALL_SECRETS: ${{ toJSON(secrets) }}
+          ENV_BODY: |
+            NODE_ENV=production
+            PORT=3000
+            LOG_LEVEL=info
+
+            DB_HOST=postgres
+            DB_PORT=5432
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_DATABASE=${{ secrets.DB_DATABASE }}
+            DB_SSL=false
+
+            JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+            JWT_ACCESS_EXPIRES_IN=900
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            JWT_REFRESH_EXPIRES_IN=604800
+            JWT_SETUP_PROFILE_EXPIRES_IN=600
+            JWT_RESET_PASSWORD_EXPIRES_IN=3600
+
+            BCRYPT_SALT_ROUNDS=12
+            CORS_ORIGINS=https://dashboard.basty.ly
+
+            DOCS_USERNAME=${{ secrets.DOCS_USERNAME }}
+            DOCS_PASSWORD=${{ secrets.DOCS_PASSWORD }}
+
+            BREVO_API_KEY=${{ secrets.BREVO_API_KEY }}
+            MAIL_FROM_NAME=${{ secrets.MAIL_FROM_NAME }}
+            MAIL_FROM=${{ secrets.MAIL_FROM }}
+            MAIL_REPLY_TO=${{ secrets.MAIL_REPLY_TO }}
+
+            R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+            R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
+
+            LARA_ACCESS_KEY_ID=${{ secrets.LARA_ACCESS_KEY_ID }}
+            LARA_ACCESS_KEY_SECRET=${{ secrets.LARA_ACCESS_KEY_SECRET }}
+
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+
+            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            SENTRY_RELEASE=basti-backend@${{ github.sha }}
+
+            MASARAT_URL=${{ secrets.MASARAT_URL }}
+            MASARAT_USER_ID=${{ secrets.MASARAT_USER_ID }}
+            MASARAT_PIN=${{ secrets.MASARAT_PIN }}
+            MASARAT_PROVIDER_ID=${{ secrets.MASARAT_PROVIDER_ID }}
+
+            TADAWUL_URL=${{ secrets.TADAWUL_URL }}
+            TADAWUL_ID=${{ secrets.TADAWUL_ID }}
+            TADAWUL_TOKEN=${{ secrets.TADAWUL_TOKEN }}
+            TADAWUL_WEBHOOK_URL=${{ secrets.TADAWUL_WEBHOOK_URL }}
+
         run: |
           set -euo pipefail
 
