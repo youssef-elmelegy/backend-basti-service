@@ -2,7 +2,7 @@ import { IsArray, IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-valid
 import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '@/common/dto/pagination.dto';
-import { OrderStatusEnum } from './get.dto';
+import { OrderStatus } from './get.dto';
 
 /**
  * Query params for GET /orders/unassigned — paginated admin sidebar feed.
@@ -33,7 +33,7 @@ export class GetUnassignedOrdersQueryDto extends PaginationDto {
     description:
       'Order statuses to include (comma-separated or repeated query param). Default: all active.',
     isArray: true,
-    enum: OrderStatusEnum,
+    enum: OrderStatus,
   })
   @IsOptional()
   @Transform(({ value }: { value: unknown }): string[] | undefined => {
@@ -47,9 +47,9 @@ export class GetUnassignedOrdersQueryDto extends PaginationDto {
     return undefined;
   })
   @IsArray()
-  @IsEnum(OrderStatusEnum, { each: true })
+  @IsEnum(OrderStatus, { each: true })
   @Type(() => String)
-  status?: OrderStatusEnum[];
+  status?: OrderStatus[];
 
   @ApiPropertyOptional({
     description: 'Sort by orderedAt (createdAt). asc = oldest first, desc = newest first.',

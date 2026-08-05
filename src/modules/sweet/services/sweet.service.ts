@@ -14,7 +14,7 @@ import {
   GetAllSweetsDataDto,
   DeleteSweetResponseDto,
   CreateSweetRegionItemPriceDto,
-  SortBy,
+  SweetSortBy,
 } from '../dto';
 import { db } from '@/db';
 import { sweets, tags, regionItemPrices, regions, offers } from '@/db/schema';
@@ -116,7 +116,7 @@ export class SweetService {
     try {
       const offset = (query.page - 1) * query.limit;
       const sortOrder = query.order === 'desc' ? desc : asc;
-      const sortColumn = query.sortBy === SortBy.NAME ? sweets.name : sweets.createdAt;
+      const sortColumn = query.sortBy === SweetSortBy.NAME ? sweets.name : sweets.createdAt;
 
       let allSweetsResult: Array<{
         sweet: FlattenedSweet;

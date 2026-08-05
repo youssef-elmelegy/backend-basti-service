@@ -24,7 +24,7 @@ This folder holds the long-form documentation for the backend service. The [root
 ## Related documentation
 
 - **API reference** — generated from the code, served at `/api/docs` (Scalar). Locally: `http://localhost:3000/api/docs`. In production: `https://api.basty.ly/api/docs`, behind HTTP Basic Auth.
-- **Admin dashboard** — [test-dashboard/docs/](../../test-dashboard/docs/), the frontend that consumes this API.
+- **Admin dashboard** — [documentation](../../test-dashboard/docs/) for the frontend that consumes this API.
 
 ## Keeping these current
 

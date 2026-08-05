@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsArray, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '@/common/dto/pagination.dto';
-import { OrderStatusEnum } from '@/modules/order/dto/get.dto';
+import { OrderStatus } from '@/modules/order/dto/get.dto';
 
 /**
  * Query params for GET /drivers/:id/orders — admin view of a driver's order
@@ -20,7 +20,7 @@ export class GetDriverOrdersHistoryQueryDto extends PaginationDto {
     description:
       'Statuses to include (comma-separated or repeated query param). Defaults to all statuses.',
     isArray: true,
-    enum: OrderStatusEnum,
+    enum: OrderStatus,
   })
   @IsOptional()
   @Transform(({ value }: { value: unknown }): string[] | undefined => {
@@ -34,9 +34,9 @@ export class GetDriverOrdersHistoryQueryDto extends PaginationDto {
     return undefined;
   })
   @IsArray()
-  @IsEnum(OrderStatusEnum, { each: true })
+  @IsEnum(OrderStatus, { each: true })
   @Type(() => String)
-  status?: OrderStatusEnum[];
+  status?: OrderStatus[];
 
   @ApiPropertyOptional({
     description: 'Sort by createdAt. asc = oldest first, desc = newest first.',

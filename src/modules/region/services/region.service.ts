@@ -27,7 +27,7 @@ import { FlavorService } from '@/modules/custom-cakes/services/flavor.service';
 import { ShapeService } from '@/modules/custom-cakes/services/shape.service';
 import { DecorationService } from '@/modules/custom-cakes/services/decoration.service';
 import { PredesignedCakesService } from '@/modules/custom-cakes/services/predesigned-cakes.service';
-import { SortBy } from '@/modules/sweet/dto';
+import { SweetSortBy } from '@/modules/sweet/dto';
 import { FlavorSortBy } from '@/modules/custom-cakes/dto';
 import { ShapeSortBy, ShapeDataDto } from '@/modules/custom-cakes/dto';
 import { DecorationSortBy } from '@/modules/custom-cakes/dto';
@@ -602,7 +602,7 @@ export class RegionService {
                 page: 1,
                 limit: 1000,
                 regionId,
-                sortBy: SortBy.CREATED_AT,
+                sortBy: SweetSortBy.CREATED_AT,
                 order: 'desc',
               });
               if (sweetsResponse.data) {

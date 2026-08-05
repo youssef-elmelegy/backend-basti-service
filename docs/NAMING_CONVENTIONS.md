@@ -64,7 +64,7 @@ src/
 - **Controllers**: `*.controller.ts` → `auth.controller.ts`
 - **Services**: `*.service.ts` → `auth.service.ts`
 - **DTOs**: `*.dto.ts` → `signup.dto.ts`, `login.dto.ts`
-- **Interfaces**: `*interface.ts` → `auth-response.interface.ts`
+- **Interfaces**: `*.interface.ts` → `auth-response.interface.ts`
 - **Decorators**: `*-decorator.ts` → `auth-signup.decorator.ts`
 - **Guards**: `*.guard.ts` → `jwt-auth.guard.ts`
 - **Strategies**: `*.strategy.ts` → `access-token.strategy.ts`
@@ -317,8 +317,8 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
@@ -326,7 +326,7 @@ export interface User {
 
 - `PascalCase` for interface names
 - End with descriptive suffix: `Response`, `Payload`, `Request`
-- Keep in dedicated `*-interface.ts` files
+- Keep in dedicated `*.interface.ts` files
 - Separate from DTOs
 
 ---

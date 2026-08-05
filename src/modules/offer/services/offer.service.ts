@@ -24,11 +24,11 @@ import { eq, and, desc, isNotNull, getTableColumns, sql } from 'drizzle-orm';
 import { errorResponse, SuccessResponse, successResponse } from '@/utils';
 import { handleErrors } from '@/utils/errors.util';
 import {
-  OfferResponse,
+  OfferResponseDto,
   UpdateOfferDto,
   CreateOfferDto,
   ToggleItemOfferDto,
-  OfferItemResponse,
+  OfferItemResponseDto,
 } from '@/modules/offer/dto/index';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 
@@ -46,7 +46,7 @@ export class OfferService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  async create(data: CreateOfferDto): Promise<SuccessResponse<OfferResponse>> {
+  async create(data: CreateOfferDto): Promise<SuccessResponse<OfferResponseDto>> {
     try {
       const nameObject = await this.translationService.getTranslationObject(data.name);
 
@@ -95,7 +95,7 @@ export class OfferService {
     }
   }
 
-  async getAll(): Promise<SuccessResponse<OfferResponse[]>> {
+  async getAll(): Promise<SuccessResponse<OfferResponseDto[]>> {
     try {
       const result = await db
         .select({
@@ -124,7 +124,7 @@ export class OfferService {
     }
   }
 
-  async getOne(id: string): Promise<SuccessResponse<OfferResponse>> {
+  async getOne(id: string): Promise<SuccessResponse<OfferResponseDto>> {
     try {
       const [coupon] = await db
         .select({
@@ -154,7 +154,7 @@ export class OfferService {
     }
   }
 
-  async update(id: string, data: UpdateOfferDto): Promise<SuccessResponse<OfferResponse>> {
+  async update(id: string, data: UpdateOfferDto): Promise<SuccessResponse<OfferResponseDto>> {
     try {
       const [offer] = await db.select().from(offers).where(eq(offers.id, id)).limit(1);
 
@@ -204,7 +204,7 @@ export class OfferService {
     }
   }
 
-  async toggleStatus(id: string): Promise<SuccessResponse<OfferResponse>> {
+  async toggleStatus(id: string): Promise<SuccessResponse<OfferResponseDto>> {
     try {
       const [offer] = await db.select().from(offers).where(eq(offers.id, id)).limit(1);
 
@@ -496,7 +496,7 @@ export class OfferService {
     }
   }
 
-  async getItems(offerId: string): Promise<SuccessResponse<OfferItemResponse[]>> {
+  async getItems(offerId: string): Promise<SuccessResponse<OfferItemResponseDto[]>> {
     try {
       const [offer] = await db
         .select({ id: offers.id })
@@ -604,7 +604,7 @@ export class OfferService {
           .where(and(baseWhere, isNotNull(regionItemPrices.shapeId))),
       ]);
 
-      const items: OfferItemResponse[] = [
+      const items: OfferItemResponseDto[] = [
         ...addonRows.map((r) => ({ ...r, type: 'addon' as const })),
         ...featuredCakeRows.map((r) => ({ ...r, type: 'featuredCake' as const })),
         ...sweetRows.map((r) => ({ ...r, type: 'sweet' as const })),
@@ -636,7 +636,7 @@ export class OfferService {
     return row?.count ?? 0;
   }
 
-  private formatOfferResponse(offer: FlattenedOffer): OfferResponse {
+  private formatOfferResponse(offer: FlattenedOffer): OfferResponseDto {
     return {
       id: offer.id,
       name: offer.name,

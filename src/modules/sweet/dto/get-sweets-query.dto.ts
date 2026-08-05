@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, Min, Max, IsOptional, IsEnum, IsString, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export enum SortBy {
+export enum SweetSortBy {
   CREATED_AT = 'createdAt',
   NAME = 'name',
   UPDATED_AT = 'updatedAt',
@@ -38,8 +38,8 @@ export class GetSweetsQueryDto {
     required: false,
   })
   @IsOptional()
-  @IsEnum(SortBy)
-  sortBy: SortBy = SortBy.CREATED_AT;
+  @IsEnum(SweetSortBy)
+  sortBy: SweetSortBy = SweetSortBy.CREATED_AT;
 
   @ApiProperty({
     description: 'Sort order',

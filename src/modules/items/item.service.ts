@@ -12,7 +12,7 @@ import {
   CustomCakeFlattenData,
   CustomCakeData,
   ExtraLayerData,
-} from './items-interface';
+} from './items.interface';
 import { db } from '@/db';
 import { and, eq, getTableColumns, inArray, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -35,7 +35,7 @@ import { errorResponse, handleErrorsAndThrow } from '@/utils';
 import { TranslationService } from '@/common';
 import { isOfferActive } from '@/db/utils/helpers';
 import { ConfigService } from '../config/services/config.service';
-import { FeaturedCakeVarient } from '../order/dto';
+import { FeaturedCakeVariant } from '../order/dto';
 
 @Injectable()
 export class ItemService {
@@ -278,7 +278,7 @@ export class ItemService {
   }
 
   async getFeaturedCakes(
-    featuredCakesIdsAndQnt: { id: string; quantity?: number; varients?: FeaturedCakeVarient[] }[],
+    featuredCakesIdsAndQnt: { id: string; quantity?: number; varients?: FeaturedCakeVariant[] }[],
     regionId?: string,
   ): Promise<FeaturedCakeData[]> {
     try {

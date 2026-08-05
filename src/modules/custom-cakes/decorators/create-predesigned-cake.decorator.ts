@@ -2,7 +2,7 @@ import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { CreatePredesignedCakeDto, PredesignedCakeResponseDto } from '../dto';
 import { ErrorResponseDto } from '@/modules/auth/dto';
-import { PredesignedCakesExamples } from '@/constants/examples/predesigned-cakes.examples';
+import { PredesignedCakesExamples } from '@/constants/examples/predesigned-cakes-examples';
 
 export function CreatePredesignedCakeDecorator() {
   return applyDecorators(

@@ -12,14 +12,7 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { UpdateAddonOptionDto } from './update-addon-option.dto';
-
-enum AddonCategory {
-  BALLOONS = 'balloons',
-  CARDS = 'cards',
-  CANDLES = 'candles',
-  DECORATIONS = 'decorations',
-  OTHER = 'other',
-}
+import { AddonCategory } from './create-addon.dto';
 
 export class UpdateAddonDto {
   @ApiProperty({

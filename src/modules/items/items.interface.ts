@@ -1,5 +1,5 @@
 import { ItemOfferDto } from '@/common/dto';
-import { FeaturedCakeVarient } from '../order/dto';
+import { FeaturedCakeVariant } from '../order/dto';
 
 export interface AddonOptionData {
   id: string;
@@ -66,7 +66,7 @@ export interface FeaturedCakeData {
   capacity: number;
   flavorList: string[];
   pipingPaletteList: string[];
-  featuredCakeVarients?: FeaturedCakeVarient[];
+  featuredCakeVarients?: FeaturedCakeVariant[];
   tagId: string;
   tagName: string;
   isActive: boolean;

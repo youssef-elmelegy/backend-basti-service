@@ -2,7 +2,7 @@ import { IsUUID, IsOptional, IsEnum, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
-export enum OrderStatusEnum {
+export enum OrderStatus {
   NULL = 'null',
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -28,12 +28,12 @@ export class RegionFilterDto {
     description: 'Filter orders by one or multiple statuses (comma-separated).',
     required: false,
     isArray: true,
-    enum: OrderStatusEnum,
+    enum: OrderStatus,
     example: 'pending,confirmed',
   })
   @IsOptional()
   @IsArray()
-  @IsEnum(OrderStatusEnum, { each: true })
+  @IsEnum(OrderStatus, { each: true })
   @Type(() => String)
-  status?: OrderStatusEnum[];
+  status?: OrderStatus[];
 }
