@@ -9,11 +9,18 @@ import { ItemsModule } from '../items/items.module';
 import { CouponModule } from '../coupon/coupon.module';
 import { NotificationModule } from '../notification/notification.module';
 import { FinancialsService } from './services/financials.service';
+import { OrderAutoConfirmService } from './services/order-auto-confirm.service';
 
 @Module({
   controllers: [OrderController],
-  providers: [OrderService, StockService, SchedulerService, FinancialsService],
+  providers: [
+    OrderService,
+    StockService,
+    SchedulerService,
+    FinancialsService,
+    OrderAutoConfirmService,
+  ],
   imports: [CartModule, ConfigModule, ItemsModule, CouponModule, NotificationModule],
-  exports: [OrderService, StockService, SchedulerService],
+  exports: [OrderService, StockService, SchedulerService, OrderAutoConfirmService],
 })
 export class OrderModule {}

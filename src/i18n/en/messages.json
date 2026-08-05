@@ -808,6 +808,10 @@
       "title": "Order reassigned",
       "body": "Order {ref} has been reassigned to another bakery."
     },
+    "order_auto_confirmed": {
+      "title": "Order automatically confirmed",
+      "body": "Order {ref} was not answered within 1 hour and has been automatically confirmed for your bakery."
+    },
     "reassigning_to_user": {
       "title": "Order update",
       "body": "Your order {ref} is being reassigned to another bakery."

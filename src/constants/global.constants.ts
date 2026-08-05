@@ -68,6 +68,13 @@ export const SORT_DEFAULTS = {
   ORDER: 'desc',
 } as const;
 
+/**
+ * How long a bakery has, from `orders.assigningDate`, to accept or decline an
+ * order assigned to it. Past this window the bakery can no longer unassign
+ * itself and the order auto-confirms (see OrderAutoConfirmService).
+ */
+export const BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
+
 export const BAKERY_DEFAULTS = {
   BAKERY_OPEN_HOUR: 10,
   BAKERY_CLOSE_HOUR: 18,

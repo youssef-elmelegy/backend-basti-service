@@ -34,10 +34,14 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PaymentModule } from './modules/payment/payment.module';
 import { I18nExceptionFilter } from '@/common/filters/i18n-translation.filter';
 import { I18nResponseInterceptor } from '@/common/interceptors/i18n-transaltion.interceptor';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     SentryModule.forRoot(),
+    // Drives in-process cron jobs (e.g. auto-confirming unanswered bakery
+    // assignments). Only ticks on the long-running Docker/VPS deploy.
+    ScheduleModule.forRoot(),
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
