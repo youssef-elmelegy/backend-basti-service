@@ -1,6 +1,6 @@
 import { TranslationObject } from './../../types/translation.types';
 import { I18nContext, I18nService } from 'nestjs-i18n';
-import { TranslationDto, TranslationResponse } from './translation.dto';
+import { TranslationDto, TranslationResponseDto } from './translation.dto';
 import { SuccessResponse } from '@/types';
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { env } from '@/env';
@@ -91,7 +91,7 @@ export class TranslationService {
     return typeof value === 'object' && value !== null && 'en' in value && 'ar' in value;
   }
 
-  async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponse>> {
+  async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponseDto>> {
     const { text, targetLang, sourceLang } = dto;
 
     try {
@@ -151,7 +151,7 @@ export class TranslationService {
   //   throw lastError;
   // }
 
-  // async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponse>> {
+  // async dynamicTranslate(dto: TranslationDto): Promise<SuccessResponse<TranslationResponseDto>> {
   //   const { text, targetLang, sourceLang } = dto;
 
   //   try {

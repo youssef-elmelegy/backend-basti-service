@@ -7,7 +7,7 @@ import { PredesignedCakeDataDto } from '@/modules/custom-cakes/dto/predesigned-c
 import { CustomCakeConfig } from '@/modules/cart/dto';
 import { ConfigResponseDto } from '@/modules/config/dto';
 import { QADto } from './finalize-order.dto';
-import { FeaturedCakeVarient } from './create.dto';
+import { FeaturedCakeVariant } from './create.dto';
 
 export class CreateOrderItemResponseDto {
   @ApiProperty()
@@ -29,7 +29,7 @@ export class CreateOrderItemResponseDto {
   featuredCakeId!: string | null;
 
   @ApiProperty()
-  featuredCakeVarients!: FeaturedCakeVarient[];
+  featuredCakeVarients!: FeaturedCakeVariant[];
 
   @ApiProperty()
   customCake!: {
@@ -380,7 +380,7 @@ export class OrderItemResponseDto<T> {
 
 export class UpdatedFeaturedCakeDto extends FeaturedCakeDataDto {
   @ApiProperty()
-  featuredCakeVarients?: FeaturedCakeVarient[];
+  featuredCakeVarients?: FeaturedCakeVariant[];
 }
 
 export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items'] as const) {

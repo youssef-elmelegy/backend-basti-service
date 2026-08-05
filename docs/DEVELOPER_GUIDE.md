@@ -4,7 +4,7 @@ The API behind the Basti platform: a NestJS 11 service backing the admin dashboa
 
 - **Live API:** `https://api.basty.ly/api`
 - **API reference (Scalar):** `https://api.basty.ly/api/docs` — HTTP Basic Auth
-- **Consumed by:** the admin dashboard (`test-dashboard`, at `dashboard.basty.ly`) and the customer mobile app
+- **Consumed by:** the admin dashboard (`dashboard.basty.ly`) and the customer mobile app
 
 ---
 
@@ -386,7 +386,7 @@ Note that `NODE_ENV`, `PORT`, `LOG_LEVEL`, `DB_HOST`, `DB_SSL`, token lifetimes,
 
 ```bash
 ssh elmelegy@<SERVER_HOST>
-cd ~/basti/backend-basti-service
+cd <checkout-path-on-server>   # see the deploy workflow for the current path
 git pull origin main
 cd infra
 docker compose --env-file ../.env build backend

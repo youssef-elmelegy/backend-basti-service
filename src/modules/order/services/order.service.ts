@@ -21,7 +21,7 @@ import {
   GetAllQueryDto,
   AssignDriverDto,
   VerifyDeliveryCodeDto,
-  OrderStatusEnum,
+  OrderStatus,
 } from '../dto';
 import { db } from '@/db';
 import {
@@ -67,7 +67,7 @@ import { TranslationService } from '@/common';
 import { CouponService } from '@/modules/coupon/services/coupon.service';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 import { env } from '@/env';
-import { CouponResponse } from '@/modules/coupon/dto';
+import { CouponResponseDto } from '@/modules/coupon/dto';
 
 /** A stockable order item the target bakery can't fully reserve when reassigning. */
 export interface BakeryStockIssue {
@@ -354,7 +354,7 @@ export class OrderService {
       let finalPrice = 0;
       let discountAmount = 0;
       let deliveryAmount = liveConfig.deliveryAmount;
-      let couponData: CouponResponse;
+      let couponData: CouponResponseDto;
 
       if (couponCode) {
         const res = await this.couponservice.verify({
@@ -646,7 +646,7 @@ export class OrderService {
       }
 
       if (query.status && query.status.length > 0) {
-        if (query.status.includes(OrderStatusEnum.NULL)) {
+        if (query.status.includes(OrderStatus.NULL)) {
           const nonNullStatuses = query.status.filter((s) => s !== 'null');
           conditions.push(
             or(

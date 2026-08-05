@@ -28,7 +28,7 @@ export class TranslationDto {
   text: string = '';
 }
 
-export class TranslationResponse {
+export class TranslationResponseDto {
   @ApiProperty({
     description: 'The translated text',
   })

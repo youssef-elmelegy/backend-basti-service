@@ -16,8 +16,8 @@ import {
   FeaturedCakeData,
   PredesignedCakeData,
   CustomCakeData,
-} from '@/modules/items/items-interface';
-import { FeaturedCakeVarient } from '@/modules/order/dto/create.dto';
+} from '@/modules/items/items.interface';
+import { FeaturedCakeVariant } from '@/modules/order/dto/create.dto';
 
 export const orderItems = pgTable(
   'order_items',
@@ -34,7 +34,7 @@ export const orderItems = pgTable(
     predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id),
     featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id),
     featuredCakeVarients: jsonb('featured_cake_variants')
-      .$type<FeaturedCakeVarient[]>()
+      .$type<FeaturedCakeVariant[]>()
       .default(sql`'[]'::jsonb`),
 
     addon: jsonb('addon').$type<AddonData>(),

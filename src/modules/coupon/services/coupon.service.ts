@@ -10,7 +10,12 @@ import { db } from '@/db';
 import { coupons, couponUsages } from '@/db/schema';
 import { eq, and, sql, desc, getTableColumns } from 'drizzle-orm';
 import { SuccessResponse, successResponse } from '@/utils';
-import { CouponResponse, GenerateCouponDto, UpdateCouponDto, VerifyCouponDto } from '../dto/index';
+import {
+  CouponResponseDto,
+  GenerateCouponDto,
+  UpdateCouponDto,
+  VerifyCouponDto,
+} from '../dto/index';
 import { handleErrorsAndThrow } from '@/utils/errors.util';
 import { NotificationService } from '@/modules/notification/services/notification.service';
 
@@ -94,7 +99,7 @@ export class CouponService {
     }
   }
 
-  async verify(verifyDto: VerifyCouponDto): Promise<SuccessResponse<CouponResponse>> {
+  async verify(verifyDto: VerifyCouponDto): Promise<SuccessResponse<CouponResponseDto>> {
     const { cartTotal, code, regionId, userId } = verifyDto;
 
     try {
@@ -223,7 +228,7 @@ export class CouponService {
     }
   }
 
-  async generate(data: GenerateCouponDto): Promise<SuccessResponse<CouponResponse>> {
+  async generate(data: GenerateCouponDto): Promise<SuccessResponse<CouponResponseDto>> {
     try {
       const nameObject = await this.translationService.getTranslationObject(data.name);
 
@@ -278,7 +283,7 @@ export class CouponService {
     }
   }
 
-  async getAll(): Promise<SuccessResponse<CouponResponse[]>> {
+  async getAll(): Promise<SuccessResponse<CouponResponseDto[]>> {
     try {
       const result = await db
         .select({
@@ -296,7 +301,7 @@ export class CouponService {
     }
   }
 
-  async getOne(id: string): Promise<SuccessResponse<CouponResponse>> {
+  async getOne(id: string): Promise<SuccessResponse<CouponResponseDto>> {
     try {
       const [coupon] = await db
         .select({
@@ -314,7 +319,7 @@ export class CouponService {
     }
   }
 
-  async update(id: string, data: UpdateCouponDto): Promise<SuccessResponse<CouponResponse>> {
+  async update(id: string, data: UpdateCouponDto): Promise<SuccessResponse<CouponResponseDto>> {
     try {
       const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
 
@@ -354,7 +359,7 @@ export class CouponService {
     }
   }
 
-  async toggleStatus(id: string): Promise<SuccessResponse<CouponResponse>> {
+  async toggleStatus(id: string): Promise<SuccessResponse<CouponResponseDto>> {
     try {
       const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
 
@@ -407,7 +412,7 @@ export class CouponService {
     }
   }
 
-  private formatCouponResponse(coupon: FlattenedCoupon): CouponResponse {
+  private formatCouponResponse(coupon: FlattenedCoupon): CouponResponseDto {
     return {
       id: coupon.id,
       code: coupon.code,

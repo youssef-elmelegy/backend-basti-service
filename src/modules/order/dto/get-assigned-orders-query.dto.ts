@@ -1,7 +1,7 @@
 import { IsArray, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { OrderStatusEnum } from './get.dto';
+import { OrderStatus } from './get.dto';
 
 /**
  * Query params for GET /orders/assigned — Kanban view feed.
@@ -21,7 +21,7 @@ export class GetAssignedOrdersQueryDto {
     description:
       'Order statuses to include (comma-separated or repeated query param). Default: all active.',
     isArray: true,
-    enum: OrderStatusEnum,
+    enum: OrderStatus,
   })
   @IsOptional()
   @Transform(({ value }: { value: unknown }): string[] | undefined => {
@@ -35,9 +35,9 @@ export class GetAssignedOrdersQueryDto {
     return undefined;
   })
   @IsArray()
-  @IsEnum(OrderStatusEnum, { each: true })
+  @IsEnum(OrderStatus, { each: true })
   @Type(() => String)
-  status?: OrderStatusEnum[];
+  status?: OrderStatus[];
 
   @ApiPropertyOptional({
     description: 'Sort by orderedAt (createdAt). asc = oldest first, desc = newest first.',

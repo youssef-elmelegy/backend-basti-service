@@ -1,7 +1,7 @@
 import { applyDecorators, HttpStatus } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ErrorResponseDto } from '@/modules/auth/dto';
-import { OrderStatusEnum } from '@/modules/order/dto/get.dto';
+import { OrderStatus } from '@/modules/order/dto/get.dto';
 
 export function GetDriverOrdersHistoryDecorator() {
   return applyDecorators(
@@ -24,7 +24,7 @@ export function GetDriverOrdersHistoryDecorator() {
       name: 'status',
       required: false,
       isArray: true,
-      enum: OrderStatusEnum,
+      enum: OrderStatus,
       description: 'Filter by statuses (comma-separated or repeated). Defaults to all statuses.',
     }),
     ApiQuery({ name: 'sort', required: false, enum: ['asc', 'desc'], description: 'Sort by date' }),
