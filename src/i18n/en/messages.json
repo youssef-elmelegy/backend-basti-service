@@ -836,6 +836,14 @@
       "title": "Order needs a new driver",
       "body": "Order {ref} was refused by the driver and needs reassignment."
     },
+    "driver_assignment_expired_admin": {
+      "title": "Driver did not respond",
+      "body": "Order {ref} was not accepted by the driver within 1 hour and is now unassigned. It needs a new driver."
+    },
+    "driver_assignment_expired_driver": {
+      "title": "Order assignment expired",
+      "body": "You did not accept order {ref} within 1 hour, so it has been returned for reassignment."
+    },
     "due_amount_updated": {
       "title": "Due amount updated",
       "body": "Your due amount has been updated to {amount}."

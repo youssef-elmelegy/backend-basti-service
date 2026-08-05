@@ -75,6 +75,14 @@ export const SORT_DEFAULTS = {
  */
 export const BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
 
+/**
+ * How long a driver has, from `orders.driverAssignedAt`, to accept an order
+ * assigned to them. Past this window the assignment expires and the order is
+ * returned to the unassigned pool for an admin to reassign
+ * (see OrderAutoConfirmService). Acceptance is recorded as `driverData`.
+ */
+export const DRIVER_ASSIGNMENT_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
+
 export const BAKERY_DEFAULTS = {
   BAKERY_OPEN_HOUR: 10,
   BAKERY_CLOSE_HOUR: 18,
