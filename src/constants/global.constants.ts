@@ -51,12 +51,6 @@ export const MOCK_IMAGES = {
   },
 } as const;
 
-export const BAKERY_TYPES = {
-  LARGE_CAKES: 'large_cakes',
-  SMALL_CAKES: 'small_cakes',
-  OTHER: 'other',
-} as const;
-
 export const PAGINATION_DEFAULTS = {
   PAGE: 1,
   LIMIT: 10,

@@ -26,7 +26,7 @@ export class BakeryDataDto {
   @ApiProperty({ example: MOCK_DATA.id.region })
   regionId: string;
 
-  @ApiProperty({ type: [String], example: ['large_cakes', 'small_cakes'] })
+  @ApiProperty({ type: [String], example: ['big_cakes', 'small_cakes'] })
   types: string[];
 
   @ApiProperty({ example: 4.5, nullable: true })

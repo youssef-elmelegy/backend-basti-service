@@ -126,7 +126,7 @@ export const verifyOtpTemplate = (otp: string, userName: string) => {
       </div>
 
       <div class="footer">
-        <p>© 2025 Basti. All rights reserved.</p>
+        <p>© ${new Date().getFullYear()} Basti. All rights reserved.</p>
         <p>This is an automated message. Please do not reply.</p>
         <p>Support: support@basti.com</p>
       </div>

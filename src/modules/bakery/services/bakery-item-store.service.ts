@@ -42,9 +42,8 @@ type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * Only "others" bakeries hold stock. Big/small cake bakeries produce custom
- * cakes to order and carry no sweets, featured cakes or addons. `big_cakes`
- * and `large_cakes` are the same type stored under two spellings, but neither
- * carries stock, so both simply fail this check.
+ * cakes to order and carry no sweets, featured cakes or addons, so they simply
+ * fail this check.
  */
 export function bakeryCarriesStock(bakeryTypes: string[] | null | undefined): boolean {
   return (bakeryTypes ?? []).includes('others');

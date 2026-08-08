@@ -7,7 +7,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { coupons, couponUsages } from '@/db/schema';
+import { coupons, couponUsages, regions } from '@/db/schema';
 import { eq, and, sql, desc, getTableColumns } from 'drizzle-orm';
 import { SuccessResponse, successResponse } from '@/utils';
 import {
@@ -21,6 +21,7 @@ import { NotificationService } from '@/modules/notification/services/notificatio
 
 type FlattenedCoupon = Omit<typeof coupons.$inferSelect, 'name'> & {
   name: string;
+  regionName?: string | null;
 };
 
 @Injectable()
@@ -31,6 +32,21 @@ export class CouponService {
     private readonly translationService: TranslationService,
     private readonly notificationService: NotificationService,
   ) {}
+
+  /**
+   * RETURNING cannot join, so writes resolve the region name in a follow-up read.
+   */
+  private async attachRegionName(coupon: FlattenedCoupon): Promise<FlattenedCoupon> {
+    if (!coupon.regionId) return { ...coupon, regionName: null };
+
+    const [region] = await db
+      .select({ name: this.translationService.getLocalized(regions.name, 'name') })
+      .from(regions)
+      .where(eq(regions.id, coupon.regionId))
+      .limit(1);
+
+    return { ...coupon, regionName: region?.name ?? null };
+  }
 
   private async checkUsageLimits(couponId: string, userId: string) {
     try {
@@ -107,8 +123,10 @@ export class CouponService {
         .select({
           ...getTableColumns(coupons),
           name: this.translationService.getLocalized(coupons.name, 'name'),
+          regionName: this.translationService.getLocalized(regions.name, 'regionName'),
         })
         .from(coupons)
+        .leftJoin(regions, eq(coupons.regionId, regions.id))
         .where(and(eq(coupons.code, code), eq(coupons.isActive, true)))
         .limit(1);
 
@@ -274,7 +292,7 @@ export class CouponService {
       }
 
       return successResponse(
-        this.formatCouponResponse(coupon),
+        this.formatCouponResponse(await this.attachRegionName(coupon)),
         'routes.coupons.generated',
         HttpStatus.CREATED,
       );
@@ -289,8 +307,10 @@ export class CouponService {
         .select({
           ...getTableColumns(coupons),
           name: this.translationService.getLocalized(coupons.name, 'name'),
+          regionName: this.translationService.getLocalized(regions.name, 'regionName'),
         })
         .from(coupons)
+        .leftJoin(regions, eq(coupons.regionId, regions.id))
         .orderBy(desc(coupons.createdAt));
       return successResponse(
         result.map((coupon) => this.formatCouponResponse(coupon)),
@@ -307,8 +327,10 @@ export class CouponService {
         .select({
           ...getTableColumns(coupons),
           name: this.translationService.getLocalized(coupons.name, 'name'),
+          regionName: this.translationService.getLocalized(regions.name, 'regionName'),
         })
         .from(coupons)
+        .leftJoin(regions, eq(coupons.regionId, regions.id))
         .where(eq(coupons.id, id))
         .limit(1);
 
@@ -325,13 +347,40 @@ export class CouponService {
 
       if (!coupon) throw new NotFoundException('routes.coupons.not_found');
 
-      const updateData: Record<string, any> = {};
+      // Codes are unique; reject a clash up front instead of surfacing a raw
+      // constraint violation as a 500.
+      if (data.code !== undefined && data.code !== coupon.code) {
+        const [clash] = await db
+          .select({ id: coupons.id })
+          .from(coupons)
+          .where(eq(coupons.code, data.code))
+          .limit(1);
 
-      for (const key in data) {
-        if (data[key] !== undefined) {
-          updateData[key] = data[key];
-        }
+        if (clash) throw new BadRequestException('routes.coupons.code_exists');
       }
+
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+
+      if (data.code !== undefined) updateData.code = data.code;
+      if (data.discountType !== undefined) updateData.discountType = data.discountType;
+      if (data.discountValue !== undefined)
+        updateData.discountValue = data.discountValue.toString();
+      if (data.minOrderValue !== undefined) updateData.minOrderValue = data.minOrderValue;
+      if (data.maxDiscountValue !== undefined)
+        updateData.maxDiscountValue = data.maxDiscountValue ?? null;
+      if (data.startDate !== undefined)
+        updateData.startDate = data.startDate ? new Date(data.startDate) : null;
+      if (data.expiryDate !== undefined)
+        updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;
+      if (data.usageLimitGlobal !== undefined) updateData.usageLimitGlobal = data.usageLimitGlobal;
+      if (data.usageLimitPerUser !== undefined)
+        updateData.usageLimitPerUser = data.usageLimitPerUser;
+      if (data.isGlobal !== undefined) updateData.isGlobal = data.isGlobal;
+      if (data.isActive !== undefined) updateData.isActive = data.isActive;
+      if (data.regionId !== undefined) updateData.regionId = data.regionId || null;
+
+      // A global coupon is not scoped to a region; drop any stale region link.
+      if (updateData.isGlobal === true) updateData.regionId = null;
 
       if (data.name) {
         const nameObject = await this.translationService.getTranslationObject(data.name);
@@ -350,7 +399,7 @@ export class CouponService {
         });
 
       return successResponse(
-        this.formatCouponResponse(updatedCoupon),
+        this.formatCouponResponse(await this.attachRegionName(updatedCoupon)),
         'routes.coupons.updated',
         HttpStatus.OK,
       );
@@ -378,7 +427,7 @@ export class CouponService {
         });
 
       return successResponse(
-        this.formatCouponResponse(updatedCoupon),
+        this.formatCouponResponse(await this.attachRegionName(updatedCoupon)),
         'routes.coupons.toggled',
         HttpStatus.OK,
       );
@@ -425,6 +474,8 @@ export class CouponService {
       expiryDate: coupon.expiryDate,
       usageLimitGlobal: coupon.usageLimitGlobal,
       usageLimitPerUser: coupon.usageLimitPerUser,
+      regionId: coupon.regionId,
+      regionName: coupon.regionName ?? null,
       isGlobal: coupon.isGlobal,
       isActive: coupon.isActive,
       createdAt: coupon.createdAt,

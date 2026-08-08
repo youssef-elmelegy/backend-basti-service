@@ -61,7 +61,7 @@ export class BakeryService {
             locationDescription: locationDescriptionObject,
             regionId,
             capacity,
-            bakeryTypes: bakeryTypes as ('big_cakes' | 'small_cakes' | 'others')[],
+            bakeryTypes,
           })
           .returning({
             ...getTableColumns(bakeries),
@@ -241,8 +241,7 @@ export class BakeryService {
       }
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
-      if (bakeryTypes !== undefined)
-        updateData.bakeryTypes = bakeryTypes as ('large_cakes' | 'small_cakes' | 'others')[];
+      if (bakeryTypes !== undefined) updateData.bakeryTypes = bakeryTypes;
       updateData.updatedAt = new Date();
 
       // A region change re-points stock at the new region's prices, so both
