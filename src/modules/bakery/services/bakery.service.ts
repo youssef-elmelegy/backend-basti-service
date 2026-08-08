@@ -31,7 +31,16 @@ export class BakeryService {
   ) {}
 
   async create(createBakeryDto: CreateBakeryDto): Promise<SuccessResponse<BakeryResponse>> {
-    const { name, locationDescription, regionId, capacity, bakeryTypes } = createBakeryDto;
+    const {
+      name,
+      locationDescription,
+      regionId,
+      capacity,
+      bakeryTypes,
+      notes,
+      logoUrl,
+      galleryImages,
+    } = createBakeryDto;
 
     // Validate region exists
     const existingRegion = await db.select().from(regions).where(eq(regions.id, regionId)).limit(1);
@@ -62,6 +71,12 @@ export class BakeryService {
             regionId,
             capacity,
             bakeryTypes,
+            // All three are optional; `?? null` keeps an omitted field null
+            // rather than undefined, and the gallery falls back to empty so the
+            // NOT NULL column is always satisfied.
+            notes: notes ?? null,
+            logoUrl: logoUrl ?? null,
+            galleryImages: galleryImages ?? [],
           })
           .returning({
             ...getTableColumns(bakeries),
@@ -202,7 +217,16 @@ export class BakeryService {
     id: string,
     updateBakeryDto: UpdateBakeryDto,
   ): Promise<SuccessResponse<BakeryResponse>> {
-    const { name, locationDescription, regionId, capacity, bakeryTypes } = updateBakeryDto;
+    const {
+      name,
+      locationDescription,
+      regionId,
+      capacity,
+      bakeryTypes,
+      notes,
+      logoUrl,
+      galleryImages,
+    } = updateBakeryDto;
 
     const [existingBakery] = await db.select().from(bakeries).where(eq(bakeries.id, id)).limit(1);
 
@@ -242,6 +266,12 @@ export class BakeryService {
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
       if (bakeryTypes !== undefined) updateData.bakeryTypes = bakeryTypes;
+      // `undefined` means "not sent, leave as-is"; an explicit `null` clears the
+      // field. The DTO allows null on notes/logoUrl precisely so an admin can
+      // remove a note or a logo without it being confused with omission.
+      if (notes !== undefined) updateData.notes = notes;
+      if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
+      if (galleryImages !== undefined) updateData.galleryImages = galleryImages;
       updateData.updatedAt = new Date();
 
       // A region change re-points stock at the new region's prices, so both
@@ -527,6 +557,9 @@ export class BakeryService {
     locationDescription: string;
     capacity: number;
     bakeryTypes: Array<string>;
+    notes?: string | null;
+    logoUrl?: string | null;
+    galleryImages?: string[] | null;
     averageRating?: string | null;
     totalReviews: number;
     createdAt: Date;
@@ -539,6 +572,11 @@ export class BakeryService {
       capacity: bakery.capacity,
       regionId: bakery.regionId,
       types: bakery.bakeryTypes,
+      notes: bakery.notes ?? null,
+      logoUrl: bakery.logoUrl ?? null,
+      // Rows written before the gallery column existed can read back null even
+      // though the column is NOT NULL, so normalise to an array for the client.
+      galleryImages: bakery.galleryImages ?? [],
       averageRating: bakery.averageRating ? parseFloat(bakery.averageRating) : undefined,
       totalReviews: bakery.totalReviews,
       createdAt: bakery.createdAt,

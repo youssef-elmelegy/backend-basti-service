@@ -7,6 +7,7 @@ import {
   jsonb,
   index,
   boolean,
+  text,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { regions, chefs, orders, reviews, admins, bakeryItemStores } from '.';
@@ -22,6 +23,16 @@ import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translati
 export const BAKERY_TYPES = ['big_cakes', 'small_cakes', 'others'] as const;
 
 export type BakeryTypeValue = (typeof BAKERY_TYPES)[number];
+
+/**
+ * Maximum number of gallery images a bakery can hold. Enforced by the
+ * `bakeries_gallery_images_shape` CHECK constraint (migration 0010) and by the
+ * create/update DTOs — keep both in step when changing it.
+ */
+export const BAKERY_GALLERY_MAX_IMAGES = 3;
+
+/** Maximum length of the management-only notes field. */
+export const BAKERY_NOTES_MAX_LENGTH = 2000;
 
 export const bakeries = pgTable(
   'bakeries',
@@ -42,6 +53,21 @@ export const bakeries = pgTable(
     capacity: integer('capacity').notNull(),
 
     bakeryTypes: jsonb('bakery_types').notNull().$type<BakeryTypeValue[]>(),
+
+    // Management-only free-text notes. Plain text rather than a TranslationObject
+    // like `name`/`location_description`: these are internal memos written and
+    // read by admins, so they must come back in the exact wording they were
+    // saved in rather than being rewritten by the translation service.
+    notes: text('notes'),
+
+    // Optional branding. `logo_url` is a single image; `gallery_images` holds up
+    // to BAKERY_GALLERY_MAX_IMAGES urls and defaults to an empty array so reads
+    // never have to null-check it.
+    logoUrl: text('logo_url'),
+    galleryImages: jsonb('gallery_images')
+      .$type<string[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
 
     averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
     totalReviews: integer('total_reviews').default(0).notNull(),
