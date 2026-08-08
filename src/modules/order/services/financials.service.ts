@@ -30,13 +30,14 @@ export class FinancialsService {
   async getOrdersFinancials(
     dto: GetOrdersFinancialsDto,
   ): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit } = dto;
+    const { bakeryId, from, to, page, limit, all } = dto;
     return this.computeFinancials({
       bakeryId,
       from,
       to,
       page,
       limit,
+      all,
       statuses: ['ready', 'out_for_delivery', 'delivered'],
       dateField: 'createdAt',
     });
@@ -48,10 +49,11 @@ export class FinancialsService {
     to?: string;
     page?: number;
     limit?: number;
+    all?: boolean;
     statuses: (typeof orders.orderStatus.enumValues)[number][];
     dateField: 'deliveredAt' | 'createdAt';
   }): Promise<SuccessResponse<GetOrdersFinancialsResponseDto>> {
-    const { bakeryId, from, to, page, limit, statuses, dateField } = opts;
+    const { bakeryId, from, to, page, limit, all, statuses, dateField } = opts;
     const dateColumn = dateField === 'createdAt' ? orders.createdAt : orders.deliveredAt;
 
     try {
@@ -84,12 +86,14 @@ export class FinancialsService {
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      const resolvedPage = page ?? PAGINATION_DEFAULTS.PAGE;
-      const resolvedLimit = Math.min(
-        limit ?? PAGINATION_DEFAULTS.LIMIT,
-        PAGINATION_DEFAULTS.MAX_LIMIT,
-      );
-      const offset = (resolvedPage - 1) * resolvedLimit;
+      // `all` (used by the PDF export) returns every matching row. The MAX_LIMIT
+      // clamp only guards the paginated screen path — capping the export would
+      // silently drop orders from the report.
+      const resolvedPage = all ? 1 : (page ?? PAGINATION_DEFAULTS.PAGE);
+      const resolvedLimit = all
+        ? null
+        : Math.min(limit ?? PAGINATION_DEFAULTS.LIMIT, PAGINATION_DEFAULTS.MAX_LIMIT);
+      const offset = resolvedLimit === null ? 0 : (resolvedPage - 1) * resolvedLimit;
 
       const ordersTotalList = await db
         .select({
@@ -138,7 +142,7 @@ export class FinancialsService {
             },
             pagination: {
               total: 0,
-              limit: resolvedLimit,
+              limit: resolvedLimit ?? 0,
               page: resolvedPage,
               totalPages: 0,
             },
@@ -147,7 +151,7 @@ export class FinancialsService {
         );
       }
 
-      const ordersList = await db
+      const ordersQuery = db
         .select({
           orderId: orders.id,
           referenceNumber: orders.referenceNumber,
@@ -172,8 +176,11 @@ export class FinancialsService {
         .leftJoin(bakeries, eq(orders.bakeryId, bakeries.id))
         .where(whereClause)
         .orderBy(desc(dateColumn))
-        .limit(resolvedLimit)
-        .offset(offset);
+        .$dynamic();
+
+      const ordersList = await (resolvedLimit === null
+        ? ordersQuery
+        : ordersQuery.limit(resolvedLimit).offset(offset));
 
       const rows = ordersList.map((order) => {
         const bastiAmount = parseFloat(order.bastiAmount) || 0;
@@ -248,7 +255,8 @@ export class FinancialsService {
       );
 
       const totalCount = ordersTotalList.length;
-      const totalPages = Math.ceil(totalCount / resolvedLimit);
+      // With `all`, everything came back in one response — a single page.
+      const totalPages = resolvedLimit === null ? 1 : Math.ceil(totalCount / resolvedLimit);
 
       return successResponse(
         {
@@ -256,7 +264,7 @@ export class FinancialsService {
           total,
           pagination: {
             total: totalCount,
-            limit: resolvedLimit,
+            limit: resolvedLimit ?? totalCount,
             page: resolvedPage,
             totalPages,
           },
