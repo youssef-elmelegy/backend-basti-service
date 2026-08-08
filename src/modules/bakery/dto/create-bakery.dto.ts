@@ -7,10 +7,18 @@ import {
   MaxLength,
   IsUUID,
   ArrayMinSize,
+  ArrayMaxSize,
   IsIn,
+  IsOptional,
+  IsUrl,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { BAKERY_TYPES, type BakeryTypeValue } from '@/db/schema/bakery';
+import {
+  BAKERY_TYPES,
+  BAKERY_GALLERY_MAX_IMAGES,
+  BAKERY_NOTES_MAX_LENGTH,
+  type BakeryTypeValue,
+} from '@/db/schema/bakery';
 
 export class CreateBakeryDto {
   @ApiProperty({
@@ -61,4 +69,42 @@ export class CreateBakeryDto {
     message: `Each bakery type must be one of: ${BAKERY_TYPES.join(', ')}`,
   })
   bakeryTypes: BakeryTypeValue[];
+
+  @ApiProperty({
+    description: 'Management-only free-text notes about the bakery',
+    example: 'Closed for renovation until March. Contact the owner on the mobile number.',
+    maxLength: BAKERY_NOTES_MAX_LENGTH,
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(BAKERY_NOTES_MAX_LENGTH, {
+    message: `Notes must not exceed ${BAKERY_NOTES_MAX_LENGTH} characters`,
+  })
+  notes?: string;
+
+  @ApiProperty({
+    description: 'URL of the bakery logo icon',
+    example: 'https://res.cloudinary.com/demo/image/upload/basti/bakeries/logo.webp',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUrl({}, { message: 'Logo URL must be a valid URL' })
+  logoUrl?: string;
+
+  @ApiProperty({
+    description: `Gallery image URLs (max ${BAKERY_GALLERY_MAX_IMAGES})`,
+    type: [String],
+    example: ['https://res.cloudinary.com/demo/image/upload/basti/bakeries/shopfront.webp'],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(BAKERY_GALLERY_MAX_IMAGES, {
+    message: `A bakery can have at most ${BAKERY_GALLERY_MAX_IMAGES} gallery images`,
+  })
+  @IsUrl({}, { each: true, message: 'Each gallery image must be a valid URL' })
+  galleryImages?: string[];
 }

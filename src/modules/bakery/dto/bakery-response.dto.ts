@@ -29,6 +29,25 @@ export class BakeryDataDto {
   @ApiProperty({ type: [String], example: ['big_cakes', 'small_cakes'] })
   types: string[];
 
+  @ApiProperty({
+    example: 'Closed for renovation until March.',
+    nullable: true,
+    description: 'Management-only free-text notes',
+  })
+  notes: string | null;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/demo/image/upload/basti/bakeries/logo.webp',
+    nullable: true,
+  })
+  logoUrl: string | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['https://res.cloudinary.com/demo/image/upload/basti/bakeries/shopfront.webp'],
+  })
+  galleryImages: string[];
+
   @ApiProperty({ example: 4.5, nullable: true })
   averageRating: number;
 

@@ -7,11 +7,19 @@ import {
   MaxLength,
   IsUUID,
   ArrayMinSize,
+  ArrayMaxSize,
   IsOptional,
   IsIn,
+  IsUrl,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { BAKERY_TYPES, type BakeryTypeValue } from '@/db/schema/bakery';
+import {
+  BAKERY_TYPES,
+  BAKERY_GALLERY_MAX_IMAGES,
+  BAKERY_NOTES_MAX_LENGTH,
+  type BakeryTypeValue,
+} from '@/db/schema/bakery';
 
 export class UpdateBakeryDto {
   @ApiProperty({
@@ -69,4 +77,48 @@ export class UpdateBakeryDto {
     message: `Each bakery type must be one of: ${BAKERY_TYPES.join(', ')}`,
   })
   bakeryTypes?: BakeryTypeValue[];
+
+  // notes and logoUrl accept an explicit `null` to clear the stored value —
+  // `@IsOptional()` alone would strip `null` from validation but the service
+  // needs to tell "omitted, leave alone" apart from "sent null, clear it", so
+  // `@ValidateIf` skips the string/url check only when the value is null.
+  @ApiProperty({
+    description: 'Management-only free-text notes. Send null to clear.',
+    example: 'Closed for renovation until March.',
+    maxLength: BAKERY_NOTES_MAX_LENGTH,
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(BAKERY_NOTES_MAX_LENGTH, {
+    message: `Notes must not exceed ${BAKERY_NOTES_MAX_LENGTH} characters`,
+  })
+  notes?: string | null;
+
+  @ApiProperty({
+    description: 'URL of the bakery logo icon. Send null to remove the logo.',
+    example: 'https://res.cloudinary.com/demo/image/upload/basti/bakeries/logo.webp',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUrl({}, { message: 'Logo URL must be a valid URL' })
+  logoUrl?: string | null;
+
+  @ApiProperty({
+    description: `Gallery image URLs (max ${BAKERY_GALLERY_MAX_IMAGES}). Send [] to clear.`,
+    type: [String],
+    example: ['https://res.cloudinary.com/demo/image/upload/basti/bakeries/shopfront.webp'],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(BAKERY_GALLERY_MAX_IMAGES, {
+    message: `A bakery can have at most ${BAKERY_GALLERY_MAX_IMAGES} gallery images`,
+  })
+  @IsUrl({}, { each: true, message: 'Each gallery image must be a valid URL' })
+  galleryImages?: string[];
 }
