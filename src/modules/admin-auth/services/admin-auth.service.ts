@@ -3,13 +3,16 @@ import {
   BadRequestException,
   UnauthorizedException,
   NotFoundException,
+  ConflictException,
+  InternalServerErrorException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { db } from '@/db';
-import { admins } from '@/db/schema';
+import { admins, bakeries, orders } from '@/db/schema';
 import { env } from '@/env';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -24,21 +27,25 @@ import {
   GetAdminsQueryDto,
 } from '../dto';
 import { EmailService } from '@/common/services';
-import { successResponse } from '@/utils';
+import { successResponse, errorResponse, getErrorMessage } from '@/utils';
+import { TranslationService } from '@/common';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
 
 @Injectable()
 export class AdminAuthService {
   private passwordSchema = z
     .string()
-    .min(8, 'validation.password_min')
-    .regex(/[a-z]/, 'validation.password_lowercase')
-    .regex(/[A-Z]/, 'validation.password_uppercase')
-    .regex(/\d/, 'validation.password_digit');
+    .min(8, 'routes.validation.password_min')
+    .regex(/[a-z]/, 'routes.validation.password_lowercase')
+    .regex(/[A-Z]/, 'routes.validation.password_uppercase')
+    .regex(/\d/, 'routes.validation.password_digit');
+
+  private readonly logger = new Logger(AdminAuthService.name);
 
   constructor(
     private jwtService: JwtService,
     private emailService: EmailService,
+    private readonly translationService: TranslationService,
   ) {}
 
   async login(loginDto: AdminLoginDto, isMobileClient: boolean) {
@@ -514,9 +521,90 @@ export class AdminAuthService {
       throw new NotFoundException('routes.admin.not_found');
     }
 
-    await db.delete(admins).where(eq(admins.id, adminId));
+    // bakeries.manager_id and orders.driver_id reference admins with ON DELETE NO
+    // ACTION, so either one makes the DELETE below fail at the DB level. Count them
+    // up front and report *what* is blocking, so the dashboard can say which bakery
+    // needs a new manager instead of surfacing an opaque 500.
+    const blockers = await this.findAdminDeletionBlockers(adminId);
+
+    if (blockers.length > 0) {
+      // Render each blocker in the caller's language so the interpolated summary is
+      // not a mix of translated text and English table names.
+      const summary = blockers
+        .map((b) =>
+          this.translationService.staticTranslate(
+            `messages.routes.admin.dependency_${b.table}`,
+            undefined,
+            { count: b.count },
+          ),
+        )
+        .join(', ');
+
+      this.logger.warn(
+        `Admin deletion blocked for ${adminId}: still referenced by ` +
+          blockers.map((b) => `${b.count} ${b.table}`).join(', '),
+      );
+
+      throw new ConflictException(
+        errorResponse(
+          'routes.admin.has_dependencies',
+          HttpStatus.CONFLICT,
+          'ConflictException',
+          Object.fromEntries(blockers.map((b) => [b.table, b.count])),
+          { summary },
+        ),
+      );
+    }
+
+    try {
+      await db.delete(admins).where(eq(admins.id, adminId));
+    } catch (error) {
+      // Bind and log the cause: an unhandled constraint violation here previously
+      // escaped as a raw DrizzleQueryError with no actionable message.
+      this.logger.error(
+        `Admin deletion error for ${adminId}: ${getErrorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.admin.failed_delete',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
 
     return successResponse(null, 'routes.admin.deleted', HttpStatus.OK);
+  }
+
+  /**
+   * Counts the rows that hold a non-cascading foreign key to this admin, i.e.
+   * exactly what Postgres would reject the DELETE over. Returns one entry per
+   * blocking table so callers can report every blocker at once.
+   *
+   * notifications and reports are deliberately absent: both cascade, so they
+   * never block.
+   */
+  private async findAdminDeletionBlockers(
+    adminId: string,
+  ): Promise<{ table: 'bakeries' | 'orders'; count: number }[]> {
+    const [bakeryCount, orderCount] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(bakeries)
+        .where(eq(bakeries.managerId, adminId)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(orders)
+        .where(eq(orders.driverId, adminId)),
+    ]);
+
+    return (
+      [
+        { table: 'bakeries' as const, count: bakeryCount[0]?.count ?? 0 },
+        { table: 'orders' as const, count: orderCount[0]?.count ?? 0 },
+      ] satisfies { table: 'bakeries' | 'orders'; count: number }[]
+    ).filter((b) => b.count > 0);
   }
 
   async getAllAdmins(query: GetAdminsQueryDto) {

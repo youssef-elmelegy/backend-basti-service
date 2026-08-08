@@ -37,6 +37,12 @@ export class CouponResponseDto {
   @ApiProperty({ example: 1 })
   usageLimitPerUser: number;
 
+  @ApiProperty({ example: '660e8400-e29b-41d4-a716-446655440001', nullable: true })
+  regionId: string | null;
+
+  @ApiProperty({ example: 'Tripoli', nullable: true })
+  regionName: string | null;
+
   @ApiProperty({ example: true })
   isGlobal: boolean;
 

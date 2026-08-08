@@ -98,7 +98,12 @@
       "email_exists": "Admin with this email already exists",
       "email_not_found": "Admin with this email not found",
       "list_retrieved": "Admins retrieved successfully",
-      "not_authenticated": "Admin not authenticated"
+      "not_authenticated": "Admin not authenticated",
+      "deleted": "Admin deleted successfully",
+      "failed_delete": "Failed to delete admin",
+      "has_dependencies": "Cannot delete this admin because they are still in use by {summary}",
+      "dependency_bakeries": "{count} bakeries they manage",
+      "dependency_orders": "{count} orders assigned to them"
     },
 
     "bakery": {
@@ -442,7 +447,11 @@
       "not_found_with_id": "Region with ID {regionId} not found",
       "invalid_id": "Region ID is invalid",
       "product_pricing_not_found": "Product pricing not found for this region",
-      "invalid_product_type": "Invalid product type"
+      "invalid_product_type": "Invalid product type",
+      "has_dependencies": "Cannot delete this region because it is still in use by {summary}",
+      "dependency_admins": "{count} admins",
+      "dependency_bakeries": "{count} bakeries",
+      "dependency_coupons": "{count} coupons"
     },
 
     "orders": {
@@ -835,6 +844,14 @@
     "order_needs_driver": {
       "title": "Order needs a new driver",
       "body": "Order {ref} was refused by the driver and needs reassignment."
+    },
+    "driver_assignment_expired_admin": {
+      "title": "Driver did not respond",
+      "body": "Order {ref} was not accepted by the driver within 1 hour and is now unassigned. It needs a new driver."
+    },
+    "driver_assignment_expired_driver": {
+      "title": "Order assignment expired",
+      "body": "You did not accept order {ref} within 1 hour, so it has been returned for reassignment."
     },
     "due_amount_updated": {
       "title": "Due amount updated",

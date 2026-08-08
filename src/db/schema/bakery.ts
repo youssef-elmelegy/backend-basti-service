@@ -12,6 +12,17 @@ import { sql, relations } from 'drizzle-orm';
 import { regions, chefs, orders, reviews, admins, bakeryItemStores } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
 
+/**
+ * The bakery type vocabulary. `bakery_types` is jsonb rather than a pg enum, so
+ * this list is enforced by the `bakeries_bakery_types_vocabulary` CHECK
+ * constraint (migration 0009) and by the create/update DTOs — keep all three in
+ * step when changing it. `large_cakes` was a legacy alias for `big_cakes` and
+ * was rewritten by that same migration.
+ */
+export const BAKERY_TYPES = ['big_cakes', 'small_cakes', 'others'] as const;
+
+export type BakeryTypeValue = (typeof BAKERY_TYPES)[number];
+
 export const bakeries = pgTable(
   'bakeries',
   {
@@ -30,9 +41,7 @@ export const bakeries = pgTable(
       .notNull(),
     capacity: integer('capacity').notNull(),
 
-    bakeryTypes: jsonb('bakery_types')
-      .notNull()
-      .$type<Array<'big_cakes' | 'small_cakes' | 'others'>>(),
+    bakeryTypes: jsonb('bakery_types').notNull().$type<BakeryTypeValue[]>(),
 
     averageRating: decimal('average_rating', { precision: 3, scale: 2 }).default('0'),
     totalReviews: integer('total_reviews').default(0).notNull(),

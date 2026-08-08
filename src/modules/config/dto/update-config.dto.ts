@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsOptional,
   IsInt,
+  IsNumber,
   Min,
   Max,
   IsArray,
@@ -54,20 +55,23 @@ export class PrintingFeeDto {
 }
 
 export class PaymentFeeDto {
+  // Gateway rates are fractional percentages (e.g. 1.5), so these are not @IsInt.
   @ApiProperty({
     description: 'Masarat payment fee percentage',
-    example: 10,
+    example: 1.5,
   })
-  @IsInt()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(100)
   masarat!: number;
 
   @ApiProperty({
     description: 'Tadawul payment fee percentage',
-    example: 20,
+    example: 1.5,
   })
-  @IsInt()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(100)
   tadawul!: number;
 }
 

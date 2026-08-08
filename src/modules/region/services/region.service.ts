@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { db } from '@/db';
-import { regions, regionItemPrices } from '@/db/schema';
+import { regions, regionItemPrices, admins, bakeries, coupons } from '@/db/schema';
 import { eq, asc, desc, SQL, and, gt, lt, gte, lte, sql, getTableColumns } from 'drizzle-orm';
 import {
   CreateRegionDto,
@@ -19,7 +19,7 @@ import {
   GetRegionalProductsQueryDto,
   ProductTypeFilter,
 } from '../dto';
-import { errorResponse, successResponse, SuccessResponse } from '@/utils';
+import { errorResponse, successResponse, SuccessResponse, getErrorMessage } from '@/utils';
 import { FeaturedCakeService } from '@/modules/featured-cake/services/featured-cake.service';
 import { AddonService } from '@/modules/addon/services/addon.service';
 import { SweetService } from '@/modules/sweet/services/sweet.service';
@@ -324,6 +324,43 @@ export class RegionService {
       );
     }
 
+    // admins, bakeries and coupons reference regions with ON DELETE NO ACTION, so
+    // rows in any of them make the DELETE below fail at the DB level. Count them up
+    // front and report *what* is blocking, so the dashboard can tell the user what
+    // to reassign instead of surfacing an opaque 500.
+    const blockers = await this.findDeletionBlockers(id);
+
+    if (blockers.length > 0) {
+      // Render each blocker in the caller's language ("2 admins" / "2 مشرفين") so the
+      // interpolated summary is not a mix of translated text and English table names.
+      const summary = blockers
+        .map((b) =>
+          this.translationService.staticTranslate(
+            `messages.routes.regions.dependency_${b.table}`,
+            undefined,
+            {
+              count: b.count,
+            },
+          ),
+        )
+        .join(', ');
+
+      this.logger.warn(
+        `Region deletion blocked for ${id}: still referenced by ` +
+          blockers.map((b) => `${b.count} ${b.table}`).join(', '),
+      );
+
+      throw new ConflictException(
+        errorResponse(
+          'routes.regions.has_dependencies',
+          HttpStatus.CONFLICT,
+          'ConflictException',
+          Object.fromEntries(blockers.map((b) => [b.table, b.count])),
+          { summary },
+        ),
+      );
+    }
+
     try {
       const deletedRegionOrder = existingRegion.order;
 
@@ -348,8 +385,13 @@ export class RegionService {
         'routes.regions.deleted',
         HttpStatus.OK,
       );
-    } catch {
-      this.logger.error(`Region deletion error for ${id}`);
+    } catch (error) {
+      // Bind and log the cause: without it a constraint violation surfaces as a
+      // bare "failed_delete" with nothing to diagnose from.
+      this.logger.error(
+        `Region deletion error for ${id}: ${getErrorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new InternalServerErrorException(
         errorResponse(
           'routes.regions.failed_delete',
@@ -358,6 +400,41 @@ export class RegionService {
         ),
       );
     }
+  }
+
+  /**
+   * Counts the rows that hold a non-cascading foreign key to this region, i.e.
+   * exactly what Postgres would reject the DELETE over. Returns one entry per
+   * blocking table, so callers can report every blocker at once rather than
+   * making the user discover them one failed delete at a time.
+   *
+   * region_item_prices is deliberately absent: it cascades, so it never blocks.
+   */
+  private async findDeletionBlockers(
+    regionId: string,
+  ): Promise<{ table: 'admins' | 'bakeries' | 'coupons'; count: number }[]> {
+    const [adminCount, bakeryCount, couponCount] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(admins)
+        .where(eq(admins.regionId, regionId)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(bakeries)
+        .where(eq(bakeries.regionId, regionId)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(coupons)
+        .where(eq(coupons.regionId, regionId)),
+    ]);
+
+    return (
+      [
+        { table: 'admins' as const, count: adminCount[0]?.count ?? 0 },
+        { table: 'bakeries' as const, count: bakeryCount[0]?.count ?? 0 },
+        { table: 'coupons' as const, count: couponCount[0]?.count ?? 0 },
+      ] satisfies { table: 'admins' | 'bakeries' | 'coupons'; count: number }[]
+    ).filter((b) => b.count > 0);
   }
 
   async changeRegionOrder(

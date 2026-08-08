@@ -25,6 +25,20 @@ import {
   admins,
 } from '.';
 
+/**
+ * Statuses whose orders still occupy a slot of a bakery's `capacity`.
+ *
+ * Capacity models active production load, so a slot is held only while the
+ * bakery is actually working on the cake. Once it is marked `ready` the baking
+ * is done and the slot frees immediately, even though the order still exists
+ * and is awaiting pickup/delivery.
+ *
+ * Used capacity is always derived by summing `total_capacity` over these
+ * statuses — it is never stored on the bakery — so this list is the single
+ * definition of the rule.
+ */
+export const CAPACITY_OCCUPYING_ORDER_STATUSES = ['pending', 'confirmed', 'preparing'] as const;
+
 export const orders = pgTable(
   'orders',
   {

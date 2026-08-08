@@ -51,12 +51,6 @@ export const MOCK_IMAGES = {
   },
 } as const;
 
-export const BAKERY_TYPES = {
-  LARGE_CAKES: 'large_cakes',
-  SMALL_CAKES: 'small_cakes',
-  OTHER: 'other',
-} as const;
-
 export const PAGINATION_DEFAULTS = {
   PAGE: 1,
   LIMIT: 10,
@@ -74,6 +68,14 @@ export const SORT_DEFAULTS = {
  * itself and the order auto-confirms (see OrderAutoConfirmService).
  */
 export const BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * How long a driver has, from `orders.driverAssignedAt`, to accept an order
+ * assigned to them. Past this window the assignment expires and the order is
+ * returned to the unassigned pool for an admin to reassign
+ * (see OrderAutoConfirmService). Acceptance is recorded as `driverData`.
+ */
+export const DRIVER_ASSIGNMENT_RESPONSE_WINDOW_MS = 60 * 60 * 1000;
 
 export const BAKERY_DEFAULTS = {
   BAKERY_OPEN_HOUR: 10,

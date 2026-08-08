@@ -98,7 +98,12 @@
       "email_exists": "يوجد مشرف مسجل بهذا البريد الإلكتروني بالفعل",
       "email_not_found": "لا يوجد مشرف بهذا البريد الإلكتروني",
       "list_retrieved": "تم استرجاع قائمة المشرفين بنجاح",
-      "not_authenticated": "المشرف غير مصادق عليه"
+      "not_authenticated": "المشرف غير مصادق عليه",
+      "deleted": "تم حذف المشرف بنجاح",
+      "failed_delete": "فشل حذف المشرف",
+      "has_dependencies": "لا يمكن حذف هذا المشرف لأنه ما زال مرتبطاً بـ {summary}",
+      "dependency_bakeries": "{count} مخابز يديرها",
+      "dependency_orders": "{count} طلبات مسندة إليه"
     },
 
     "bakery": {
@@ -410,7 +415,11 @@
       "not_found_with_id": "المنطقة بالمعرف {regionId} غير موجودة",
       "invalid_id": "معرف المنطقة غير صالح",
       "product_pricing_not_found": "تسعير المنتج غير موجود لهذه المنطقة",
-      "invalid_product_type": "نوع المنتج غير صالح"
+      "invalid_product_type": "نوع المنتج غير صالح",
+      "has_dependencies": "لا يمكن حذف هذه المنطقة لأنها ما زالت مستخدمة من قبل {summary}",
+      "dependency_admins": "{count} مشرفين",
+      "dependency_bakeries": "{count} مخابز",
+      "dependency_coupons": "{count} كوبونات"
     },
 
     "orders": {
@@ -800,6 +809,14 @@
     "order_needs_driver": {
       "title": "الطلب يحتاج إلى سائق جديد",
       "body": "رفض السائق الطلب {ref} ويحتاج إلى إعادة إسناد."
+    },
+    "driver_assignment_expired_admin": {
+      "title": "لم يستجب السائق",
+      "body": "لم يقبل السائق الطلب {ref} خلال ساعة، وتم إلغاء إسناده. يحتاج إلى سائق جديد."
+    },
+    "driver_assignment_expired_driver": {
+      "title": "انتهت صلاحية إسناد الطلب",
+      "body": "لم تقبل الطلب {ref} خلال ساعة، لذلك تمت إعادته لإعادة الإسناد."
     },
     "due_amount_updated": {
       "title": "تم تحديث المبلغ المستحق",

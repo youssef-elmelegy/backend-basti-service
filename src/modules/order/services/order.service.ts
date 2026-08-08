@@ -40,6 +40,7 @@ import {
   featuredCakes,
   bakeryItemStores,
   reviews,
+  CAPACITY_OCCUPYING_ORDER_STATUSES,
 } from '@/db/schema';
 import {
   and,
@@ -1773,14 +1774,10 @@ export class OrderService {
       );
     }
 
-    // Order cart types and bakery types label the "large cake" tier differently
-    // (big_cakes vs large_cakes); normalise the order's type before matching.
-    const cartToBakeryType: Record<string, string> = {
-      big_cakes: 'large_cakes',
-      small_cakes: 'small_cakes',
-      others: 'others',
-    };
-    const requiredType = cartToBakeryType[order.cartType] ?? order.cartType;
+    // Cart types and bakery types share one vocabulary (migration 0009 folded
+    // the legacy `large_cakes` spelling into `big_cakes`), so the order's cart
+    // type matches a bakery type directly.
+    const requiredType = order.cartType;
 
     const regionBakeries = await db
       .select({
@@ -1802,8 +1799,9 @@ export class OrderService {
 
     const bakeryIds = matching.map((bakery) => bakery.id);
 
-    // Used capacity = sum of capacity slots of each bakery's still-active orders
-    // (anything not delivered/cancelled is still occupying a slot).
+    // Used capacity = sum of capacity slots of each bakery's in-production
+    // orders. Marking an order `ready` frees its slot — see
+    // CAPACITY_OCCUPYING_ORDER_STATUSES for the rule.
     const usageRows = await db
       .select({
         bakeryId: orders.bakeryId,
@@ -1813,12 +1811,7 @@ export class OrderService {
       .where(
         and(
           inArray(orders.bakeryId, bakeryIds),
-          not(
-            inArray(orders.orderStatus, [
-              'delivered',
-              'cancelled',
-            ] as (typeof orders.orderStatus.enumValues)[number][]),
-          ),
+          inArray(orders.orderStatus, [...CAPACITY_OCCUPYING_ORDER_STATUSES]),
         ),
       )
       .groupBy(orders.bakeryId);

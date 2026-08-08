@@ -17,8 +17,10 @@ export const adminRoleEnum = pgEnum('admin_role_enum', [
   'driver',
 ]);
 
-export const bakeryTypeEnum = pgEnum('bakery_type_enum', ['large_cakes', 'small_cakes', 'others']);
-
+// Bakery types are not a pg enum: `bakeries.bakery_types` is jsonb, constrained
+// by `bakeries_bakery_types_vocabulary` (migration 0009). The vocabulary lives
+// in BAKERY_TYPES in ./bakery. A `bakery_type_enum` type used to be declared
+// here but no column ever used it, so 0009 drops it.
 export const CartTypeEnum = pgEnum('cart_type_enum', ['big_cakes', 'small_cakes', 'others']);
 
 // TODO: we need to review this status

@@ -2,7 +2,6 @@ export {
   genderEnum,
   languageEnum,
   adminRoleEnum,
-  bakeryTypeEnum,
   orderStatusEnum,
   paymentMethodTypeEnum,
   addonCategoryEnum,

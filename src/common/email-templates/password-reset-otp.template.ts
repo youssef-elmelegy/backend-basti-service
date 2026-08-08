@@ -131,7 +131,7 @@ export const passwordResetOtpTemplate = (otp: string, userName: string) => {
       </div>
 
       <div class="footer">
-        <p>© 2025 Basti. All rights reserved.</p>
+        <p>© ${new Date().getFullYear()} Basti. All rights reserved.</p>
       </div>
     </div>
   </body>

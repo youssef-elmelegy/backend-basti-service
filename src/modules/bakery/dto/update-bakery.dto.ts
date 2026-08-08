@@ -8,8 +8,10 @@ import {
   IsUUID,
   ArrayMinSize,
   IsOptional,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { BAKERY_TYPES, type BakeryTypeValue } from '@/db/schema/bakery';
 
 export class UpdateBakeryDto {
   @ApiProperty({
@@ -55,13 +57,16 @@ export class UpdateBakeryDto {
   @ApiProperty({
     description: 'Types of cakes the bakery produces',
     type: [String],
-    enum: ['big_cakes', 'small_cakes', 'others'],
+    enum: BAKERY_TYPES,
     example: ['big_cakes', 'small_cakes'],
     required: false,
   })
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one bakery type must be specified' })
-  @IsString({ each: true })
-  bakeryTypes?: string[];
+  @IsIn(BAKERY_TYPES, {
+    each: true,
+    message: `Each bakery type must be one of: ${BAKERY_TYPES.join(', ')}`,
+  })
+  bakeryTypes?: BakeryTypeValue[];
 }
