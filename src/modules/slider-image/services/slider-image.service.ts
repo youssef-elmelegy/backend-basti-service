@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { db } from '@/db';
 import { sliderImages, tags } from '@/db/schema';
-import { SliderImageWithTagsResponseDto, SliderImageResponseDto, SliderImageItemDto } from '../dto';
+import {
+  SliderImageWithTagsResponseDto,
+  SliderImageResponseDto,
+  SliderImageItemDto,
+  ChangeSliderImageOrderDto,
+} from '../dto';
 import { TagDto } from '@/modules/tags/dto';
 import { errorResponse, successResponse, SuccessResponse, validateTagExists } from '@/utils';
 import { eq, getTableColumns, inArray, sql } from 'drizzle-orm';
@@ -192,6 +197,84 @@ export class SliderImageService {
       throw new InternalServerErrorException(
         errorResponse(
           'routes.slider.images_failed_update',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          'InternalServerError',
+        ),
+      );
+    }
+  }
+
+  /**
+   * Move one slider image to a new position and renumber the whole set.
+   *
+   * Unlike the flavor/shape equivalents, this does not do range arithmetic on
+   * the existing numbers: slider display_order is only guaranteed unique, not
+   * gapless, so the surrounding rows are resequenced from the reordered id list
+   * instead. `displayOrder` is treated as a 1-based position, clamped to the
+   * size of the set.
+   */
+  async changeOrder(
+    id: string,
+    changeOrderDto: ChangeSliderImageOrderDto,
+  ): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+    const { displayOrder: newOrder } = changeOrderDto;
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        const ordered = await tx
+          .select({ id: sliderImages.id })
+          .from(sliderImages)
+          .orderBy(sliderImages.displayOrder);
+
+        const currentIndex = ordered.findIndex((row) => row.id === id);
+        if (currentIndex === -1) {
+          throw new NotFoundException(
+            errorResponse('routes.slider.not_found', HttpStatus.NOT_FOUND, 'NotFoundException'),
+          );
+        }
+
+        // Clamp so an out-of-range position lands at the end rather than failing.
+        const targetIndex = Math.min(Math.max(newOrder - 1, 0), ordered.length - 1);
+
+        if (targetIndex !== currentIndex) {
+          const [moved] = ordered.splice(currentIndex, 1);
+          ordered.splice(targetIndex, 0, moved);
+
+          // display_order is UNIQUE, so park every row clear of the 1..n range
+          // before writing the final numbers, otherwise the intermediate writes
+          // collide with rows that have not been renumbered yet.
+          await tx
+            .update(sliderImages)
+            .set({ displayOrder: sql`${sliderImages.displayOrder} + 100000` });
+
+          for (const [index, row] of ordered.entries()) {
+            await tx
+              .update(sliderImages)
+              .set({ displayOrder: index + 1 })
+              .where(eq(sliderImages.id, row.id));
+          }
+        }
+
+        return tx
+          .select({
+            ...getTableColumns(sliderImages),
+            title: this.translationService.getLocalized(sliderImages.title, 'title'),
+          })
+          .from(sliderImages)
+          .orderBy(sliderImages.displayOrder);
+      });
+
+      this.logger.log(`Slider image order changed: ${id} -> ${newOrder}`);
+
+      return successResponse(result, 'routes.slider.order_updated', HttpStatus.OK);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Failed to change slider image order: ${id}`, error);
+      throw new InternalServerErrorException(
+        errorResponse(
+          'routes.slider.failed_change_order',
           HttpStatus.INTERNAL_SERVER_ERROR,
           'InternalServerError',
         ),

@@ -2,20 +2,28 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
   UseGuards,
   Logger,
   ParseArrayPipe,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { SliderImageService } from '../services/slider-image.service';
-import { SliderImageResponseDto, SliderImageItemDto, SliderImageWithTagsResponseDto } from '../dto';
+import {
+  SliderImageResponseDto,
+  SliderImageItemDto,
+  SliderImageWithTagsResponseDto,
+  ChangeSliderImageOrderDto,
+} from '../dto';
 import {
   GetSliderImagesDecorator,
   UpdateSliderImagesDecorator,
   DeleteSliderImagesDecorator,
+  ChangeSliderImageOrderDecorator,
 } from '../decorators';
 import { Public } from '@/common';
 import { JwtWithAdminGuard } from '@/common/guards/jwt-with-admin.guard';
@@ -64,6 +72,20 @@ export class SliderImageController {
     this.logger.debug(`Updating slider images with ${images.length} images`);
     const result = await this.sliderImageService.update(images);
     this.logger.log(`Slider images updated successfully`);
+    return result;
+  }
+
+  @UseGuards(JwtWithAdminGuard, AdminRolesGuard)
+  @AdminRoles('super_admin', 'admin')
+  @Patch(':id/order')
+  @ChangeSliderImageOrderDecorator()
+  async changeOrder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() changeOrderDto: ChangeSliderImageOrderDto,
+  ): Promise<SuccessResponse<SliderImageResponseDto[]>> {
+    this.logger.debug(`Changing slider image order: ${id} to ${changeOrderDto.displayOrder}`);
+    const result = await this.sliderImageService.changeOrder(id, changeOrderDto);
+    this.logger.log(`Slider image order changed: ${id}`);
     return result;
   }
 
