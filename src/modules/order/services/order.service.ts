@@ -62,7 +62,13 @@ import {
   PAGINATION_DEFAULTS,
   BAKERY_ASSIGNMENT_RESPONSE_WINDOW_MS,
 } from '@/constants/global.constants';
-import { errorResponse, successResponse, handleErrorsAndThrow, buildSearchPattern } from '@/utils';
+import {
+  errorResponse,
+  successResponse,
+  handleErrorsAndThrow,
+  buildSearchPattern,
+  getBakeryNetAmount,
+} from '@/utils';
 import { createHmac, randomBytes, randomInt } from 'crypto';
 import { ItemService } from '@/modules/items/item.service';
 import { StockService } from './stock.service';
@@ -2078,6 +2084,11 @@ export class OrderService {
       totalPrice: parseFloat(order.totalPrice),
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
+      bakeryAmountNet: getBakeryNetAmount(
+        order.bakeryAmount,
+        order.paymentData,
+        parseFloat(order.finalPrice),
+      ),
       isReviewed: order.isReviewed,
       cancellationReason: order.cancellationReason || undefined,
     };
@@ -2106,6 +2117,11 @@ export class OrderService {
       totalPrice: parseFloat(order.totalPrice),
       discountAmount: parseFloat(order.discountAmount),
       finalPrice: parseFloat(order.finalPrice),
+      bakeryAmountNet: getBakeryNetAmount(
+        order.bakeryAmount,
+        order.paymentData,
+        parseFloat(order.finalPrice),
+      ),
       isReviewed: order.isReviewed,
       cancellationReason: order.cancellationReason || undefined,
     };

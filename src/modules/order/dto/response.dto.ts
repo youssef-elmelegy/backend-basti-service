@@ -420,6 +420,16 @@ export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items']
   customCakes: OrderItemResponseDto<CustomCakeConfig>[];
 
   @ApiProperty({
+    description:
+      "The bakery's payout for this order, net of the payment gateway fee. " +
+      'The `bakeryAmount` column is stored gross, so bakery-facing surfaces ' +
+      'must use this instead. Omitted from customer-facing responses.',
+    example: 86.42,
+    required: false,
+  })
+  bakeryAmountNet?: number;
+
+  @ApiProperty({
     description: 'Whether the order has been reviewed',
     example: true,
   })
