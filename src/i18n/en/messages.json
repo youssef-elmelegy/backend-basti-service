@@ -577,6 +577,8 @@
       "image_deleted": "Slider image deleted successfully",
       "image_failed_delete": "Failed to delete slider image",
       "not_found": "Slider image not found",
+      "order_updated": "Slider image order updated successfully",
+      "failed_change_order": "Failed to change slider image order",
       "duplicate_tag": "Each tag can be linked to only one slider image"
     },
 
