@@ -4,7 +4,13 @@ import { db } from '@/db';
 import { orders, bakeries } from '@/db/schema';
 import { and, eq, gte, inArray, lte, SQL, desc, isNotNull } from 'drizzle-orm';
 import { PAGINATION_DEFAULTS } from '@/constants/global.constants';
-import { errorResponse, successResponse, SuccessResponse, handleErrorsAndThrow } from '@/utils';
+import {
+  errorResponse,
+  successResponse,
+  SuccessResponse,
+  handleErrorsAndThrow,
+  processPaymentData,
+} from '@/utils';
 import { TranslationService } from '@/common';
 
 @Injectable()
@@ -12,20 +18,6 @@ export class FinancialsService {
   private readonly logger = new Logger(FinancialsService.name);
 
   constructor(private readonly translationService: TranslationService) {}
-
-  private processPaymentData(
-    paymentData: (typeof orders.$inferSelect)['paymentData'],
-    finalPrice: number,
-  ) {
-    const name = paymentData?.paymentGatewayName || '';
-    let rate = paymentData?.paymentGatewayFee ?? 0;
-    rate /= 100;
-    return {
-      name,
-      fee: finalPrice * rate,
-      factor: 1 - rate, // factor to re-calculate the final share after deducting the gateway fee
-    };
-  }
 
   async getOrdersFinancials(
     dto: GetOrdersFinancialsDto,
@@ -189,7 +181,7 @@ export class FinancialsService {
           name: gatewayName,
           fee: gatewayFee,
           factor,
-        } = this.processPaymentData(order.paymentData, finalPrice);
+        } = processPaymentData(order.paymentData, finalPrice);
         return {
           addonsTotal: order.addonsTotal * factor,
           bastiPercentage: parseFloat(order.bastiPercentage) || 0,
@@ -220,10 +212,7 @@ export class FinancialsService {
         (acc, order) => {
           const bastiAmount = parseFloat(order.bastiAmount) || 0;
           const finalPrice = parseFloat(order.finalPrice) || 0;
-          const { fee: gatewayFee, factor } = this.processPaymentData(
-            order.paymentData,
-            finalPrice,
-          );
+          const { fee: gatewayFee, factor } = processPaymentData(order.paymentData, finalPrice);
           return {
             addonsTotal: acc.addonsTotal + order.addonsTotal * factor,
             bastiTotal: acc.bastiTotal + bastiAmount * factor,
