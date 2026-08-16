@@ -468,6 +468,7 @@
       "delivery_code_not_generated": "لم يتم إنشاء رمز التسليم",
       "delivery_code_invalid": "رمز التسليم غير صالح",
       "delivery_code_verified": "تم التحقق من رمز التسليم بنجاح",
+      "already_delivered": "تم تسليم هذا الطلب بالفعل",
       "failed_verify_delivery_code": "فشل في التحقق من رمز التسليم"
     },
 

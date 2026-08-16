@@ -503,6 +503,7 @@
       "delivery_code_not_generated": "Delivery code not generated",
       "delivery_code_invalid": "Invalid delivery code",
       "delivery_code_verified": "Delivery code verified successfully",
+      "already_delivered": "Order has already been delivered",
       "failed_verify_delivery_code": "Failed to verify delivery code"
     },
 
