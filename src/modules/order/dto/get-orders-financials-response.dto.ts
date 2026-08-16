@@ -51,6 +51,13 @@ class OrderFinancialsRowDto {
   @ApiProperty()
   referenceNumber!: string;
 
+  @ApiProperty({
+    description:
+      'Name of the driver who delivered the order, captured when the driver accepted it. Empty when no driver was assigned.',
+    example: 'Ali Driver 2',
+  })
+  driverName!: string;
+
   @ApiProperty()
   orderStatus!: string | null;
 
