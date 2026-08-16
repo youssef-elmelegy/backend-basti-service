@@ -254,7 +254,12 @@ export class DriverController {
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @CurrentUser('id') driverId: string,
   ) {
-    return this.driverService.cancelOrder(orderId, driverId, 'العميل رفض استلام الطلب');
+    return this.driverService.cancelOrder(
+      orderId,
+      driverId,
+      'العميل رفض استلام الطلب',
+      'client_refused',
+    );
   }
 
   @Post('orders/:orderId/client-not-responding')
@@ -265,6 +270,11 @@ export class DriverController {
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @CurrentUser('id') driverId: string,
   ) {
-    return this.driverService.cancelOrder(orderId, driverId, 'العميل لا يرد على المكالمات');
+    return this.driverService.cancelOrder(
+      orderId,
+      driverId,
+      'العميل لا يرد على المكالمات',
+      'client_not_responding',
+    );
   }
 }

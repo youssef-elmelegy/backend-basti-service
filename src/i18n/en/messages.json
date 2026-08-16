@@ -848,6 +848,10 @@
       "title": "Order needs a new driver",
       "body": "Order {ref} was refused by the driver and needs reassignment."
     },
+    "client_not_responding_to_user": {
+      "title": "We couldn't deliver your order",
+      "body": "We tried to reach you to deliver order {ref} but couldn't get through, so the order was cancelled. Please contact support to reorder."
+    },
     "driver_assignment_expired_admin": {
       "title": "Driver did not respond",
       "body": "Order {ref} was not accepted by the driver within 1 hour and is now unassigned. It needs a new driver."

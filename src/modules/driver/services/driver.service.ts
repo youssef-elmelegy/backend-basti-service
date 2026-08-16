@@ -594,6 +594,7 @@ export class DriverService {
     orderId: string,
     driverId: string,
     cancellationReason: string,
+    cause?: 'client_not_responding' | 'client_refused',
   ): Promise<SuccessResponse<any>> {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -613,6 +614,22 @@ export class DriverService {
           cancellationReason,
         })
         .where(eq(orders.id, orderId));
+
+      // The driver couldn't reach the customer, so the customer has no way of
+      // knowing their order was just cancelled — tell them why and what to do
+      // next. Fire-and-forget: a failed push must never fail the cancellation.
+      if (cause === 'client_not_responding' && order.userId) {
+        await this.notificationService.pushNotificationSafe({
+          titleKey: 'notification_templates.client_not_responding_to_user.title',
+          bodyKey: 'notification_templates.client_not_responding_to_user.body',
+          args: { ref: order.referenceNumber ?? '' },
+          type: 'order_status',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: { orderId, status: 'cancelled', reason: 'client_not_responding' },
+        });
+      }
 
       return successResponse({}, 'routes.orders.cancelled', HttpStatus.OK);
     } catch (error) {
