@@ -980,14 +980,32 @@ export class OrderService {
       const flipsToDelivery = status === 'ready' && driverAlreadyAccepted;
       const effectiveStatus = flipsToDelivery ? 'out_for_delivery' : status;
 
-      const [updatedOrder] = await db
-        .update(orders)
-        .set({
-          orderStatus: effectiveStatus,
-          deliveredAt: effectiveStatus === 'delivered' ? new Date() : null,
-        })
-        .where(eq(orders.id, orderId))
-        .returning({ id: orders.id, status: orders.orderStatus });
+      /*
+        Only stamp deliveredAt on the transition into 'delivered', and never clear
+        it afterwards — financials filter and group on that column, so wiping it on
+        an unrelated later status change would silently drop the order from
+        delivery-date reporting.
+      */
+      const isDeliveryTransition = effectiveStatus === 'delivered' && !order.deliveredAt;
+
+      const updatedOrder = await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(orders)
+          .set({
+            orderStatus: effectiveStatus,
+            ...(isDeliveryTransition && { deliveredAt: new Date() }),
+          })
+          .where(eq(orders.id, orderId))
+          .returning({ id: orders.id, status: orders.orderStatus });
+
+        // Pay the driver the same way the delivery-code path does, so an order
+        // completed by an admin still settles the driver's balance exactly once.
+        if (isDeliveryTransition && order.driverId) {
+          await this.creditDriverForDelivery(tx, order.driverId, this.driverEarningFor(order));
+        }
+
+        return updated;
+      });
 
       this.logger.log(`Order ${orderId} status changed to ${effectiveStatus} successfully`);
 
@@ -1506,6 +1524,41 @@ export class OrderService {
     return updatedOrder;
   }
 
+  /*
+    The driver's cut of an order is the delivery fee minus Basti's slice of it.
+    Both are frozen onto the order row at creation time, so a later config change
+    never retroactively alters what an already-placed order pays out. A
+    free_shipping coupon zeroes deliveryAmount, which correctly yields 0 here.
+  */
+  private driverEarningFor(order: { deliveryAmount: number; bastiDeliveryAmount: number }): number {
+    return Math.max(0, order.deliveryAmount - order.bastiDeliveryAmount);
+  }
+
+  /*
+    Credits a driver for completing an order. The increment is done in SQL rather
+    than read-then-write so concurrent deliveries by the same driver can't clobber
+    each other, and it runs on the same tx as the status flip so an order can never
+    be marked delivered without the matching payout (or vice versa).
+
+    Guarded by `delivered_at IS NULL` on the order update at the call site: that makes
+    the whole completion idempotent, so a retried/double-submitted request pays once.
+  */
+  private async creditDriverForDelivery(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    driverId: string,
+    amount: number,
+  ): Promise<void> {
+    if (amount <= 0) return;
+
+    await tx
+      .update(admins)
+      .set({
+        dueAmount: sql`${admins.dueAmount} + ${amount.toFixed(2)}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(admins.id, driverId));
+  }
+
   async generateDeliveryCheckCode(orderId: string, userId: string) {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -1572,19 +1625,40 @@ export class OrderService {
         throw new BadRequestException('routes.orders.delivery_code_invalid');
       }
 
-      const [updatedOrder] = await db
-        .update(orders)
-        .set({
-          orderStatus: 'delivered',
-          deliveredAt: new Date(),
-          deliveryCheckCodeHash: null,
-        })
-        .where(eq(orders.id, orderId))
-        .returning({
-          id: orders.id,
-          status: orders.orderStatus,
-          deliveredAt: orders.deliveredAt,
-        });
+      const earning = this.driverEarningFor(order);
+
+      const updatedOrder = await db.transaction(async (tx) => {
+        // `isNull(deliveredAt)` makes this idempotent: a replayed request finds no
+        // row to update and so skips the payout instead of paying twice.
+        const [updated] = await tx
+          .update(orders)
+          .set({
+            orderStatus: 'delivered',
+            deliveredAt: new Date(),
+            deliveryCheckCodeHash: null,
+          })
+          .where(and(eq(orders.id, orderId), isNull(orders.deliveredAt)))
+          .returning({
+            id: orders.id,
+            status: orders.orderStatus,
+            deliveredAt: orders.deliveredAt,
+          });
+
+        if (!updated) return null;
+
+        await this.creditDriverForDelivery(tx, driverId, earning);
+
+        return updated;
+      });
+
+      // Already delivered by an earlier call — report success without re-crediting.
+      if (!updatedOrder) {
+        throw new BadRequestException('routes.orders.already_delivered');
+      }
+
+      this.logger.log(
+        `Order ${orderId} delivered by driver ${driverId}; credited ${earning.toFixed(2)}`,
+      );
 
       return successResponse(updatedOrder, 'routes.orders.delivery_code_verified');
     } catch (error) {
