@@ -162,6 +162,9 @@ export class FinancialsService {
           cartType: orders.cartType,
           deliveredAt: orders.deliveredAt,
           createdAt: orders.createdAt,
+          // Snapshot taken when the driver accepted the order, so the name
+          // survives the driver later being renamed or removed.
+          driverData: orders.driverData,
           bakeryName: this.translationService.getLocalized(bakeries.name, 'name'),
         })
         .from(orders)
@@ -199,6 +202,9 @@ export class FinancialsService {
           bakeryName: order.bakeryName || '',
           orderId: order.orderId,
           referenceNumber: order.referenceNumber || '',
+          // Empty when no driver ever accepted the order (e.g. pickup, or
+          // orders predating driver assignment).
+          driverName: order.driverData?.name || '',
           orderStatus: order.orderStatus,
           cartType: order.cartType,
           deliveredAt: order.deliveredAt,
