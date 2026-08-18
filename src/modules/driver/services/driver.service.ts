@@ -58,238 +58,266 @@ export class DriverService {
   async findAll(
     query: GetDriversQueryDto,
   ): Promise<SuccessResponse<{ items: DriverDataDto[]; pagination: PaginationMeta }>> {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const offset = (page - 1) * limit;
+    try {
+      const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+      const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+      const offset = (page - 1) * limit;
 
-    const conditions: SQL[] = [eq(admins.role, 'driver')];
+      const conditions: SQL[] = [eq(admins.role, 'driver')];
 
-    if (typeof query.isBlocked === 'boolean') {
-      conditions.push(eq(admins.isBlocked, query.isBlocked));
-    }
-    if (query.regionId) {
-      conditions.push(eq(admins.regionId, query.regionId));
-    }
-    if (query.q && query.q.trim()) {
-      const term = buildSearchPattern(query.q);
-      conditions.push(
-        or(ilike(admins.name, term), ilike(admins.email, term), ilike(admins.phoneNumber, term)),
-      );
-    }
+      if (typeof query.isBlocked === 'boolean') {
+        conditions.push(eq(admins.isBlocked, query.isBlocked));
+      }
+      if (query.regionId) {
+        conditions.push(eq(admins.regionId, query.regionId));
+      }
+      if (query.q && query.q.trim()) {
+        const term = buildSearchPattern(query.q);
+        conditions.push(
+          or(ilike(admins.name, term), ilike(admins.email, term), ilike(admins.phoneNumber, term)),
+        );
+      }
 
-    const where = and(...conditions);
+      const where = and(...conditions);
 
-    const [{ count }] = await db
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(admins)
-      .where(where);
-    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(admins)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
-    const drivers = await db
-      .select({
-        id: admins.id,
-        name: admins.name,
-        email: admins.email,
-        role: admins.role,
-        phoneNumber: admins.phoneNumber,
-        dueAmount: admins.dueAmount,
-        profileImage: admins.profileImage,
-        bakeryId: admins.bakeryId,
-        regionId: admins.regionId,
-        isBlocked: admins.isBlocked,
-        blockedAt: admins.blockedAt,
-        createdAt: admins.createdAt,
-        updatedAt: admins.updatedAt,
-      })
-      .from(admins)
-      .where(where)
-      .orderBy(asc(admins.createdAt))
-      .limit(limit)
-      .offset(offset);
+      const drivers = await db
+        .select({
+          id: admins.id,
+          name: admins.name,
+          email: admins.email,
+          role: admins.role,
+          phoneNumber: admins.phoneNumber,
+          dueAmount: admins.dueAmount,
+          profileImage: admins.profileImage,
+          bakeryId: admins.bakeryId,
+          regionId: admins.regionId,
+          isBlocked: admins.isBlocked,
+          blockedAt: admins.blockedAt,
+          createdAt: admins.createdAt,
+          updatedAt: admins.updatedAt,
+        })
+        .from(admins)
+        .where(where)
+        .orderBy(asc(admins.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    this.logger.debug(`Retrieved ${drivers.length}/${total} drivers (page ${page})`);
+      this.logger.debug(`Retrieved ${drivers.length}/${total} drivers (page ${page})`);
 
-    return successResponse(
-      {
-        items: drivers.map((driver) => this.mapDriverData(driver)),
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
+      return successResponse(
+        {
+          items: drivers.map((driver) => this.mapDriverData(driver)),
+          pagination: {
+            total,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+            page,
+            limit,
+          },
         },
-      },
-      'Drivers retrieved successfully',
-      HttpStatus.OK,
-    );
+        'routes.driver.find_all',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.find_all_failed', this.logger);
+    }
   }
 
   async findOne(id: string): Promise<SuccessResponse<DriverDataDto>> {
-    const [driver] = await db.select().from(admins).where(eq(admins.id, id)).limit(1);
+    try {
+      const [driver] = await db.select().from(admins).where(eq(admins.id, id)).limit(1);
 
-    if (!driver) {
-      return successResponse(null as any, 'routes.driver.not_found', HttpStatus.NOT_FOUND);
+      if (!driver) {
+        return successResponse(null as any, 'routes.driver.not_found', HttpStatus.NOT_FOUND);
+      }
+
+      return successResponse(this.mapDriverData(driver), 'routes.driver.find_one', HttpStatus.OK);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.find_one_failed', this.logger);
     }
-
-    return successResponse(this.mapDriverData(driver), 'Driver retrieved', HttpStatus.OK);
   }
 
   async reportDriver(userId: string, driverId: string, createReportDto: CreateReportDto) {
     const { reportBody } = createReportDto;
 
-    const [order] = await db
-      .select()
-      .from(orders)
-      .where(
-        and(
-          eq(orders.driverId, driverId),
-          eq(orders.userId, userId),
-          eq(orders.orderStatus, 'delivered'),
-        ),
-      )
-      .limit(1);
+    try {
+      const [order] = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.driverId, driverId),
+            eq(orders.userId, userId),
+            eq(orders.orderStatus, 'delivered'),
+          ),
+        )
+        .limit(1);
 
-    if (!order) {
-      return successResponse(
-        null as any,
-        'routes.driver.no_delivered_orders',
-        HttpStatus.NOT_FOUND,
-      );
+      if (!order) {
+        return successResponse(
+          null as any,
+          'routes.driver.no_delivered_orders',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const [newReport] = await db
+        .insert(reports)
+        .values({ userId, driverId, reportBody })
+        .returning({
+          id: reports.id,
+          userId: reports.userId,
+          driverId: reports.driverId,
+          reportBody: reports.reportBody,
+          createdAt: reports.createdAt,
+          updatedAt: reports.updatedAt,
+        });
+
+      return successResponse(newReport, 'routes.driver.create_report', HttpStatus.CREATED);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.create_report_failed', this.logger);
     }
-
-    const [newReport] = await db
-      .insert(reports)
-      .values({ userId, driverId, reportBody })
-      .returning({
-        id: reports.id,
-        userId: reports.userId,
-        driverId: reports.driverId,
-        reportBody: reports.reportBody,
-        createdAt: reports.createdAt,
-        updatedAt: reports.updatedAt,
-      });
-
-    return successResponse(newReport, 'Report created', HttpStatus.CREATED);
   }
 
   async deleteReport(id: string) {
-    await db.delete(reports).where(eq(reports.id, id));
-    return successResponse({ message: 'Report deleted' }, 'Report deleted', HttpStatus.OK);
+    try {
+      await db.delete(reports).where(eq(reports.id, id));
+      return successResponse(
+        { message: 'routes.driver.delete_report' },
+        'routes.driver.delete_report',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.delete_report_failed', this.logger);
+    }
   }
 
   async getAllReports(query: GetReportsQueryDto) {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const offset = (page - 1) * limit;
-    const sortDir = query.sort ?? 'desc';
+    try {
+      const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+      const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+      const offset = (page - 1) * limit;
+      const sortDir = query.sort ?? 'desc';
 
-    const where =
-      query.q && query.q.trim()
-        ? ilike(reports.reportBody, buildSearchPattern(query.q))
-        : undefined;
+      const where =
+        query.q && query.q.trim()
+          ? ilike(reports.reportBody, buildSearchPattern(query.q))
+          : undefined;
 
-    const [{ count }] = await db
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(reports)
-      .where(where);
-    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(reports)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
-    const rows = await db
-      .select({ report: reports, user: users, driver: admins })
-      .from(reports)
-      .innerJoin(users, eq(reports.userId, users.id))
-      .innerJoin(admins, eq(reports.driverId, admins.id))
-      .where(where)
-      .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
-      .limit(limit)
-      .offset(offset);
+      const rows = await db
+        .select({ report: reports, user: users, driver: admins })
+        .from(reports)
+        .innerJoin(users, eq(reports.userId, users.id))
+        .innerJoin(admins, eq(reports.driverId, admins.id))
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    const items = rows.map((r) => ({
-      id: r.report.id,
-      user: {
-        firstName: r.user.firstName,
-        lastName: r.user.lastName,
-        phoneNumber: r.user.phoneNumber,
-      },
-      driver: {
-        id: r.driver.id,
-        name: r.driver.name,
-        phoneNumber: r.driver.phoneNumber,
-      },
-      driverId: r.report.driverId,
-      reportBody: r.report.reportBody,
-      createdAt: r.report.createdAt,
-      updatedAt: r.report.updatedAt,
-    }));
-
-    return successResponse(
-      {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
+      const items = rows.map((r) => ({
+        id: r.report.id,
+        user: {
+          firstName: r.user.firstName,
+          lastName: r.user.lastName,
+          phoneNumber: r.user.phoneNumber,
         },
-      },
-      'Reports retrieved successfully',
-      HttpStatus.OK,
-    );
+        driver: {
+          id: r.driver.id,
+          name: r.driver.name,
+          phoneNumber: r.driver.phoneNumber,
+        },
+        driverId: r.report.driverId,
+        reportBody: r.report.reportBody,
+        createdAt: r.report.createdAt,
+        updatedAt: r.report.updatedAt,
+      }));
+
+      return successResponse(
+        {
+          items,
+          pagination: {
+            total,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+            page,
+            limit,
+          },
+        },
+        'get_all_reports',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.get_all_reports_failed', this.logger);
+    }
   }
 
   async getDriverReports(driverId: string, query: GetReportsQueryDto) {
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const offset = (page - 1) * limit;
-    const sortDir = query.sort ?? 'desc';
+    try {
+      const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+      const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+      const offset = (page - 1) * limit;
+      const sortDir = query.sort ?? 'desc';
 
-    const conditions: SQL[] = [eq(reports.driverId, driverId)];
-    if (query.q && query.q.trim()) {
-      conditions.push(ilike(reports.reportBody, buildSearchPattern(query.q)));
-    }
-    const where = and(...conditions);
+      const conditions: SQL[] = [eq(reports.driverId, driverId)];
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(reports.reportBody, buildSearchPattern(query.q)));
+      }
+      const where = and(...conditions);
 
-    const [{ count }] = await db
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(reports)
-      .where(where);
-    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(reports)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
-    const rows = await db
-      .select({ report: reports, user: users })
-      .from(reports)
-      .innerJoin(users, eq(reports.userId, users.id))
-      .where(where)
-      .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
-      .limit(limit)
-      .offset(offset);
+      const rows = await db
+        .select({ report: reports, user: users })
+        .from(reports)
+        .innerJoin(users, eq(reports.userId, users.id))
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(reports.createdAt) : desc(reports.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    const items = rows.map((r) => ({
-      id: r.report.id,
-      user: {
-        firstName: r.user.firstName,
-        lastName: r.user.lastName,
-        phoneNumber: r.user.phoneNumber,
-      },
-      driverId: r.report.driverId,
-      reportBody: r.report.reportBody,
-      createdAt: r.report.createdAt,
-      updatedAt: r.report.updatedAt,
-    }));
-
-    return successResponse(
-      {
-        items,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
+      const items = rows.map((r) => ({
+        id: r.report.id,
+        user: {
+          firstName: r.user.firstName,
+          lastName: r.user.lastName,
+          phoneNumber: r.user.phoneNumber,
         },
-      },
-      'Reports retrieved successfully',
-      HttpStatus.OK,
-    );
+        driverId: r.report.driverId,
+        reportBody: r.report.reportBody,
+        createdAt: r.report.createdAt,
+        updatedAt: r.report.updatedAt,
+      }));
+
+      return successResponse(
+        {
+          items,
+          pagination: {
+            total,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+            page,
+            limit,
+          },
+        },
+        'routes.driver.get_all_reports',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.get_all_reports_failed', this.logger);
+    }
   }
 
   async getDriversOrders(driverId: string, isAssigned?: boolean) {
@@ -331,9 +359,9 @@ export class DriverService {
         .where(and(...conditions))
         .orderBy(desc(orders.createdAt));
 
-      return successResponse(driverOrders, 'routes.driver.orders_retrieved', HttpStatus.OK);
+      return successResponse(driverOrders, 'routes.driver.get_all_orders', HttpStatus.OK);
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.driver.failed_list', this.logger);
+      handleErrorsAndThrow(error, 'routes.driver.get_all_orders_failed', this.logger);
     }
   }
 
@@ -342,252 +370,268 @@ export class DriverService {
    * Optional status/search/sort filters.
    */
   async getDriverOrdersHistory(driverId: string, query: GetDriverOrdersHistoryQueryDto) {
-    const [driver] = await db
-      .select({ id: admins.id, role: admins.role })
-      .from(admins)
-      .where(eq(admins.id, driverId))
-      .limit(1);
+    try {
+      const [driver] = await db
+        .select({ id: admins.id, role: admins.role })
+        .from(admins)
+        .where(eq(admins.id, driverId))
+        .limit(1);
 
-    if (!driver || driver.role !== 'driver') {
-      throw new NotFoundException('routes.driver.not_found');
-    }
+      if (!driver || driver.role !== 'driver') {
+        throw new NotFoundException('routes.driver.not_found');
+      }
 
-    const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
-    const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
-    const offset = (page - 1) * limit;
-    const sortDir = query.sort ?? 'desc';
+      const page = query.page ?? PAGINATION_DEFAULTS.PAGE;
+      const limit = query.limit ?? PAGINATION_DEFAULTS.LIMIT;
+      const offset = (page - 1) * limit;
+      const sortDir = query.sort ?? 'desc';
 
-    const conditions: SQL[] = [eq(orders.driverId, driverId)];
-    if (query.status && query.status.length > 0) {
-      conditions.push(
-        inArray(
-          orders.orderStatus,
-          query.status as (typeof orders.orderStatus.enumValues)[number][],
-        ),
-      );
-    }
-    if (query.q && query.q.trim()) {
-      conditions.push(ilike(orders.referenceNumber, buildSearchPattern(query.q)));
-    }
-    const where = and(...conditions);
+      const conditions: SQL[] = [eq(orders.driverId, driverId)];
+      if (query.status && query.status.length > 0) {
+        conditions.push(
+          inArray(
+            orders.orderStatus,
+            query.status as (typeof orders.orderStatus.enumValues)[number][],
+          ),
+        );
+      }
+      if (query.q && query.q.trim()) {
+        conditions.push(ilike(orders.referenceNumber, buildSearchPattern(query.q)));
+      }
+      const where = and(...conditions);
 
-    const [{ count }] = await db
-      .select({ count: sql<string>`COUNT(*)` })
-      .from(orders)
-      .where(where);
-    const total = typeof count === 'string' ? parseInt(count, 10) : count;
+      const [{ count }] = await db
+        .select({ count: sql<string>`COUNT(*)` })
+        .from(orders)
+        .where(where);
+      const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
-    const driverOrders = await db
-      .select({
-        id: orders.id,
-        referenceNumber: orders.referenceNumber,
-        orderStatus: orders.orderStatus,
-        driverId: orders.driverId,
-        driverAssignedAt: orders.driverAssignedAt,
-        driverData: orders.driverData,
-        userData: orders.userData,
-        locationData: orders.locationData,
-        willDeliverAt: orders.willDeliverAt,
-        createdAt: orders.createdAt,
-        updatedAt: orders.updatedAt,
-      })
-      .from(orders)
-      .where(where)
-      .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
-      .limit(limit)
-      .offset(offset);
+      const driverOrders = await db
+        .select({
+          id: orders.id,
+          referenceNumber: orders.referenceNumber,
+          orderStatus: orders.orderStatus,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+          driverData: orders.driverData,
+          userData: orders.userData,
+          locationData: orders.locationData,
+          willDeliverAt: orders.willDeliverAt,
+          createdAt: orders.createdAt,
+          updatedAt: orders.updatedAt,
+        })
+        .from(orders)
+        .where(where)
+        .orderBy(sortDir === 'asc' ? asc(orders.createdAt) : desc(orders.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    return successResponse(
-      {
-        items: driverOrders,
-        pagination: {
-          total,
-          totalPages: Math.max(1, Math.ceil(total / limit)),
-          page,
-          limit,
+      return successResponse(
+        {
+          items: driverOrders,
+          pagination: {
+            total,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+            page,
+            limit,
+          },
         },
-      },
-      'Driver orders retrieved successfully',
-      HttpStatus.OK,
-    );
+        'routes.driver.get_all_orders',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.get_all_orders_failed', this.logger);
+    }
   }
 
   async acceptOrder(orderId: string, driverId: string) {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
-    if (!order) {
-      throw new NotFoundException('routes.orders.not_found');
+      if (!order) {
+        throw new NotFoundException('routes.driver.order_not_found');
+      }
+
+      if (order.driverId !== driverId) {
+        throw new BadRequestException('routes.driver.order_not_assigned_to_driver');
+      }
+
+      if (!order.driverAssignedAt) {
+        throw new BadRequestException('routes.driver.assignment_missing');
+      }
+
+      if (
+        order.orderStatus === 'delivered' ||
+        order.orderStatus === 'cancelled' ||
+        order.orderStatus === 'out_for_delivery'
+      ) {
+        throw new BadRequestException('routes.driver.accept_invalid_state');
+      }
+
+      const [driver] = await db
+        .select({
+          id: admins.id,
+          role: admins.role,
+          name: admins.name,
+          profileImage: admins.profileImage,
+          phoneNumber: admins.phoneNumber,
+        })
+        .from(admins)
+        .where(eq(admins.id, driverId))
+        .limit(1);
+
+      if (!driver || driver.role !== 'driver') {
+        throw new NotFoundException('routes.driver.not_found');
+      }
+
+      /*
+        Acceptance always records driverData (admins see the assigned driver right away).
+        If the order is already 'ready', accepting sends it out for delivery immediately.
+        Otherwise the status is left untouched; the order flips to 'out_for_delivery'
+        automatically once the bakery marks it 'ready' (see OrderService.changeStatus).
+      */
+      const isReady = order.orderStatus === 'ready';
+
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          driverData: {
+            name: driver.name || 'Driver',
+            profileImage: driver.profileImage || '',
+            phoneNumber: driver.phoneNumber || '',
+          },
+          ...(isReady ? { orderStatus: 'out_for_delivery' as const } : {}),
+        })
+        .where(eq(orders.id, orderId))
+        .returning({
+          id: orders.id,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+          driverData: orders.driverData,
+          orderStatus: orders.orderStatus,
+        });
+
+      // Only the order going out for delivery now warrants notifying the customer.
+      // The driver took this action themselves, so they don't need a notification.
+      if (isReady && order.userId) {
+        await this.notificationService.pushNotificationSafe({
+          titleKey: 'notification_templates.order_status.out_for_delivery.title',
+          bodyKey: 'notification_templates.order_status.out_for_delivery.body',
+          args: { ref: order.referenceNumber ?? '' },
+          type: 'order_status',
+          recipientType: 'user',
+          recipientId: order.userId,
+          redirectId: orderId,
+          data: { orderId, status: 'out_for_delivery' },
+        });
+      }
+
+      return successResponse(updatedOrder, 'routes.driver.accept_order', HttpStatus.OK);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.accept_order_failed', this.logger);
     }
-
-    if (order.driverId !== driverId) {
-      throw new BadRequestException('routes.orders.not_assigned_to_driver');
-    }
-
-    if (!order.driverAssignedAt) {
-      throw new BadRequestException('routes.orders.driver_assignment_missing');
-    }
-
-    if (
-      order.orderStatus === 'delivered' ||
-      order.orderStatus === 'cancelled' ||
-      order.orderStatus === 'out_for_delivery'
-    ) {
-      throw new BadRequestException('routes.orders.accept_invalid_state');
-    }
-
-    const [driver] = await db
-      .select({
-        id: admins.id,
-        role: admins.role,
-        name: admins.name,
-        profileImage: admins.profileImage,
-        phoneNumber: admins.phoneNumber,
-      })
-      .from(admins)
-      .where(eq(admins.id, driverId))
-      .limit(1);
-
-    if (!driver || driver.role !== 'driver') {
-      throw new NotFoundException('routes.driver.not_found');
-    }
-
-    /*
-      Acceptance always records driverData (admins see the assigned driver right away).
-      If the order is already 'ready', accepting sends it out for delivery immediately.
-      Otherwise the status is left untouched; the order flips to 'out_for_delivery'
-      automatically once the bakery marks it 'ready' (see OrderService.changeStatus).
-    */
-    const isReady = order.orderStatus === 'ready';
-
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({
-        driverData: {
-          name: driver.name || 'Driver',
-          profileImage: driver.profileImage || '',
-          phoneNumber: driver.phoneNumber || '',
-        },
-        ...(isReady ? { orderStatus: 'out_for_delivery' as const } : {}),
-      })
-      .where(eq(orders.id, orderId))
-      .returning({
-        id: orders.id,
-        driverId: orders.driverId,
-        driverAssignedAt: orders.driverAssignedAt,
-        driverData: orders.driverData,
-        orderStatus: orders.orderStatus,
-      });
-
-    // Only the order going out for delivery now warrants notifying the customer.
-    // The driver took this action themselves, so they don't need a notification.
-    if (isReady && order.userId) {
-      await this.notificationService.pushNotificationSafe({
-        titleKey: 'notification_templates.order_status.out_for_delivery.title',
-        bodyKey: 'notification_templates.order_status.out_for_delivery.body',
-        args: { ref: order.referenceNumber ?? '' },
-        type: 'order_status',
-        recipientType: 'user',
-        recipientId: order.userId,
-        redirectId: orderId,
-        data: { orderId, status: 'out_for_delivery' },
-      });
-    }
-
-    return successResponse(updatedOrder, 'Order accepted successfully', HttpStatus.OK);
   }
 
   async refuseOrder(orderId: string, driverId: string) {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
-    if (!order) {
-      throw new NotFoundException('routes.orders.not_found');
-    }
+      if (!order) {
+        throw new NotFoundException('routes.driver.order_not_found');
+      }
 
-    if (order.driverId !== driverId) {
-      throw new BadRequestException('routes.orders.not_assigned_to_driver');
-    }
+      if (order.driverId !== driverId) {
+        throw new BadRequestException('routes.driver.order_not_assigned_to_driver');
+      }
 
-    const nextStatus = order.orderStatus === 'out_for_delivery' ? 'ready' : order.orderStatus;
+      const nextStatus = order.orderStatus === 'out_for_delivery' ? 'ready' : order.orderStatus;
 
-    const [updatedOrder] = await db
-      .update(orders)
-      .set({
-        driverId: null,
-        driverAssignedAt: null,
-        driverData: null,
-        orderStatus: nextStatus,
-      })
-      .where(eq(orders.id, orderId))
-      .returning({
-        id: orders.id,
-        driverId: orders.driverId,
-        driverAssignedAt: orders.driverAssignedAt,
-        orderStatus: orders.orderStatus,
+      const [updatedOrder] = await db
+        .update(orders)
+        .set({
+          driverId: null,
+          driverAssignedAt: null,
+          driverData: null,
+          orderStatus: nextStatus,
+        })
+        .where(eq(orders.id, orderId))
+        .returning({
+          id: orders.id,
+          driverId: orders.driverId,
+          driverAssignedAt: orders.driverAssignedAt,
+          orderStatus: orders.orderStatus,
+        });
+
+      // The order just lost its driver — alert admins so they can reassign it
+      // instead of letting it sit driver-less. Fire-and-forget.
+      await this.notificationService.pushToPlatformAdmins({
+        titleKey: 'notification_templates.order_needs_driver.title',
+        bodyKey: 'notification_templates.order_needs_driver.body',
+        args: { ref: order.referenceNumber ?? orderId },
+        type: 'order_update',
+        redirectId: orderId,
+        data: { orderId, event: 'driver_refused' },
       });
 
-    // The order just lost its driver — alert admins so they can reassign it
-    // instead of letting it sit driver-less. Fire-and-forget.
-    await this.notificationService.pushToPlatformAdmins({
-      titleKey: 'notification_templates.order_needs_driver.title',
-      bodyKey: 'notification_templates.order_needs_driver.body',
-      args: { ref: order.referenceNumber ?? orderId },
-      type: 'order_update',
-      redirectId: orderId,
-      data: { orderId, event: 'driver_refused' },
-    });
-
-    return successResponse(updatedOrder, 'Order refused successfully', HttpStatus.OK);
+      return successResponse(updatedOrder, 'routes.driver.refuse_order', HttpStatus.OK);
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.refuse_order_failed', this.logger);
+    }
   }
 
   async updateDriverDueAmount(id: string, dueAmount: number) {
-    const driver = await db.query.admins.findFirst({
-      where: eq(admins.id, id),
-    });
-
-    if (!driver || driver.role !== 'driver') {
-      throw new NotFoundException('routes.driver.not_found');
-    }
-
-    const [updatedDriver] = await db
-      .update(admins)
-      .set({
-        dueAmount: dueAmount.toString(),
-        updatedAt: new Date(),
-      })
-      .where(eq(admins.id, id))
-      .returning({
-        id: admins.id,
-        name: admins.name,
-        email: admins.email,
-        role: admins.role,
-        phoneNumber: admins.phoneNumber,
-        dueAmount: admins.dueAmount,
-        profileImage: admins.profileImage,
-        bakeryId: admins.bakeryId,
-        regionId: admins.regionId,
-        isBlocked: admins.isBlocked,
-        blockedAt: admins.blockedAt,
-        createdAt: admins.createdAt,
-        updatedAt: admins.updatedAt,
+    try {
+      const driver = await db.query.admins.findFirst({
+        where: eq(admins.id, id),
       });
 
-    // Let the driver know their balance changed. Fire-and-forget: a failed push
-    // must never fail the update itself.
-    await this.notificationService.pushNotificationSafe({
-      titleKey: 'notification_templates.due_amount_updated.title',
-      bodyKey: 'notification_templates.due_amount_updated.body',
-      args: { amount: dueAmount },
-      type: 'system',
-      recipientType: 'admin',
-      recipientId: updatedDriver.id,
-      data: { dueAmount: String(dueAmount) },
-    });
+      if (!driver || driver.role !== 'driver') {
+        throw new NotFoundException('routes.driver.not_found');
+      }
 
-    return successResponse(
-      this.mapDriverData(updatedDriver),
-      'Driver due amount updated successfully',
-      HttpStatus.OK,
-    );
+      const [updatedDriver] = await db
+        .update(admins)
+        .set({
+          dueAmount: dueAmount.toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(admins.id, id))
+        .returning({
+          id: admins.id,
+          name: admins.name,
+          email: admins.email,
+          role: admins.role,
+          phoneNumber: admins.phoneNumber,
+          dueAmount: admins.dueAmount,
+          profileImage: admins.profileImage,
+          bakeryId: admins.bakeryId,
+          regionId: admins.regionId,
+          isBlocked: admins.isBlocked,
+          blockedAt: admins.blockedAt,
+          createdAt: admins.createdAt,
+          updatedAt: admins.updatedAt,
+        });
+
+      // Let the driver know their balance changed. Fire-and-forget: a failed push
+      // must never fail the update itself.
+      await this.notificationService.pushNotificationSafe({
+        titleKey: 'notification_templates.due_amount_updated.title',
+        bodyKey: 'notification_templates.due_amount_updated.body',
+        args: { amount: dueAmount },
+        type: 'system',
+        recipientType: 'admin',
+        recipientId: updatedDriver.id,
+        data: { dueAmount: String(dueAmount) },
+      });
+
+      return successResponse(
+        this.mapDriverData(updatedDriver),
+        'routes.driver.update_driver_due_amount',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      handleErrorsAndThrow(error, 'routes.driver.update_driver_due_amount_failed', this.logger);
+    }
   }
 
   async cancelOrder(
@@ -600,11 +644,11 @@ export class DriverService {
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
       if (!order) {
-        throw new NotFoundException('routes.orders.not_found');
+        throw new NotFoundException('routes.driver.order_not_found');
       }
 
       if (order.driverId !== driverId) {
-        throw new BadRequestException('routes.orders.not_assigned_to_driver');
+        throw new BadRequestException('routes.driver.order_not_assigned_to_driver');
       }
 
       await db
@@ -631,9 +675,9 @@ export class DriverService {
         });
       }
 
-      return successResponse({}, 'routes.orders.cancelled', HttpStatus.OK);
+      return successResponse({}, 'routes.driver.cancel_order', HttpStatus.OK);
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.orders.failed_cancel', this.logger);
+      handleErrorsAndThrow(error, 'routes.driver.cancel_order_failed', this.logger);
     }
   }
 

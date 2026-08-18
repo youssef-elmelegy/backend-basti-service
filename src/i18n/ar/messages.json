@@ -206,6 +206,38 @@
       "not_found": "لم يتم العثور على الكوبون"
     },
 
+    "offers": {
+      "created": "تم إنشاء العرض بنجاح",
+      "failed_create": "فشل في إنشاء العرض",
+
+      "updated": "تم تحديث العرض بنجاح",
+      "failed_update": "فشل في تحديث العرض",
+
+      "retrieved": "تم استرجاع العرض بنجاح",
+      "failed_retrieve": "فشل في استرجاع العرض",
+
+      "list_retrieved": "تم استرجاع العروض بنجاح",
+      "failed_list": "فشل في استرجاع العروض",
+
+      "deleted": "تم حذف العرض بنجاح",
+      "failed_delete": "فشل في حذف العرض",
+
+      "toggled": "تم تبديل حالة العرض بنجاح",
+      "failed_toggle": "فشل في تبديل حالة العرض",
+
+      "not_found": "العرض غير موجود",
+
+      "added_item": "تم إضافة العنصر إلى العرض بنجاح",
+      "failed_add_item": "فشل في إضافة العنصر إلى العرض",
+
+      "removed_item": "تم إزالة العنصر من العرض بنجاح",
+      "failed_remove_item": "فشل في إزالة العنصر من العرض",
+
+      "no_item": "لم يتم توفير أي عنصر",
+
+      "item_region_error": "العنصر غير متوفر في هذه المنطقة أو لا يوجد تسعير متاح"
+    },
+
     "decorations": {
       "created": "تم إنشاء الزينة بنجاح",
       "failed_create": "تعذر إنشاء الزينة",
@@ -459,6 +491,9 @@
       "assinged_for_too_long": "لقد تم تعيين الطلب برقم: {orderId} لمخبز لأكثر من ساعة واحدة، لذلك لا يمكن إلغاء تعيينه",
       "final_images_required": "مطلوب صورة نهائية واحدة على الأقل لإنهاء الطلب",
       "not_assined_to_this_bakery": "الطلب برقم: {orderId} غير معين للمخبز {bakeryId}. المخبز الحالي: {currentBakeryId}",
+      "financials_retrieved": "تم استرجاع المعلومات المالية للطلبات بنجاح",
+      "failed_financials": "فشل في استرجاع المعلومات المالية للطلبات",
+      "no_financials": "لا توجد معلومات مالية للطلبات",
       "driver_region_mismatch": "هذا السائق ينتمي إلى منطقة مختلفة عن منطقة الطلب",
       "not_assigned_to_driver": "الطلب غير معين لهذا السائق",
       "not_belong_to_user": "الطلب لا يخص هذا المستخدم",
@@ -473,11 +508,44 @@
     },
 
     "driver": {
-      "not_found": "لم يتم العثور على السائق",
-      "blocked": "هذا السائق محظور ولا يمكن تعيين طلبات له",
+      "find_all": "تم استرجاع السائقين بنجاح",
+      "find_all_failed": "فشل في استرجاع السائقين",
+      "find_one": "تم استرجاع السائق بنجاح",
+      "find_one_failed": "فشل في استرجاع السائق",
 
-      "orders_retrieved": "تم استرجاع طلبات السائق بنجاح",
-      "failed_list": "تعذر استرجاع طلبات السائق"
+      "no_delivered_orders": "لم يتم العثور على طلبات تم توصيلها",
+
+      "create_report": "تم إنشاء التقرير بنجاح",
+      "create_report_failed": "فشل في إنشاء التقرير",
+
+      "delete_report": "تم حذف التقرير بنجاح",
+      "delete_report_failed": "فشل في حذف التقرير",
+
+      "get_all_reports": "تم استرجاع التقارير بنجاح",
+      "get_all_reports_failed": "فشل في استرجاع التقارير",
+
+      "get_all_orders": "تم استرجاع طلبات السائق بنجاح",
+      "get_all_orders_failed": "فشل في استرجاع طلبات السائق",
+
+      "not_found": "السائق غير موجود",
+      "blocked": "هذا السائق محظور ولا يمكن إسناد طلبات إليه",
+
+      "order_not_found": "الطلب غير موجود",
+      "order_not_assigned_to_driver": "الطلب غير مُسند إلى هذا السائق",
+      "assignment_missing": "بيانات إسناد السائق مفقودة",
+      "accept_invalid_state": "لا يمكن قبول الطلب في هذه الحالة",
+
+      "accept_order": "تم قبول الطلب بنجاح",
+      "accept_order_failed": "فشل في قبول الطلب",
+
+      "refuse_order": "تم رفض الطلب بنجاح",
+      "refuse_order_failed": "فشل في رفض الطلب",
+
+      "update_driver_due_amount": "تم تحديث المبلغ المستحق للسائق بنجاح",
+      "update_driver_due_amount_failed": "فشل في تحديث المبلغ المستحق للسائق",
+
+      "cancel_order": "تم إلغاء الطلب بنجاح",
+      "cancel_order_failed": "فشل في إلغاء الطلب"
     },
 
     "Stock": {
