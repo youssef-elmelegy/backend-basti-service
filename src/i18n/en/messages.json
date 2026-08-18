@@ -508,11 +508,44 @@
     },
 
     "driver": {
+      "find_all": "Drivers retrieved successfully",
+      "find_all_failed": "Failed to retrieve drivers",
+      "find_one": "Driver retrieved successfully",
+      "find_one_failed": "Failed to retrieve driver",
+
+      "no_delivered_orders": "No delivered orders found",
+
+      "create_report": "Report created successfully",
+      "create_report_failed": "Failed to create report",
+
+      "delete_report": "Report deleted successfully",
+      "delete_report_failed": "Failed to delete report",
+
+      "get_all_reports": "Reports retrieved successfully",
+      "get_all_reports_failed": "Failed to retrieve reports",
+
+      "get_all_orders": "Driver orders retrieved successfully",
+      "get_all_orders_failed": "Failed to retrieve driver orders",
+
       "not_found": "Driver not found",
       "blocked": "This driver is blocked and cannot be assigned orders",
 
-      "orders_retrieved": "Driver orders retrieved successfully",
-      "failed_list": "Failed to retrieve driver orders"
+      "order_not_found": "Order not found",
+      "order_not_assigned_to_driver": "Order is not assigned to this driver",
+      "assignment_missing": "Driver assignment missing",
+      "accept_invalid_state": "Order cannot be accepted in this state",
+
+      "accept_order": "Order accepted successfully",
+      "accept_order_failed": "Failed to accept order",
+
+      "refuse_order": "Order refused successfully",
+      "refuse_order_failed": "Failed to refuse order",
+
+      "update_driver_due_amount": "Driver due amount updated successfully",
+      "update_driver_due_amount_failed": "Failed to update driver due amount",
+
+      "cancel_order": "Order cancelled successfully",
+      "cancel_order_failed": "Failed to cancel order"
     },
 
     "Stock": {
