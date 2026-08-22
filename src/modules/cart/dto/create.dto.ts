@@ -110,6 +110,15 @@ export class CustomCakeConfigDto {
   @IsUrl()
   imageToPrint?: string;
 
+  @ApiProperty({
+    description: "Type of printing: 'paper' or 'suger'",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['paper', 'suger'])
+  printingType?: 'paper' | 'suger';
+
   @ApiProperty({ description: 'Cloudinary URL for the front snapshot', required: false })
   @IsOptional()
   @IsUrl()
