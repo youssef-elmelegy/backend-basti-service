@@ -14,6 +14,10 @@ export const chefs = pgTable(
       .references(() => bakeries.id, { onDelete: 'cascade' }),
 
     fullName: varchar('full_name', { length: 255 }).notNull(),
+    fullNameObj: jsonb('full_name_obj')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     image: text('image'),
     specialization: jsonb('specialization')
       .$type<TranslationObject>()
