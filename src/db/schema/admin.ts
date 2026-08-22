@@ -7,11 +7,11 @@ import {
   text,
   index,
   decimal,
-  jsonb,
+  // jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { adminRoleEnum, bakeries, languageEnum, notifications, orders, regions, reports } from '.';
-import { DEFAULT_TRANSLATION_OBJECT, TranslationObject } from '@/types/translation.types';
+// import { DEFAULT_TRANSLATION_OBJECT, TranslationObject } from '@/types/translation.types';
 
 export const admins = pgTable(
   'admins',
@@ -20,10 +20,10 @@ export const admins = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: varchar('name', { length: 255 }),
-    nameObj: jsonb('name_obj')
-      .$type<TranslationObject>()
-      .default(DEFAULT_TRANSLATION_OBJECT)
-      .notNull(),
+    // nameObj: jsonb('name_obj')
+    //   .$type<TranslationObject>()
+    //   .default(DEFAULT_TRANSLATION_OBJECT)
+    //   .notNull(),
     email: varchar('email', { length: 255 }).unique().notNull(),
     password: varchar('password', { length: 255 }).notNull(),
     role: adminRoleEnum('role').default('admin').notNull(),
