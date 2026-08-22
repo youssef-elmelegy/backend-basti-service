@@ -1,4 +1,13 @@
-import { pgTable, varchar, boolean, timestamp, uuid, text, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  varchar,
+  boolean,
+  timestamp,
+  uuid,
+  text,
+  index,
+  // jsonb,
+} from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import {
   languageEnum,
@@ -11,6 +20,7 @@ import {
   couponUsages,
   reports,
 } from '.';
+// import { DEFAULT_TRANSLATION_OBJECT, TranslationObject } from '@/types/translation.types';
 
 export const users = pgTable(
   'users',
@@ -19,7 +29,15 @@ export const users = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     firstName: varchar('first_name', { length: 100 }).notNull(),
+    // firstNameObj: jsonb('first_name_obj')
+    //   .$type<TranslationObject>()
+    //   .default(DEFAULT_TRANSLATION_OBJECT)
+    //   .notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
+    // lastNameObj: jsonb('last_name_obj')
+    //   .$type<TranslationObject>()
+    //   .default(DEFAULT_TRANSLATION_OBJECT)
+    //   .notNull(),
     email: varchar('email', { length: 255 }).unique().notNull(),
     isEmailVerified: boolean('is_email_verified').default(false).notNull(),
     phoneNumber: varchar('phone_number', { length: 20 }),
