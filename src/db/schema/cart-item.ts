@@ -36,6 +36,7 @@ export const cartItems = pgTable(
       }[];
       message?: string;
       imageToPrint?: string;
+      printingType?: 'paper' | 'suger';
       snapshotFront?: string;
       snapshotTop?: string;
       snapshotSliced?: string;
