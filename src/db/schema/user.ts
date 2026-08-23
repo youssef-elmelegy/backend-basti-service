@@ -32,7 +32,15 @@ export const users = pgTable(
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)
       .notNull(),
+    firstNameObj: jsonb('first_name_obj')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     lastName: jsonb('last_name')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
+    lastNameObj: jsonb('last_name_obj')
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)
       .notNull(),

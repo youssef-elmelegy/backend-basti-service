@@ -20,6 +20,10 @@ export const admins = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    nameObj: jsonb('name_obj')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     email: varchar('email', { length: 255 }).unique().notNull(),
     password: varchar('password', { length: 255 }).notNull(),
     role: adminRoleEnum('role').default('admin').notNull(),

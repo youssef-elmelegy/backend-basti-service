@@ -17,6 +17,10 @@ export const chefs = pgTable(
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)
       .notNull(),
+    fullNameObj: jsonb('name_obj')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     image: text('image'),
     specialization: jsonb('specialization')
       .$type<TranslationObject>()
