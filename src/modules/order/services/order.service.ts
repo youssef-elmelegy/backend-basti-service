@@ -137,7 +137,15 @@ export class OrderService {
         );
       }
 
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db
+        .select({
+          ...getTableColumns(users),
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
       if (!user) {
         this.logger.warn(`User not found`);
