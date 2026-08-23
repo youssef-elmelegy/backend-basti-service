@@ -19,7 +19,7 @@ export const admins = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    name: varchar('name', { length: 255 }),
+    name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
     nameObj: jsonb('name_obj')
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)

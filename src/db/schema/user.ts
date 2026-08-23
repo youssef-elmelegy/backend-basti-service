@@ -28,12 +28,18 @@ export const users = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    firstName: varchar('first_name', { length: 100 }).notNull(),
+    firstName: jsonb('first_name')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     firstNameObj: jsonb('first_name_obj')
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)
       .notNull(),
-    lastName: varchar('last_name', { length: 100 }).notNull(),
+    lastName: jsonb('last_name')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     lastNameObj: jsonb('last_name_obj')
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)

@@ -89,7 +89,7 @@ export class DriverService {
       const drivers = await db
         .select({
           id: admins.id,
-          name: admins.name,
+          name: this.translationService.getLocalized(admins.name, 'name'),
           email: admins.email,
           role: admins.role,
           phoneNumber: admins.phoneNumber,
@@ -130,7 +130,14 @@ export class DriverService {
 
   async findOne(id: string): Promise<SuccessResponse<DriverDataDto>> {
     try {
-      const [driver] = await db.select().from(admins).where(eq(admins.id, id)).limit(1);
+      const [driver] = await db
+        .select({
+          ...getTableColumns(admins),
+          name: this.translationService.getLocalized(admins.name, 'name'),
+        })
+        .from(admins)
+        .where(eq(admins.id, id))
+        .limit(1);
 
       if (!driver) {
         return successResponse(null as any, 'routes.driver.not_found', HttpStatus.NOT_FOUND);
@@ -216,7 +223,18 @@ export class DriverService {
       const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       const rows = await db
-        .select({ report: reports, user: users, driver: admins })
+        .select({
+          report: reports,
+          user: {
+            ...getTableColumns(users),
+            firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+            lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+          },
+          driver: {
+            ...getTableColumns(admins),
+            name: this.translationService.getLocalized(admins.name, 'name'),
+          },
+        })
         .from(reports)
         .innerJoin(users, eq(reports.userId, users.id))
         .innerJoin(admins, eq(reports.driverId, admins.id))
@@ -281,7 +299,14 @@ export class DriverService {
       const total = typeof count === 'string' ? parseInt(count, 10) : count;
 
       const rows = await db
-        .select({ report: reports, user: users })
+        .select({
+          report: reports,
+          user: {
+            ...getTableColumns(users),
+            firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+            lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+          },
+        })
         .from(reports)
         .innerJoin(users, eq(reports.userId, users.id))
         .where(where)
@@ -343,6 +368,7 @@ export class DriverService {
           userData: orders.userData,
           locationData: orders.locationData,
           willDeliverAt: orders.willDeliverAt,
+          wantedDeliveryTimeSlot: orders.wantedDeliveryTimeSlot,
           createdAt: orders.createdAt,
           updatedAt: orders.updatedAt,
           bakeryData: {
@@ -417,6 +443,7 @@ export class DriverService {
           userData: orders.userData,
           locationData: orders.locationData,
           willDeliverAt: orders.willDeliverAt,
+          wantedDeliveryTimeSlot: orders.wantedDeliveryTimeSlot,
           createdAt: orders.createdAt,
           updatedAt: orders.updatedAt,
         })
@@ -472,7 +499,7 @@ export class DriverService {
         .select({
           id: admins.id,
           role: admins.role,
-          name: admins.name,
+          name: this.translationService.getLocalized(admins.name, 'name'),
           profileImage: admins.profileImage,
           phoneNumber: admins.phoneNumber,
         })
@@ -598,7 +625,7 @@ export class DriverService {
         .where(eq(admins.id, id))
         .returning({
           id: admins.id,
-          name: admins.name,
+          name: this.translationService.getLocalized(admins.name, 'name'),
           email: admins.email,
           role: admins.role,
           phoneNumber: admins.phoneNumber,

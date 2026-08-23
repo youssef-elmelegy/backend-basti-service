@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { admins, bakeries, orders } from '@/db/schema';
 import { env } from '@/env';
-import { eq, sql } from 'drizzle-orm';
+import { eq, getTableColumns, sql, desc } from 'drizzle-orm';
 import {
   AdminLoginDto,
   AdminForgotPasswordDto,
@@ -51,9 +51,18 @@ export class AdminAuthService {
   async login(loginDto: AdminLoginDto, isMobileClient: boolean) {
     const { email, password } = loginDto;
 
-    const admin = await db.query.admins.findFirst({
-      where: eq(admins.email, email),
-    });
+    // const admin = await db.query.admins.findFirst({
+    //   where: eq(admins.email, email),
+    // });
+
+    const [admin] = await db
+      .select({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      })
+      .from(admins)
+      .where(eq(admins.email, email))
+      .limit(1);
 
     if (!admin) {
       throw new UnauthorizedException('routes.auth.invalid_credentials');
@@ -303,9 +312,18 @@ export class AdminAuthService {
   }
 
   async getAdminById(adminId: string) {
-    const admin = await db.query.admins.findFirst({
-      where: eq(admins.id, adminId),
-    });
+    // const admin = await db.query.admins.findFirst({
+    //   where: eq(admins.id, adminId),
+    // });
+
+    const [admin] = await db
+      .select({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      })
+      .from(admins)
+      .where(eq(admins.id, adminId))
+      .limit(1);
 
     if (!admin) {
       throw new NotFoundException('routes.admin.not_found');
@@ -398,10 +416,12 @@ export class AdminAuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const nameObject = await this.translationService.getTranslationObject(name || '');
+
     const [newAdmin] = await db
       .insert(admins)
       .values({
-        name,
+        name: nameObject,
         phoneNumber,
         email,
         password: hashedPassword,
@@ -432,9 +452,19 @@ export class AdminAuthService {
   async blockAdmin(adminId: string, blockAdminDto: BlockAdminDto) {
     const { isBlocked } = blockAdminDto;
     // Check if admin exists
-    const admin = await db.query.admins.findFirst({
-      where: eq(admins.id, adminId),
-    });
+
+    // const admin = await db.query.admins.findFirst({
+    //   where: eq(admins.id, adminId),
+    // });
+
+    const [admin] = await db
+      .select({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      })
+      .from(admins)
+      .where(eq(admins.id, adminId))
+      .limit(1);
 
     if (!admin) {
       throw new NotFoundException('routes.admin.not_found');
@@ -447,7 +477,10 @@ export class AdminAuthService {
         blockedAt: isBlocked ? new Date() : null,
       })
       .where(eq(admins.id, adminId))
-      .returning();
+      .returning({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      });
 
     return successResponse(
       {
@@ -481,7 +514,10 @@ export class AdminAuthService {
     }
 
     const updateData: Record<string, unknown> = {};
-    if (name !== undefined) updateData.name = name;
+    if (name !== undefined) {
+      const nameObject = await this.translationService.getTranslationObject(name);
+      updateData.name = nameObject;
+    }
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (role !== undefined) updateData.role = role;
     if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
@@ -492,7 +528,10 @@ export class AdminAuthService {
       .update(admins)
       .set(updateData)
       .where(eq(admins.id, adminId))
-      .returning();
+      .returning({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      });
 
     return successResponse(
       {
@@ -616,11 +655,21 @@ export class AdminAuthService {
     const totalPages = Math.ceil(total / limit);
     const offset = (page - 1) * limit;
 
-    const adminsList = await db.query.admins.findMany({
-      limit,
-      offset,
-      orderBy: (adminColumns, { desc }) => [desc(adminColumns.createdAt)],
-    });
+    // const adminsList = await db.query.admins.findMany({
+    //   limit,
+    //   offset,
+    //   orderBy: (adminColumns, { desc }) => [desc(adminColumns.createdAt)],
+    // });
+
+    const adminsList = await db
+      .select({
+        ...getTableColumns(admins),
+        name: this.translationService.getLocalized(admins.name, 'name'),
+      })
+      .from(admins)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(admins.createdAt));
 
     const formattedAdmins = adminsList.map((admin) => ({
       id: admin.id,

@@ -21,12 +21,16 @@ import {
 } from '../dto';
 import { PaginationDto } from '@/common/dto';
 import { NotificationService } from '@/modules/notification/services/notification.service';
+import { TranslationService } from '@/common';
 
 @Injectable()
 export class ReviewService {
   private readonly logger = new Logger(ReviewService.name);
 
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly translationService: TranslationService,
+  ) {}
 
   async create(userId: string, createDto: CreateReviewDto): Promise<ReviewResponseDto> {
     try {
@@ -230,8 +234,8 @@ export class ReviewService {
           reviewText: reviews.reviewText,
           createdAt: reviews.createdAt,
           updatedAt: reviews.updatedAt,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
           profileImage: users.profileImage,
         })
         .from(reviews)

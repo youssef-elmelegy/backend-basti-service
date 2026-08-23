@@ -13,7 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { db } from '@/db';
 import { users, orders, reviews, couponUsages } from '@/db/schema';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, getTableColumns, ne } from 'drizzle-orm';
 import { DELETED_USER } from '@/constants/global.constants';
 import { env } from '@/env';
 import {
@@ -32,6 +32,8 @@ import {
 import { errorResponse, successResponse, SuccessResponse } from '@/utils';
 import { EmailService } from '@/common/services/email.service';
 import { sign } from 'jsonwebtoken';
+import { TranslationService } from '@/common';
+import { TranslationObject } from '@/types/translation.types';
 
 export interface SignupResponse {
   message: string;
@@ -88,6 +90,7 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private readonly translationService: TranslationService,
   ) {}
 
   /**
@@ -109,14 +112,17 @@ export class AuthService {
     const otp = this.emailService.generateOtp();
     const otpExpiresAt = this.emailService.getOtpExpirationTime();
 
+    const firstNameObject = await this.translationService.getTranslationObject(firstName);
+    const lastNameObject = await this.translationService.getTranslationObject(lastName);
+
     try {
       const [newUser] = await db
         .insert(users)
         .values({
           email,
           password: hashedPassword,
-          firstName,
-          lastName,
+          firstName: firstNameObject,
+          lastName: lastNameObject,
           isEmailVerified: false,
           otpCode: otp,
           otpExpiresAt,
@@ -157,7 +163,15 @@ export class AuthService {
   async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<SuccessResponse<VerifyOtpResponse>> {
     const { email, otp } = verifyOtpDto;
 
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const [user] = await db
+      .select({
+        ...getTableColumns(users),
+        firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+        lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+      })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
     if (!user) {
       this.logger.warn(`OTP verification failed: User not found - ${email}`);
@@ -289,7 +303,15 @@ export class AuthService {
 
       this.logger.log(`Profile setup completed for user: ${userId}`);
 
-      const [updatedUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [updatedUser] = await db
+        .select({
+          ...getTableColumns(users),
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
       const tokens = this.generateTokens(updatedUser.id, updatedUser.email);
 
@@ -330,7 +352,15 @@ export class AuthService {
   async resendOtp(resendOtpDto: ResendOtpDto): Promise<SuccessResponse<SignupResponse>> {
     const { email } = resendOtpDto;
 
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const [user] = await db
+      .select({
+        ...getTableColumns(users),
+        firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+        lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+      })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
     if (!user) {
       this.logger.warn(`OTP resend failed: User not found - ${email}`);
@@ -422,7 +452,15 @@ export class AuthService {
   ): Promise<SuccessResponse<AuthResponse | ProfileSetupRequiredResponse>> {
     const { email, password } = loginDto;
 
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const [user] = await db
+      .select({
+        ...getTableColumns(users),
+        firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+        lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+      })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
     if (!user) {
       this.logger.warn(`Login failed: User not found - ${email}`);
@@ -653,9 +691,19 @@ export class AuthService {
     email: string,
   ): Promise<SuccessResponse<{ message: string; email: string }>> {
     try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.email, email),
-      });
+      // const user = await db.query.users.findFirst({
+      //   where: eq(users.email, email),
+      // });
+
+      const [user] = await db
+        .select({
+          ...getTableColumns(users),
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+        })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
 
       if (!user) {
         this.logger.warn(`Forgot password request for non-existent email: ${email}`);
@@ -864,7 +912,15 @@ export class AuthService {
    */
   async getProfile(userId: string): Promise<SuccessResponse<GetProfileResponseDto>> {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db
+        .select({
+          ...getTableColumns(users),
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
       if (!user) {
         this.logger.warn(`Get profile failed: User not found - ${userId}`);
@@ -909,7 +965,15 @@ export class AuthService {
     updateProfileDto: UpdateProfileDto,
   ): Promise<SuccessResponse<UpdateProfileResponseDto>> {
     try {
-      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db
+        .select({
+          ...getTableColumns(users),
+          firstName: this.translationService.getLocalized(users.firstName, 'firstName'),
+          lastName: this.translationService.getLocalized(users.lastName, 'lastName'),
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
       if (!user) {
         this.logger.warn(`Update profile failed: User not found - ${userId}`);
@@ -919,15 +983,23 @@ export class AuthService {
       }
 
       const updateData: Partial<{
-        firstName: string;
-        lastName: string;
+        firstName: TranslationObject;
+        lastName: TranslationObject;
         phoneNumber: string;
         profileImage: string;
         updatedAt: Date;
       }> = { updatedAt: new Date() };
 
-      if (updateProfileDto.firstName) updateData.firstName = updateProfileDto.firstName;
-      if (updateProfileDto.lastName) updateData.lastName = updateProfileDto.lastName;
+      if (updateProfileDto.firstName) {
+        updateData.firstName = await this.translationService.getTranslationObject(
+          updateProfileDto.firstName,
+        );
+      }
+      if (updateProfileDto.lastName) {
+        updateData.lastName = await this.translationService.getTranslationObject(
+          updateProfileDto.lastName,
+        );
+      }
       if (updateProfileDto.phoneNumber) updateData.phoneNumber = updateProfileDto.phoneNumber;
       if (updateProfileDto.profileImage) updateData.profileImage = updateProfileDto.profileImage;
 
