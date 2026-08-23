@@ -39,14 +39,15 @@ export class ChefService {
       );
     }
 
+    const fullNameObject = await this.translationService.getTranslationObject(name);
     const specializationObject = await this.translationService.getTranslationObject(specialization);
-    const bioObject = await this.translationService.getTranslationObject(bio);
+    const bioObject = await this.translationService.getTranslationObject(bio || '');
 
     try {
       const [newChef] = await db
         .insert(chefs)
         .values({
-          fullName: name,
+          fullName: fullNameObject,
           specialization: specializationObject,
           image,
           bio: bioObject,
@@ -54,6 +55,7 @@ export class ChefService {
         })
         .returning({
           ...getTableColumns(chefs),
+          fullName: this.translationService.getLocalized(chefs.fullName, 'fullName'),
           specialization: this.translationService.getLocalized(
             chefs.specialization,
             'specialization',
@@ -196,7 +198,7 @@ export class ChefService {
     const updateData: Record<string, any> = {};
 
     if (name !== undefined) {
-      updateData.fullName = name;
+      updateData.fullName = await this.translationService.getTranslationObject(name);
     }
     if (specialization !== undefined) {
       updateData.specialization =
@@ -369,6 +371,7 @@ export class ChefService {
     const [chef] = await db
       .select({
         ...getTableColumns(chefs),
+        fullName: this.translationService.getLocalized(chefs.fullName, 'fullName'),
         specialization: this.translationService.getLocalized(
           chefs.specialization,
           'specialization',

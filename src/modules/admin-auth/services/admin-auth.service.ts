@@ -513,7 +513,7 @@ export class AdminAuthService {
       throw new NotFoundException('routes.admin.not_found');
     }
 
-    const updateData: Record<any, unknown> = {};
+    const updateData: Record<string, unknown> = {};
     if (name !== undefined) {
       const nameObject = await this.translationService.getTranslationObject(name);
       updateData.name = nameObject;
