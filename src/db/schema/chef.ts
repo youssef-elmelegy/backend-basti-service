@@ -1,4 +1,4 @@
-import { pgTable, varchar, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, timestamp, uuid, text, index, jsonb } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
 import { bakeries } from '.';
 import { TranslationObject, DEFAULT_TRANSLATION_OBJECT } from '@/types/translation.types';
@@ -13,8 +13,7 @@ export const chefs = pgTable(
       .notNull()
       .references(() => bakeries.id, { onDelete: 'cascade' }),
 
-    fullName: varchar('full_name', { length: 255 }).notNull(),
-    fullNameObj: jsonb('name_obj')
+    fullName: jsonb('full_name')
       .$type<TranslationObject>()
       .default(DEFAULT_TRANSLATION_OBJECT)
       .notNull(),
