@@ -36,6 +36,7 @@ export class CreateOrderItemResponseDto {
     shapeId: string;
     flavorId: string;
     decorationId: string;
+    printingType?: 'paper' | 'suger';
     color: {
       name: string;
       hex: string;
