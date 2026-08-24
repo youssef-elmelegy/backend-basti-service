@@ -190,8 +190,8 @@ export class FinancialsService {
           bastiPercentage: parseFloat(order.bastiPercentage) || 0,
           bastiAmount: bastiAmount * factor,
           bakeryAmount: (parseFloat(order.bakeryAmount) || 0) * factor,
-          deliveryAmount: order.deliveryAmount * factor, // total delivery price
-          bastiDeliveryAmount: order.bastiDeliveryAmount * factor, // basti delivery price share
+          deliveryAmount: order.deliveryAmount, // total delivery price
+          bastiDeliveryAmount: order.bastiDeliveryAmount, // basti delivery price share
           gatewayName, // 'masarat' | 'tadawul' | '' (cash/wallet/unknown)
           gatewayFee, // finalPrice * rate; deducted from Basti's share
           totalPrice: parseFloat(order.totalPrice) || 0,
