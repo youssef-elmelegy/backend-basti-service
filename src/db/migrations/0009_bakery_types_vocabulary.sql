@@ -29,6 +29,12 @@ WHERE "bakery_types" @> '["large_cakes"]';
 --    CHECK constraints cannot contain subqueries, so the element test is phrased
 --    with the jsonb containment operator: the full set of allowed values must
 --    contain every element actually present.
+--
+--    The DROP ... IF EXISTS makes the ADD idempotent: without it, re-running
+--    this migration aborts with "constraint ... already exists" and takes the
+--    whole `drizzle-kit migrate` run down with it. Same treatment as the
+--    gallery constraint in migration 0011.
+ALTER TABLE "bakeries" DROP CONSTRAINT IF EXISTS "bakeries_bakery_types_vocabulary";--> statement-breakpoint
 ALTER TABLE "bakeries"
 ADD CONSTRAINT "bakeries_bakery_types_vocabulary" CHECK (
   jsonb_typeof("bakery_types") = 'array'

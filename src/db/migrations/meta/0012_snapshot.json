@@ -632,8 +632,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "name_obj": {
-          "name": "name_obj",
+        "full_name_obj": {
+          "name": "full_name_obj",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
