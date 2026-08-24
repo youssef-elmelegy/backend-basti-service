@@ -106,7 +106,17 @@ export class ChefService {
       const sortOrder = sort.order === 'desc' ? desc : asc;
 
       const query = db
-        .select({ chef: chefs })
+        .select({
+          chef: {
+            ...getTableColumns(chefs),
+            fullName: this.translationService.getLocalized(chefs.fullName, 'fullName'),
+            specialization: this.translationService.getLocalized(
+              chefs.specialization,
+              'specialization',
+            ),
+            bio: this.translationService.getLocalized(chefs.bio, 'bio'),
+          },
+        })
         .from(chefs)
         .innerJoin(bakeries, eq(chefs.bakeryId, bakeries.id));
 
@@ -154,7 +164,19 @@ export class ChefService {
   }
 
   async findOne(id: string): Promise<SuccessResponse<ChefResponse>> {
-    const [chef] = await db.select().from(chefs).where(eq(chefs.id, id)).limit(1);
+    const [chef] = await db
+      .select({
+        ...getTableColumns(chefs),
+        fullName: this.translationService.getLocalized(chefs.fullName, 'fullName'),
+        specialization: this.translationService.getLocalized(
+          chefs.specialization,
+          'specialization',
+        ),
+        bio: this.translationService.getLocalized(chefs.bio, 'bio'),
+      })
+      .from(chefs)
+      .where(eq(chefs.id, id))
+      .limit(1);
 
     if (!chef) {
       this.logger.warn(`Chef not found: ${id}`);
