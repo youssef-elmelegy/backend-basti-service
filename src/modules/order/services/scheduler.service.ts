@@ -6,12 +6,14 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import duration from 'dayjs/plugin/duration';
 import { ConfigResponseDto } from '@/modules/config/dto';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+dayjs.extend(duration);
 
 @Injectable()
 export class SchedulerService {
@@ -38,6 +40,7 @@ export class SchedulerService {
       details: '',
       nearestDeliveryDate: res.nearestDeliveryDate,
       timeSlotRange: res.timeSlotRange,
+      timezoneOffset: res.timezoneOffset,
       configs: config,
     };
   }
@@ -85,6 +88,7 @@ export class SchedulerService {
   ): Promise<{
     nearestDeliveryDate: Date;
     timeSlotRange: { from: string; to: string };
+    timezoneOffset: string;
   }> {
     const config = conf ?? (await this.configService.get());
 
@@ -94,19 +98,25 @@ export class SchedulerService {
     }
 
     const now = dayjs().tz(this.STORE_TIMEZONE);
-    const deliveryDate = now.clone();
+    let deliveryDate = now.clone();
+
+    // default the delivery date to the opening hour of the current day
+    deliveryDate = deliveryDate
+      .set('hour', config.openingHour)
+      .set('minute', 0)
+      .set('second', 0)
+      .set('millisecond', 0);
 
     // add the universal minimum preparation hours
-    deliveryDate.add(config.minHoursToPrepare, 'hour');
-
+    deliveryDate = deliveryDate.add(config.minHoursToPrepare, 'hour');
     // add the order's minimum preparation hours
-    deliveryDate.add(minPrepHours, 'hour');
+    deliveryDate = deliveryDate.add(minPrepHours, 'hour');
 
     // set to the delivery date if possible
     if (wantedDeliveryDate) {
       const requestedDate = dayjs.tz(wantedDeliveryDate, this.STORE_TIMEZONE);
       if (requestedDate.isValid() && requestedDate.isSameOrAfter(deliveryDate, 'day')) {
-        deliveryDate
+        deliveryDate = deliveryDate
           .set('year', requestedDate.year())
           .set('month', requestedDate.month())
           .set('date', requestedDate.date());
@@ -116,15 +126,15 @@ export class SchedulerService {
     // check if the delivery date's hour is within working hours:
     // if before opening hour, set to opening hour,
     // else if after closing hour, set to next day's opening hour
-    if (deliveryDate.hour() > config.closingHour) {
-      deliveryDate.add(1, 'day');
-      deliveryDate
+    if (deliveryDate.hour() >= config.closingHour) {
+      deliveryDate = deliveryDate.add(1, 'day');
+      deliveryDate = deliveryDate
         .set('hour', config.openingHour)
         .set('minute', 0)
         .set('second', 0)
         .set('millisecond', 0);
     } else if (deliveryDate.hour() < config.openingHour) {
-      deliveryDate
+      deliveryDate = deliveryDate
         .set('hour', config.openingHour)
         .set('minute', 0)
         .set('second', 0)
@@ -136,12 +146,12 @@ export class SchedulerService {
       const currentHour = deliveryDate.hour();
       const requestedHour = parseInt(wantedDeliveryTimeSlot.from);
       if (requestedHour >= currentHour && this.isWithinWorkingHours(requestedHour, config)) {
-        deliveryDate.set('hour', requestedHour);
+        deliveryDate = deliveryDate.set('hour', requestedHour);
       }
     }
 
     while (this.isClosedDay(deliveryDate, config)) {
-      deliveryDate
+      deliveryDate = deliveryDate
         .add(1, 'day')
         .set('hour', config.openingHour)
         .set('minute', 0)
@@ -154,13 +164,18 @@ export class SchedulerService {
       to: config.closingHour.toString(),
     };
 
-    // set hour part in the date to 0 to avoid confusion when returning time slot range in the response,
+    // set hour part in the date to 'openingHour' to avoid confusion when returning time slot range in the response,
     // as the time slot range is already provided separately
-    deliveryDate.set('hour', 0);
+    deliveryDate = deliveryDate
+      .set('hour', config.openingHour)
+      .set('minute', 0)
+      .set('second', 0)
+      .set('millisecond', 0);
 
     return {
       nearestDeliveryDate: deliveryDate.toDate(),
       timeSlotRange,
+      timezoneOffset: deliveryDate.format('Z'),
     };
   }
 

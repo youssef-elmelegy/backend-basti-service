@@ -529,9 +529,11 @@ export class GetDeliveryDateDto {
     description: 'Type of item to add',
     example: 'big_cakes',
     enum: allowedTypes,
+    required: false,
   })
+  @IsOptional()
   @IsIn(allowedTypes, { message: `Type must be one of: ${allowedTypes.join(', ')}` })
-  type!: ItemType;
+  type?: ItemType;
 
   @ApiProperty({
     description: 'Number of the featured cakes in the order',
