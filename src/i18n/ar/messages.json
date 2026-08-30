@@ -758,7 +758,8 @@
       "api_operational": "واجهة برمجة التطبيقات (API) تعمل بشكل طبيعي",
       "server_running": "الخادم يعمل بشكل طبيعي",
       "auth_check_completed": "اكتمل التحقق من المصادقة",
-      "no_fields_to_update": "لم يتم تقديم أي حقول لتحديثها"
+      "no_fields_to_update": "لم يتم تقديم أي حقول لتحديثها",
+      "store_is_closed": "المتجر مغلق حالياً. يرجى المحاولة لاحقاً."
     },
 
     "validation": {

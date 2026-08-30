@@ -363,9 +363,9 @@ export class OrderService {
         totalPrice += liveConfig.cardPrice;
       }
 
-      const willDeliverAt = await this.schedulerService.calculateTheExpectedDeliveryTime(
-        type,
+      const deliveryData = await this.schedulerService.calculateTheExpectedDeliveryTime(
         wantedDeliveryDate,
+        wantedDeliveryTimeSlot,
         requiredMinPrepHours,
       );
 
@@ -438,8 +438,8 @@ export class OrderService {
             deliveryNote,
             keepAnonymous,
             recipientData,
-            wantedDeliveryDate: wantedDeliveryDate ? new Date(wantedDeliveryDate) : undefined,
-            wantedDeliveryTimeSlot: wantedDeliveryTimeSlot,
+            wantedDeliveryDate: deliveryData.nearestDeliveryDate,
+            wantedDeliveryTimeSlot: wantedDeliveryTimeSlot || deliveryData.timeSlotRange,
             totalPrice: totalPrice.toFixed(2),
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
@@ -453,7 +453,7 @@ export class OrderService {
 
             couponData: couponData || null,
             totalCapacity: totalCapacity || 0,
-            willDeliverAt: willDeliverAt,
+            willDeliverAt: deliveryData.nearestDeliveryDate,
             cartType: type,
             orderStatus: null,
           })

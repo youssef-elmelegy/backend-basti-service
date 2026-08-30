@@ -758,7 +758,8 @@
       "api_operational": "API is operational",
       "server_running": "Server is up and running",
       "auth_check_completed": "Authentication check completed",
-      "no_fields_to_update": "No fields provided to update"
+      "no_fields_to_update": "No fields provided to update",
+      "store_is_closed": "The store is currently closed. Please try again later."
     },
 
     "validation": {
