@@ -463,6 +463,12 @@ export class GetDeliveryDateResponseDto {
   })
   nearestDeliveryDate: Date;
 
+  @ApiProperty({ description: 'Time slot range (in 24-hour format)' })
+  timeSlotRange!: {
+    from: string;
+    to: string;
+  };
+
   @ApiProperty({
     description: 'Extra information / details on the delivery date',
     example: '',

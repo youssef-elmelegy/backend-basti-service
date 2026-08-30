@@ -364,4 +364,11 @@ export class OrderController {
     this.logger.debug(`order finalized: ${orderId}`);
     return successResponse(result, 'routes.orders.finalized');
   }
+
+  @Public()
+  @Get('time/current-time')
+  getCurrentTime() {
+    const result = this.schedulerService.getCurrentTime();
+    return successResponse(result, 'Timezone is set to Libya');
+  }
 }
