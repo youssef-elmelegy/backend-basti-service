@@ -463,6 +463,12 @@ export class GetDeliveryDateResponseDto {
   })
   nearestDeliveryDate: Date;
 
+  @ApiProperty({
+    description: `Store's timezone offset from UTC`,
+    example: '+02:00',
+  })
+  timezoneOffset: string;
+
   @ApiProperty({ description: 'Time slot range (in 24-hour format)' })
   timeSlotRange!: {
     from: string;
