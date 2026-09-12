@@ -813,15 +813,18 @@ export class ItemService {
         }
 
         // apply printing fee
+        // Printing type defaults to 'paper' whenever an image is supplied, so an
+        // omitted type can never make a printed cake free.
+        const printingType = customCake.imageToPrint
+          ? (customCake.printingType ?? 'paper')
+          : undefined;
+
         let printingFee = 0;
-        if (customCake.imageToPrint && customCake.printingType) {
+        if (printingType) {
           const appConfig = await this.configService.get();
 
-          if (customCake.printingType === 'paper') {
-            printingFee = appConfig.printingFee.normal;
-          } else if (customCake.printingType === 'suger') {
-            printingFee = appConfig.printingFee.suger;
-          }
+          printingFee =
+            printingType === 'suger' ? appConfig.printingFee.suger : appConfig.printingFee.normal;
 
           totalPrice += printingFee;
         }
@@ -867,7 +870,7 @@ export class ItemService {
           color,
           extraLayers: extraLayers ?? [],
           imageToPrint: customCake.imageToPrint ?? '',
-          printingType: customCake.printingType ?? undefined,
+          printingType,
           printingFee: printingFee ?? 0,
           snapshotFront: customCake.snapshotFront ?? '',
           snapshotTop: customCake.snapshotTop ?? '',
