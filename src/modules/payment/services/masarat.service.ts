@@ -33,8 +33,8 @@ export class MasaratService {
     this.logger.log(`Signing in to Masarat with bank: ${dto.bank}`);
 
     try {
-      const { data: res } = await firstValueFrom(
-        this.httpService.post<{ ok: boolean; json: any }>(`${env.MASARAT_URL}/Signin`, {
+      const { data } = await firstValueFrom(
+        this.httpService.post<MasaratSigninResponse>(`${env.MASARAT_URL}/Signin`, {
           userId,
           pin: env.MASARAT_PIN,
           providerId: env.MASARAT_PROVIDER_ID,
@@ -42,18 +42,10 @@ export class MasaratService {
         }),
       );
 
-      if (!res.ok) {
-        const err = (await res.json()) as unknown;
-        const description = JSON.stringify(err);
-        this.logger.error(`Failed to sign in to Masarat: ${description}`);
-        throw new InternalServerErrorException('routes.payment.failed_sign_in', description);
-      }
-
-      const data = (await res.json()) as MasaratSigninResponse;
-
       if (data.type !== 1) {
         const err = `Failed to sign in to Masarat: ${JSON.stringify(data)}`;
         this.logger.error(err);
+
         throw new InternalServerErrorException('routes.payment.failed_sign_in', err);
       }
 
