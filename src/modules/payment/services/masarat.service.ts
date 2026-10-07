@@ -17,11 +17,15 @@ import { orders } from '@/db/schema/order';
 import { eq } from 'drizzle-orm/sql/expressions/conditions';
 import { db } from '@/db';
 import { appConfig } from '@/db/schema';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class MasaratService {
   private readonly logger = new Logger(MasaratService.name);
   private static readonly DEFAULT_PAYMENT_FEE = 0.01; // 1% fee
+
+  constructor(private httpService: HttpService) {}
 
   async signin(dto: MasaratSigninDTO) {
     const userId =
@@ -29,18 +33,14 @@ export class MasaratService {
     this.logger.log(`Signing in to Masarat with bank: ${dto.bank}`);
 
     try {
-      const res = await fetch(`${env.MASARAT_URL}/Signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId,
+      const { data: res } = await firstValueFrom(
+        this.httpService.post<{ ok: boolean; json: any }>(`${env.MASARAT_URL}/Signin`, {
+          userId,
           pin: env.MASARAT_PIN,
           providerId: env.MASARAT_PROVIDER_ID,
           authUserType: 0,
         }),
-      });
+      );
 
       if (!res.ok) {
         const err = (await res.json()) as unknown;
@@ -60,7 +60,7 @@ export class MasaratService {
       this.logger.log(`Masarat sign in successful`);
       return successResponse(data, 'routes.payment.payment_signed_in');
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
+      handleErrorsAndThrow(error, 'routes.payment.failed_sign_in', this.logger);
     }
   }
 
@@ -111,7 +111,7 @@ export class MasaratService {
 
       return successResponse(data, 'routes.payment.payment_open_session');
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
+      handleErrorsAndThrow(error, 'routes.payment.failed_open_session', this.logger);
     }
   }
 
@@ -186,7 +186,7 @@ export class MasaratService {
 
       return successResponse(data, 'routes.payment.payment_complete_session');
     } catch (error) {
-      handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
+      handleErrorsAndThrow(error, 'routes.payment.failed_complete_session', this.logger);
     }
   }
 
