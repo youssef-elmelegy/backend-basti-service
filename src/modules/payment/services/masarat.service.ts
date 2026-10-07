@@ -72,28 +72,22 @@ export class MasaratService {
         throw new BadRequestException('routes.payment.order_already_paid');
       }
 
-      const res = await fetch(`${env.MASARAT_URL}/OpenSession`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: Number(order.finalPrice),
-          identityCard: cardNumber, // 9-digit number (10-digit for Trade and Development Bank)
-          transactionId: order.id,
-          onlineOperation: 1, // 1=Sell, 2=Recover
-        }),
-      });
-
-      if (!res.ok) {
-        const err = (await res.json()) as unknown;
-        const description = JSON.stringify(err);
-        this.logger.error(`Failed to open session with Masarat: ${description}`);
-        throw new InternalServerErrorException('routes.payment.failed_open_session', description);
-      }
-
-      const data = (await res.json()) as MasaratOpenSessionResponse;
+      const { data } = await firstValueFrom(
+        this.httpService.post<MasaratOpenSessionResponse>(
+          `${env.MASARAT_URL}/OpenSession`,
+          {
+            amount: Number(order.finalPrice),
+            identityCard: cardNumber,
+            transactionId: order.id,
+            onlineOperation: 1, // 1=Sell, 2=Recover
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
 
       if (data.type !== 1) {
         const err = `Failed to open session with Masarat: ${JSON.stringify(data)}`;
@@ -123,28 +117,19 @@ export class MasaratService {
         this.logger.warn('No config found, defaulting to 1% fee');
       }
 
-      const res = await fetch(`${env.MASARAT_URL}/CompleteSession`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          otp: otp,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = (await res.json()) as unknown;
-        const description = JSON.stringify(err);
-        this.logger.error(`Failed to complete session with Masarat: ${description}`);
-        throw new InternalServerErrorException(
-          'routes.payment.failed_complete_session',
-          description,
-        );
-      }
-
-      const data = (await res.json()) as MasaratCompleteSessionResponse;
+      const { data } = await firstValueFrom(
+        this.httpService.post<MasaratCompleteSessionResponse>(
+          `${env.MASARAT_URL}/CompleteSession`,
+          {
+            otp: otp,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        ),
+      );
 
       if (data.type !== 1) {
         if (data.type === 2) {
