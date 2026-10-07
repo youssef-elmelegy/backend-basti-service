@@ -111,8 +111,10 @@ export class CustomCakeConfigDto {
   imageToPrint?: string;
 
   @ApiProperty({
-    description: "Type of printing: 'paper' or 'suger'",
+    description:
+      "Type of printing: 'paper' or 'suger'. Defaults to 'paper' when an image to print is supplied.",
     required: false,
+    default: 'paper',
   })
   @IsOptional()
   @IsString()

@@ -76,7 +76,8 @@ const envSchema = z.object({
 
   // payment
   MASARAT_URL: z.string().url(),
-  MASARAT_USER_ID: z.string(),
+  MASARAT_TRADE_BANK_USER_ID: z.string(),
+  MASARAT_REPUBLIC_BANK_USER_ID: z.string(),
   MASARAT_PIN: z.string(),
   MASARAT_PROVIDER_ID: z.string(),
 

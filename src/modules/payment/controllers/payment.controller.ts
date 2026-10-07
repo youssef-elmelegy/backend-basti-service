@@ -62,7 +62,8 @@ export class PaymentController {
     @CurrentUser('sub') userId: string,
     @Body() { cardNumber }: MasaratOpenSessionDto,
   ) {
-    const data = await this.masaratService.signin();
+    const bankType = this.masaratService.getBankType(cardNumber);
+    const data = await this.masaratService.signin({ bank: bankType });
     return await this.masaratService.openSession(
       orderId,
       userId,
