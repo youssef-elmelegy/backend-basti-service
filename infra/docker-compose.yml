@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     env_file:
       - ../.env
+    volumes:
+      - /home/elmelegy/certs:/app/certs:ro
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
