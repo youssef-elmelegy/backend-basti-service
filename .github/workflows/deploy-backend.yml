@@ -82,6 +82,8 @@ jobs:
 
             MASARAT_URL=${{ secrets.MASARAT_URL }}
             MASARAT_USER_ID=${{ secrets.MASARAT_USER_ID }}
+            MASARAT_TRADE_BANK_USER_ID=${{ secrets.MASARAT_TRADE_BANK_USER_ID }}
+            MASARAT_REPUBLIC_BANK_USER_ID=${{ secrets.MASARAT_REPUBLIC_BANK_USER_ID }}
             MASARAT_PIN=${{ secrets.MASARAT_PIN }}
             MASARAT_PROVIDER_ID=${{ secrets.MASARAT_PROVIDER_ID }}
 
