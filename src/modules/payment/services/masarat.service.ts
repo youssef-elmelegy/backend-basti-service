@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { env } from '@/env';
 import {
+  MasaratSigninDTO,
   MasaratCompleteSessionResponse,
   MasaratOpenSessionResponse,
   MasaratSigninResponse,
@@ -22,7 +23,11 @@ export class MasaratService {
   private readonly logger = new Logger(MasaratService.name);
   private static readonly DEFAULT_PAYMENT_FEE = 0.01; // 1% fee
 
-  async signin() {
+  async signin(dto: MasaratSigninDTO) {
+    const userId =
+      dto.bank === 'trade' ? env.MASARAT_TRADE_BANK_USER_ID : env.MASARAT_REPUBLIC_BANK_USER_ID;
+    this.logger.log(`Signing in to Masarat with bank: ${dto.bank}`);
+
     try {
       const res = await fetch(`${env.MASARAT_URL}/Signin`, {
         method: 'POST',
@@ -30,7 +35,7 @@ export class MasaratService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: env.MASARAT_USER_ID,
+          userId: userId,
           pin: env.MASARAT_PIN,
           providerId: env.MASARAT_PROVIDER_ID,
           authUserType: 0,
@@ -183,5 +188,11 @@ export class MasaratService {
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.payment_initiated', this.logger);
     }
+  }
+
+  getBankType(cardNumber: string): 'trade' | 'republic' {
+    if (cardNumber.startsWith('33')) return 'trade';
+    else if (cardNumber.startsWith('11')) return 'republic';
+    else throw new BadRequestException('routes.payment.invalid_card_number');
   }
 }

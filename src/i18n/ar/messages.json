@@ -734,7 +734,9 @@
       "payment_session_completed": "تمت جلسة الدفع بنجاح",
       "failed_complete_session": "تعذر إكمال جلسة الدفع",
 
-      "order_already_paid": "تم دفع الطلب بالفعل"
+      "order_already_paid": "تم دفع الطلب بالفعل",
+
+      "invalid_card_number": "رقم البطاقة غير صحيح، يجب أن يبدأ برقم 33 أو 11"
     },
 
     "item_flags": {

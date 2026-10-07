@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Length } from 'class-validator';
 
 class ContentDto {
   @ApiProperty()
@@ -79,6 +79,18 @@ export class MasaratCompleteSessionResponse {
 
   @ApiProperty()
   content!: string;
+}
+
+export class MasaratSigninDTO {
+  @ApiProperty({
+    description: 'Trade and Development Bank or Republic Bank',
+    enum: ['trade', 'republic'],
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsEnum(['trade', 'republic'])
+  bank!: 'trade' | 'republic';
 }
 
 export class MasaratOpenSessionDto {
