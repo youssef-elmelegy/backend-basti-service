@@ -95,7 +95,7 @@ export class MasaratService {
         throw new InternalServerErrorException('routes.payment.failed_open_session', err);
       }
 
-      return successResponse(data, 'routes.payment.payment_open_session');
+      return successResponse(data, 'routes.payment.payment_session_opened');
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.failed_open_session', this.logger);
     }
@@ -161,7 +161,7 @@ export class MasaratService {
         })
         .where(eq(orders.id, orderId));
 
-      return successResponse(data, 'routes.payment.payment_complete_session');
+      return successResponse(data, 'routes.payment.payment_session_completed');
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.failed_complete_session', this.logger);
     }
