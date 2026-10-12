@@ -54,6 +54,14 @@ export const bakeries = pgTable(
 
     bakeryTypes: jsonb('bakery_types').notNull().$type<BakeryTypeValue[]>(),
 
+    // Commission rates are stored as whole percentages: 20 means 20%.
+    // Orders snapshot the selected rate at assignment time, so later bakery
+    // edits never rewrite historical financials.
+    bastiPercentage: decimal('basti_percentage', { precision: 5, scale: 2 }).notNull().default('0'),
+    miniCakePercentage: decimal('mini_cake_percentage', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+
     // Management-only free-text notes. Plain text rather than a TranslationObject
     // like `name`/`location_description`: these are internal memos written and
     // read by admins, so they must come back in the exact wording they were

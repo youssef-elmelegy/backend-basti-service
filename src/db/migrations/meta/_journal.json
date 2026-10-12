@@ -106,6 +106,20 @@
       "when": 1787837861824,
       "tag": "0015_repair_translation_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791745304861,
+      "tag": "0016_friendly_shinko_yamashiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791749683843,
+      "tag": "0017_many_shard",
+      "breakpoints": true
     }
   ]
 }

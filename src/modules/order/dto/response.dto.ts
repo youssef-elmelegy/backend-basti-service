@@ -386,6 +386,20 @@ export class UpdatedFeaturedCakeDto extends FeaturedCakeDataDto {
 
 export class OrderResponseDto extends OmitType(CreateOrderResponseDto, ['items'] as const) {
   @ApiProperty({
+    description: 'Current localized name of the assigned driver, for dispatch views',
+    required: false,
+    nullable: true,
+  })
+  assignedDriverName?: string | null;
+
+  @ApiProperty({
+    description: 'Current localized address of the assigned driver, for dispatch views',
+    required: false,
+    nullable: true,
+  })
+  assignedDriverAddress?: string | null;
+
+  @ApiProperty({
     description: 'List of addons in the order',
     type: [OrderItemResponseDto],
     example: [],

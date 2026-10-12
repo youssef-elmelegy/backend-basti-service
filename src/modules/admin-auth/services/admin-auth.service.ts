@@ -392,7 +392,7 @@ export class AdminAuthService {
   }
 
   async createAdmin(createAdminDto: CreateAdminDto) {
-    const { email, password, role, bakeryId, regionId, profileImage, name, phoneNumber } =
+    const { email, password, role, bakeryId, regionId, profileImage, name, address, phoneNumber } =
       createAdminDto;
 
     // Check if admin with email already exists
@@ -417,11 +417,13 @@ export class AdminAuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const nameObject = await this.translationService.getTranslationObject(name || '');
+    const addressObject = await this.translationService.getTranslationObject(address || '');
 
     const [newAdmin] = await db
       .insert(admins)
       .values({
         name: nameObject,
+        address: addressObject,
         phoneNumber,
         email,
         password: hashedPassword,
@@ -502,7 +504,7 @@ export class AdminAuthService {
   }
 
   async updateAdmin(adminId: string, updateAdminDto: UpdateAdminDto) {
-    const { role, bakeryId, regionId, profileImage, name, phoneNumber } = updateAdminDto;
+    const { role, bakeryId, regionId, profileImage, name, address, phoneNumber } = updateAdminDto;
 
     // Check if admin exists
     const admin = await db.query.admins.findFirst({
@@ -518,6 +520,10 @@ export class AdminAuthService {
       const nameObject = await this.translationService.getTranslationObject(name);
       updateData.name = nameObject;
     }
+    if (address !== undefined) {
+      const addressObject = await this.translationService.getTranslationObject(address);
+      updateData.address = addressObject;
+    }
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (role !== undefined) updateData.role = role;
     if (bakeryId !== undefined) updateData.bakeryId = bakeryId;
@@ -531,12 +537,14 @@ export class AdminAuthService {
       .returning({
         ...getTableColumns(admins),
         name: this.translationService.getLocalized(admins.name, 'name'),
+        address: this.translationService.getLocalized(admins.address, 'address'),
       });
 
     return successResponse(
       {
         id: updatedAdmin.id,
         name: updatedAdmin.name,
+        address: updatedAdmin.address || undefined,
         phoneNumber: updatedAdmin.phoneNumber,
         email: updatedAdmin.email,
         role: updatedAdmin.role,

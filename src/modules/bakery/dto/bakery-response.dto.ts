@@ -30,6 +30,18 @@ export class BakeryDataDto {
   types: string[];
 
   @ApiProperty({
+    description: 'Basti commission percentage for big-cake orders',
+    example: 20,
+  })
+  bastiPercentage: number;
+
+  @ApiProperty({
+    description: 'Basti commission percentage for mini/small-cake orders',
+    example: 10,
+  })
+  miniCakePercentage: number;
+
+  @ApiProperty({
     example: 'Closed for renovation until March.',
     nullable: true,
     description: 'Management-only free-text notes',

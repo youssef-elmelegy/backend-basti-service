@@ -1,0 +1,1 @@
+ALTER TABLE "admins" ADD COLUMN "address" jsonb DEFAULT '{"en":"","ar":""}'::jsonb NOT NULL;

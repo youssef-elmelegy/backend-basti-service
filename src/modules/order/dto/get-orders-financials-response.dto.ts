@@ -12,6 +12,9 @@ class OrderFinancialsRowDto {
   bastiAmount!: number;
 
   @ApiProperty()
+  bakeryAmount!: number;
+
+  @ApiProperty()
   deliveryAmount!: number;
 
   @ApiProperty()

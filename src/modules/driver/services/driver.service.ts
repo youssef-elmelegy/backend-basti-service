@@ -74,7 +74,12 @@ export class DriverService {
       if (query.q && query.q.trim()) {
         const term = buildSearchPattern(query.q);
         conditions.push(
-          or(ilike(admins.name, term), ilike(admins.email, term), ilike(admins.phoneNumber, term)),
+          or(
+            sql`${admins.name}::text ILIKE ${term}`,
+            ilike(admins.email, term),
+            ilike(admins.phoneNumber, term),
+            sql`${admins.address}::text ILIKE ${term}`,
+          ),
         );
       }
 
@@ -90,6 +95,7 @@ export class DriverService {
         .select({
           id: admins.id,
           name: this.translationService.getLocalized(admins.name, 'name'),
+          address: this.translationService.getLocalized(admins.address, 'address'),
           email: admins.email,
           role: admins.role,
           phoneNumber: admins.phoneNumber,
@@ -134,6 +140,7 @@ export class DriverService {
         .select({
           ...getTableColumns(admins),
           name: this.translationService.getLocalized(admins.name, 'name'),
+          address: this.translationService.getLocalized(admins.address, 'address'),
         })
         .from(admins)
         .where(eq(admins.id, id))
@@ -628,6 +635,7 @@ export class DriverService {
         .returning({
           id: admins.id,
           name: this.translationService.getLocalized(admins.name, 'name'),
+          address: this.translationService.getLocalized(admins.address, 'address'),
           email: admins.email,
           role: admins.role,
           phoneNumber: admins.phoneNumber,
@@ -713,6 +721,7 @@ export class DriverService {
   private mapDriverData(driver: {
     id: string;
     name: string | null;
+    address: string | null;
     email: string;
     role: 'super_admin' | 'admin' | 'manager' | 'driver';
     phoneNumber: string | null;
@@ -728,6 +737,7 @@ export class DriverService {
     return {
       id: driver.id,
       name: driver.name || undefined,
+      address: driver.address || undefined,
       email: driver.email,
       phoneNumber: driver.phoneNumber || undefined,
       dueAmount: Number(driver.dueAmount),

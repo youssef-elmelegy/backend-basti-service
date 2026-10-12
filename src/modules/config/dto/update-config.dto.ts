@@ -164,28 +164,6 @@ export class UpdateConfigDto {
   closureMessage?: string;
 
   @ApiProperty({
-    description: 'Basti percentage applied to orders (0-100)',
-    example: 20,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  bastiPercentage?: number;
-
-  @ApiProperty({
-    description: 'Mini cakes percentage applied to orders (0-100)',
-    example: 10,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  miniCakePercentage?: number;
-
-  @ApiProperty({
     description: 'Printing fees applied to orders',
     example: { normal: 10, suger: 20 },
     required: false,

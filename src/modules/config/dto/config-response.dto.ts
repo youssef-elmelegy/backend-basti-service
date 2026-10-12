@@ -61,18 +61,6 @@ export class ConfigResponseDto {
   closureMessage!: string;
 
   @ApiProperty({
-    description: 'Basti percentage applied to orders',
-    example: 0.2,
-  })
-  bastiPercentage!: number;
-
-  @ApiProperty({
-    description: 'Mini cake percentage applied to orders',
-    example: 0.1,
-  })
-  miniCakePercentage!: number;
-
-  @ApiProperty({
     description: 'Printing fees applied to orders',
     example: { normal: 10, suger: 20 },
   })

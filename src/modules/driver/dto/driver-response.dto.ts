@@ -11,6 +11,13 @@ export class DriverDataDto {
   name?: string;
 
   @ApiProperty({
+    example: 'Benghazi, Libya',
+    description: 'Localized driver address',
+    required: false,
+  })
+  address?: string;
+
+  @ApiProperty({
     example: 'driver@example.com',
     description: 'Driver email address',
   })

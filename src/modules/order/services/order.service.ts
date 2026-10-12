@@ -352,10 +352,9 @@ export class OrderService {
         });
       }
 
-      // Snapshot pricing config at order time so financial reports reflect the
-      // config that was in effect when the order was placed, not the column defaults.
-      // Note: config stores bastiPercentage as 0-100 while the order column (and the
-      // financials calc) expect a 0-1 fraction, so we divide by 100 here.
+      // The app config still owns global order prices (card, delivery, etc.).
+      // Commission is deliberately not selected yet: an order is created before
+      // an admin assigns its bakery, and the assigned bakery owns the rate.
       const [liveConfig] = await db.select().from(appConfig).limit(1);
 
       // Card price: charged once per order when the order includes a card message.
@@ -403,12 +402,6 @@ export class OrderService {
 
       finalPrice = totalPrice - discountAmount;
 
-      const bastiPercentage =
-        type === 'big_cakes'
-          ? parseFloat(liveConfig.bastiPercentage) / 100
-          : parseFloat(liveConfig.miniCakePercentage) / 100;
-      const bastiAmount = bastiPercentage * finalPrice;
-
       const referenceNumber = this.generateOrderReference();
 
       const { newOrder, newItems } = await db.transaction(async (tx) => {
@@ -444,9 +437,11 @@ export class OrderService {
             finalPrice: finalPrice.toFixed(2),
             discountAmount: discountAmount.toFixed(2),
 
-            bastiPercentage: bastiPercentage.toFixed(2),
-            bastiAmount: bastiAmount.toFixed(2),
-            bakeryAmount: (finalPrice - bastiAmount).toFixed(2),
+            // An unassigned order has no bakery rate yet. Assignment writes the
+            // immutable financial snapshot used by all finance views and PDFs.
+            bastiPercentage: '0.0000',
+            bastiAmount: '0.00',
+            bakeryAmount: '0.00',
             deliveryAmount: liveConfig.deliveryAmount,
             bastiDeliveryAmount: liveConfig.bastiDeliveryAmount,
             addonsTotal: addonsTotal, // without discount
@@ -786,6 +781,31 @@ export class OrderService {
         .map((order) => order.id)
         .filter((orderId): orderId is string => Boolean(orderId));
 
+      const dispatchDriversById = new Map<
+        string,
+        { name: string | null; address: string | null }
+      >();
+      if (isDispatch) {
+        const driverIds = [
+          ...new Set(allOrders.flatMap((order) => (order.driverId ? [order.driverId] : []))),
+        ];
+
+        if (driverIds.length > 0) {
+          const dispatchDrivers = await db
+            .select({
+              id: admins.id,
+              name: this.translationService.getLocalized(admins.name, 'name'),
+              address: this.translationService.getLocalized(admins.address, 'address'),
+            })
+            .from(admins)
+            .where(and(inArray(admins.id, driverIds), eq(admins.role, 'driver')));
+
+          for (const driver of dispatchDrivers) {
+            dispatchDriversById.set(driver.id, driver);
+          }
+        }
+      }
+
       const allOrderItems =
         orderIds.length > 0
           ? await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds))
@@ -795,6 +815,18 @@ export class OrderService {
 
       const response = await Promise.all(
         allOrders.map(async (order): Promise<OrderResponseDto> => {
+          const assignedDriver = order.driverId
+            ? dispatchDriversById.get(order.driverId)
+            : undefined;
+          const withDispatchDriver = (orderResponse: OrderResponseDto): OrderResponseDto =>
+            isDispatch
+              ? {
+                  ...orderResponse,
+                  assignedDriverName: assignedDriver?.name ?? null,
+                  assignedDriverAddress: assignedDriver?.address ?? null,
+                }
+              : orderResponse;
+
           try {
             if (!order.id) {
               throw new Error('Order id is missing');
@@ -805,12 +837,12 @@ export class OrderService {
               regionId ?? order.regionId,
             );
 
-            return this.buildOrderResponse(order, formattedItems);
+            return withDispatchDriver(this.buildOrderResponse(order, formattedItems));
           } catch {
             this.logger.warn(
               `Failed to retrieve full details for order ${order.id}, returning basic order data`,
             );
-            return this.buildBasicOrderResponse(order);
+            return withDispatchDriver(this.buildBasicOrderResponse(order));
           } finally {
             /* 
               this is desinged for bakery orders retrieval, where 
@@ -1325,6 +1357,8 @@ export class OrderService {
       return { id: order.id, bakeryId };
     }
 
+    const financialSnapshot = this.calculateBakeryFinancials(order, bakery);
+
     // Unless the admin forces the move, block when the target bakery can't fully
     // stock the order and report exactly which items, so the UI can offer a
     // "reassign anyway" confirmation that retries with force=true.
@@ -1374,6 +1408,7 @@ export class OrderService {
           bakeryId: bakeryId,
           assigningDate: new Date(),
           orderStatus: 'pending',
+          ...financialSnapshot,
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
@@ -1765,6 +1800,11 @@ export class OrderService {
           bakeryId: null,
           assigningDate: null,
           orderStatus: 'pending',
+          // No bakery owns an unassigned order, so it must not retain the
+          // previous bakery's rate or payout while it returns to the pool.
+          bastiPercentage: '0.0000',
+          bastiAmount: '0.00',
+          bakeryAmount: '0.00',
         })
         .where(eq(orders.id, orderId))
         .returning({ id: orders.id, bakeryId: orders.bakeryId });
@@ -1848,6 +1888,30 @@ export class OrderService {
   }
 
   /**
+   * Snapshots the assigned bakery's commission in the order's existing
+   * fractional format (0.1250 means 12.50%). `small_cakes` and `others` retain
+   * the legacy mini-cake rule; `big_cakes` uses the general Basti rate.
+   */
+  private calculateBakeryFinancials(
+    order: Pick<typeof orders.$inferSelect, 'cartType' | 'finalPrice'>,
+    bakery: Pick<typeof bakeries.$inferSelect, 'bastiPercentage' | 'miniCakePercentage'>,
+  ): Pick<typeof orders.$inferInsert, 'bastiPercentage' | 'bastiAmount' | 'bakeryAmount'> {
+    const percentage =
+      order.cartType === 'big_cakes'
+        ? Number.parseFloat(bakery.bastiPercentage)
+        : Number.parseFloat(bakery.miniCakePercentage);
+    const rate = Number.isFinite(percentage) ? percentage / 100 : 0;
+    const finalPrice = Number.parseFloat(order.finalPrice) || 0;
+    const bastiAmount = finalPrice * rate;
+
+    return {
+      bastiPercentage: rate.toFixed(4),
+      bastiAmount: bastiAmount.toFixed(2),
+      bakeryAmount: (finalPrice - bastiAmount).toFixed(2),
+    };
+  }
+
+  /**
    * Bakeries the admin can hand this order to: same region, able to handle the
    * order's type, each with its current capacity usage so the admin can pick one
    * with room. The currently-assigned bakery is included and flagged `isCurrent`.
@@ -1873,6 +1937,8 @@ export class OrderService {
         name: this.translationService.getLocalized(bakeries.name, 'name'),
         bakeryTypes: bakeries.bakeryTypes,
         capacity: bakeries.capacity,
+        bastiPercentage: bakeries.bastiPercentage,
+        miniCakePercentage: bakeries.miniCakePercentage,
       })
       .from(bakeries)
       .where(and(eq(bakeries.regionId, order.regionId), eq(bakeries.isDeleted, false)));
@@ -1919,6 +1985,9 @@ export class OrderService {
         usedCapacity,
         availableCapacity: Math.max(0, bakery.capacity - usedCapacity),
         isCurrent: bakery.id === order.bakeryId,
+        commissionPercentage: Number.parseFloat(
+          order.cartType === 'big_cakes' ? bakery.bastiPercentage : bakery.miniCakePercentage,
+        ),
       };
     });
   }
