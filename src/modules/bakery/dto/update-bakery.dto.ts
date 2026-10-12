@@ -2,7 +2,9 @@ import {
   IsString,
   IsArray,
   IsInt,
+  IsNumber,
   Min,
+  Max,
   MinLength,
   MaxLength,
   IsUUID,
@@ -77,6 +79,32 @@ export class UpdateBakeryDto {
     message: `Each bakery type must be one of: ${BAKERY_TYPES.join(', ')}`,
   })
   bakeryTypes?: BakeryTypeValue[];
+
+  @ApiProperty({
+    description: 'Basti commission percentage for big-cake orders (0-100)',
+    example: 20,
+    required: false,
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  bastiPercentage?: number;
+
+  @ApiProperty({
+    description: 'Basti commission percentage for mini/small-cake orders (0-100)',
+    example: 10,
+    required: false,
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  miniCakePercentage?: number;
 
   // notes and logoUrl accept an explicit `null` to clear the stored value —
   // `@IsOptional()` alone would strip `null` from validation but the service

@@ -19,6 +19,16 @@ export class CreateAdminDto {
   name?: string;
 
   @ApiProperty({
+    description: 'Admin/Driver address',
+    example: 'Benghazi, Libya',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Address must not exceed 500 characters' })
+  address?: string;
+
+  @ApiProperty({
     description: 'Admin/Driver phone number',
     example: '+1234567890',
     required: false,

@@ -5,6 +5,8 @@ export interface BakeryResponse {
   capacity: number;
   regionId: string;
   types: string[];
+  bastiPercentage: number;
+  miniCakePercentage: number;
   notes: string | null;
   logoUrl: string | null;
   galleryImages: string[];

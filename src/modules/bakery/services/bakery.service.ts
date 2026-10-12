@@ -37,6 +37,8 @@ export class BakeryService {
       regionId,
       capacity,
       bakeryTypes,
+      bastiPercentage,
+      miniCakePercentage,
       notes,
       logoUrl,
       galleryImages,
@@ -71,6 +73,8 @@ export class BakeryService {
             regionId,
             capacity,
             bakeryTypes,
+            bastiPercentage: bastiPercentage.toFixed(2),
+            miniCakePercentage: miniCakePercentage.toFixed(2),
             // All three are optional; `?? null` keeps an omitted field null
             // rather than undefined, and the gallery falls back to empty so the
             // NOT NULL column is always satisfied.
@@ -223,6 +227,8 @@ export class BakeryService {
       regionId,
       capacity,
       bakeryTypes,
+      bastiPercentage,
+      miniCakePercentage,
       notes,
       logoUrl,
       galleryImages,
@@ -266,6 +272,10 @@ export class BakeryService {
       if (regionId !== undefined) updateData.regionId = regionId;
       if (capacity !== undefined) updateData.capacity = capacity;
       if (bakeryTypes !== undefined) updateData.bakeryTypes = bakeryTypes;
+      if (bastiPercentage !== undefined) updateData.bastiPercentage = bastiPercentage.toFixed(2);
+      if (miniCakePercentage !== undefined) {
+        updateData.miniCakePercentage = miniCakePercentage.toFixed(2);
+      }
       // `undefined` means "not sent, leave as-is"; an explicit `null` clears the
       // field. The DTO allows null on notes/logoUrl precisely so an admin can
       // remove a note or a logo without it being confused with omission.
@@ -557,6 +567,8 @@ export class BakeryService {
     locationDescription: string;
     capacity: number;
     bakeryTypes: Array<string>;
+    bastiPercentage: string;
+    miniCakePercentage: string;
     notes?: string | null;
     logoUrl?: string | null;
     galleryImages?: string[] | null;
@@ -572,6 +584,8 @@ export class BakeryService {
       capacity: bakery.capacity,
       regionId: bakery.regionId,
       types: bakery.bakeryTypes,
+      bastiPercentage: parseFloat(bakery.bastiPercentage),
+      miniCakePercentage: parseFloat(bakery.miniCakePercentage),
       notes: bakery.notes ?? null,
       logoUrl: bakery.logoUrl ?? null,
       // Rows written before the gallery column existed can read back null even

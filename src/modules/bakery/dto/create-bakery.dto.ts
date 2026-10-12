@@ -2,7 +2,9 @@ import {
   IsString,
   IsArray,
   IsInt,
+  IsNumber,
   Min,
+  Max,
   MinLength,
   MaxLength,
   IsUUID,
@@ -69,6 +71,28 @@ export class CreateBakeryDto {
     message: `Each bakery type must be one of: ${BAKERY_TYPES.join(', ')}`,
   })
   bakeryTypes: BakeryTypeValue[];
+
+  @ApiProperty({
+    description: 'Basti commission percentage for big-cake orders (0-100)',
+    example: 20,
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  bastiPercentage: number;
+
+  @ApiProperty({
+    description: 'Basti commission percentage for mini/small-cake orders (0-100)',
+    example: 10,
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  miniCakePercentage: number;
 
   @ApiProperty({
     description: 'Management-only free-text notes about the bakery',

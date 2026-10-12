@@ -54,4 +54,10 @@ export class AvailableBakeryDto {
 
   @ApiProperty({ description: 'Whether this bakery is the one currently assigned to the order' })
   isCurrent: boolean;
+
+  @ApiProperty({
+    description: 'Basti commission percentage this bakery would apply to this order type',
+    example: 20,
+  })
+  commissionPercentage: number;
 }

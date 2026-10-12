@@ -79,9 +79,6 @@ export class ConfigService {
           ...(updateDto.closureMessage !== undefined && {
             closureMessage: updateDto.closureMessage,
           }),
-          ...(updateDto.bastiPercentage !== undefined && {
-            bastiPercentage: updateDto.bastiPercentage.toFixed(2),
-          }),
           ...(updateDto.cardPrice !== undefined && {
             cardPrice: updateDto.cardPrice,
           }),
@@ -90,9 +87,6 @@ export class ConfigService {
           }),
           ...(updateDto.bastiDeliveryAmount !== undefined && {
             bastiDeliveryAmount: updateDto.bastiDeliveryAmount,
-          }),
-          ...(updateDto.miniCakePercentage !== undefined && {
-            miniCakePercentage: updateDto.miniCakePercentage.toFixed(2),
           }),
           ...(updateDto.printingFee !== undefined && { printingFee: updateDto.printingFee }),
           ...(updateDto.paymentFee !== undefined && { paymentFee: updateDto.paymentFee }),
@@ -136,10 +130,8 @@ export class ConfigService {
       emergencyClosures: config.emergencyClosures,
       isOpen: config.isOpen,
       closureMessage: config.closureMessage || '',
-      bastiPercentage: parseFloat(config.bastiPercentage),
       deliveryAmount: config.deliveryAmount,
       bastiDeliveryAmount: config.bastiDeliveryAmount,
-      miniCakePercentage: parseFloat(config.miniCakePercentage),
       printingFee: config.printingFee,
       paymentFee: config.paymentFee,
       cardPrice: config.cardPrice,

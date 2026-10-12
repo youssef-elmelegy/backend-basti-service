@@ -105,9 +105,12 @@ export const orders = pgTable(
     bakeryAmount: decimal('bakery_amount', { precision: 10, scale: 2 }).notNull().default('0'),
     miniCakesTotal: integer('mini_cakes_total').notNull().default(0),
 
-    bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 2 })
+    // Fractional commission snapshot selected from the assigned bakery; e.g.
+    // 0.1250 means 12.50%. Four decimal places preserve bakery rates supplied
+    // in whole-percent units with two decimal places.
+    bastiPercentage: decimal('basti_percentage', { precision: 10, scale: 4 })
       .notNull()
-      .default('0.20'),
+      .default('0.0000'),
     miniCakePercentage: decimal('mini_cake_percentage', { precision: 10, scale: 2 })
       .notNull()
       .default('0.10'),

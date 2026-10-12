@@ -20,6 +20,11 @@ export const admins = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     name: jsonb('name').$type<TranslationObject>().default(DEFAULT_TRANSLATION_OBJECT).notNull(),
+    // Driver addresses are translated in the same way as driver names.
+    address: jsonb('address')
+      .$type<TranslationObject>()
+      .default(DEFAULT_TRANSLATION_OBJECT)
+      .notNull(),
     email: varchar('email', { length: 255 }).unique().notNull(),
     password: varchar('password', { length: 255 }).notNull(),
     role: adminRoleEnum('role').default('admin').notNull(),
