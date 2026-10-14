@@ -75,11 +75,25 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().url().optional(),
 
   // payment
-  MASARAT_URL: z.string().url(),
-  MASARAT_TRADE_BANK_USER_ID: z.string(),
-  MASARAT_REPUBLIC_BANK_USER_ID: z.string(),
-  MASARAT_PIN: z.string(),
-  MASARAT_PROVIDER_ID: z.string(),
+  MASARAT_URL: z.string().url().optional(),
+  MASARAT_PIN: z.string().optional(),
+  MASARAT_PROVIDER_ID: z.string().optional(),
+
+  MASARAT_TRADE_BANK_URL: z.string().url().optional(),
+  MASARAT_REPUBLIC_BANK_URL: z.string().url().optional(),
+  MASARAT_SAHARI_BANK_URL: z.string().url().optional(),
+
+  MASARAT_TRADE_BANK_USER_ID: z.string().optional(),
+  MASARAT_REPUBLIC_BANK_USER_ID: z.string().optional(),
+  MASARAT_SAHARI_BANK_USER_ID: z.string().optional(),
+
+  MASARAT_TRADE_BANK_PIN: z.string().optional(),
+  MASARAT_REPUBLIC_BANK_PIN: z.string().optional(),
+  MASARAT_SAHARI_BANK_PIN: z.string().optional(),
+
+  MASARAT_TRADE_BANK_PROVIDER_ID: z.string().optional(),
+  MASARAT_REPUBLIC_BANK_PROVIDER_ID: z.string().optional(),
+  MASARAT_SAHARI_BANK_PROVIDER_ID: z.string().optional(),
 
   TADAWUL_URL: z.string().url(),
   TADAWUL_ID: z.string(),
@@ -130,7 +144,31 @@ export type EnvWithDbUrl = Env & { DATABASE_URL: string };
 
 const databaseUrl = buildDatabaseUrl(parsed.data);
 
+const masaratUrl =
+  parsed.data.MASARAT_URL ??
+  parsed.data.MASARAT_TRADE_BANK_URL ??
+  parsed.data.MASARAT_REPUBLIC_BANK_URL ??
+  parsed.data.MASARAT_SAHARI_BANK_URL ??
+  '';
+
+const masaratPin =
+  parsed.data.MASARAT_PIN ??
+  parsed.data.MASARAT_TRADE_BANK_PIN ??
+  parsed.data.MASARAT_REPUBLIC_BANK_PIN ??
+  parsed.data.MASARAT_SAHARI_BANK_PIN ??
+  '';
+
+const masaratProviderId =
+  parsed.data.MASARAT_PROVIDER_ID ??
+  parsed.data.MASARAT_TRADE_BANK_PROVIDER_ID ??
+  parsed.data.MASARAT_REPUBLIC_BANK_PROVIDER_ID ??
+  parsed.data.MASARAT_SAHARI_BANK_PROVIDER_ID ??
+  '';
+
 export const env: EnvWithDbUrl = {
   ...parsed.data,
   DATABASE_URL: databaseUrl,
+  MASARAT_URL: masaratUrl,
+  MASARAT_PIN: masaratPin,
+  MASARAT_PROVIDER_ID: masaratProviderId,
 };
