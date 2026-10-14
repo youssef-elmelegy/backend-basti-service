@@ -10,7 +10,14 @@ import {
   GetTransactionReceiptDecorator,
   ConfirmPaymentDecorator,
 } from '../decorators/tadawul.decorator';
-import { CompleteSessionDecorator, OpenSessionDecorator } from '../decorators/masarat.decorator';
+import {
+  TradeBankOpenSessionDecorator,
+  TradeBankCompleteSessionDecorator,
+  RepublicBankOpenSessionDecorator,
+  RepublicBankCompleteSessionDecorator,
+  SahariBankOpenSessionDecorator,
+  SahariBankCompleteSessionDecorator,
+} from '../decorators/masarat.decorator';
 
 @Controller('payment')
 export class PaymentController {
@@ -54,17 +61,17 @@ export class PaymentController {
   }
 
   @ApiTags('payment - masarat')
-  @Post('masarat/open-session/:orderId')
+  @Post('masarat/yussor-pay/open-session/:orderId')
   @UseGuards(JwtAuthGuard)
-  @OpenSessionDecorator()
-  async openSession(
+  @TradeBankOpenSessionDecorator()
+  async tradeBankOpenSession(
     @Param('orderId') orderId: string,
     @CurrentUser('sub') userId: string,
     @Body() { cardNumber }: MasaratOpenSessionDto,
   ) {
-    const bankType = this.masaratService.getBankType(cardNumber);
-    const data = await this.masaratService.signin({ bank: bankType });
+    const data = await this.masaratService.signin('trade');
     return await this.masaratService.openSession(
+      'trade',
       orderId,
       userId,
       cardNumber,
@@ -73,13 +80,73 @@ export class PaymentController {
   }
 
   @ApiTags('payment - masarat')
-  @Post('masarat/complete-session/:orderId')
+  @Post('masarat/yussor-pay/complete-session/:orderId')
   @UseGuards(JwtAuthGuard)
-  @CompleteSessionDecorator()
-  async completeSession(
+  @TradeBankCompleteSessionDecorator()
+  async tradeBankCompleteSession(
     @Body() { otp, token }: MasaratCompleteSessionDto,
     @Param('orderId') orderId: string,
   ) {
-    return await this.masaratService.completeSession(orderId, otp, token);
+    return await this.masaratService.completeSession('trade', orderId, otp, token);
+  }
+
+  @ApiTags('payment - masarat')
+  @Post('masarat/musrfy-pay/open-session/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @RepublicBankOpenSessionDecorator()
+  async republicBankOpenSession(
+    @Param('orderId') orderId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() { cardNumber }: MasaratOpenSessionDto,
+  ) {
+    const data = await this.masaratService.signin('republic');
+    return await this.masaratService.openSession(
+      'republic',
+      orderId,
+      userId,
+      cardNumber,
+      data.data.content.value,
+    );
+  }
+
+  @ApiTags('payment - masarat')
+  @Post('masarat/musrfy-pay/complete-session/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @RepublicBankCompleteSessionDecorator()
+  async republicBankCompleteSession(
+    @Body() { otp, token }: MasaratCompleteSessionDto,
+    @Param('orderId') orderId: string,
+  ) {
+    return await this.masaratService.completeSession('republic', orderId, otp, token);
+  }
+
+  @ApiTags('payment - masarat')
+  @Post('masarat/sahari-pay/open-session/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @SahariBankOpenSessionDecorator()
+  async sahariBankOpenSession(
+    @Param('orderId') orderId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() { cardNumber }: MasaratOpenSessionDto,
+  ) {
+    const data = await this.masaratService.signin('sahari');
+    return await this.masaratService.openSession(
+      'sahari',
+      orderId,
+      userId,
+      cardNumber,
+      data.data.content.value,
+    );
+  }
+
+  @ApiTags('payment - masarat')
+  @Post('masarat/sahari-pay/complete-session/:orderId')
+  @UseGuards(JwtAuthGuard)
+  @SahariBankCompleteSessionDecorator()
+  async sahariBankCompleteSession(
+    @Body() { otp, token }: MasaratCompleteSessionDto,
+    @Param('orderId') orderId: string,
+  ) {
+    return await this.masaratService.completeSession('sahari', orderId, otp, token);
   }
 }

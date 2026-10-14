@@ -1,13 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Inject,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { env } from '@/env';
 import {
-  MasaratSigninDTO,
+  MasaratBank,
   MasaratCompleteSessionResponse,
   MasaratOpenSessionResponse,
   MasaratSigninResponse,
@@ -17,31 +18,63 @@ import { orders } from '@/db/schema/order';
 import { eq } from 'drizzle-orm/sql/expressions/conditions';
 import { db } from '@/db';
 import { appConfig } from '@/db/schema';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import {
+  MASARAT_TRADE_BANK,
+  MASARAT_REPUBLIC_BANK,
+  MASARAT_SAHARI_BANK,
+} from '../masarat.constants';
+import type { AxiosInstance } from 'axios';
 
 @Injectable()
 export class MasaratService {
   private readonly logger = new Logger(MasaratService.name);
   private static readonly DEFAULT_PAYMENT_FEE = 0.01; // 1% fee
 
-  constructor(private httpService: HttpService) {}
+  constructor(
+    @Inject(MASARAT_TRADE_BANK)
+    private readonly tradeBankClient: AxiosInstance,
 
-  async signin(dto: MasaratSigninDTO) {
-    const userId =
-      dto.bank === 'trade' ? env.MASARAT_TRADE_BANK_USER_ID : env.MASARAT_REPUBLIC_BANK_USER_ID;
-    this.logger.log(`Signing in to Masarat with bank: ${dto.bank}`);
+    @Inject(MASARAT_REPUBLIC_BANK)
+    private readonly republicBankClient: AxiosInstance,
+
+    @Inject(MASARAT_SAHARI_BANK)
+    private readonly sahariBankClient: AxiosInstance,
+  ) {}
+
+  async signin(bank: MasaratBank) {
+    this.logger.log(`Signing in to Masarat with bank: ${bank}`);
 
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.post<MasaratSigninResponse>(`${env.MASARAT_URL}/Signin`, {
-          userId,
-          pin: env.MASARAT_PIN,
-          providerId: env.MASARAT_PROVIDER_ID,
-          authUserType: 0,
-        }),
-      );
-
+      const { data } =
+        bank === 'trade'
+          ? await this.tradeBankClient.post<MasaratSigninResponse>(
+              `${env.MASARAT_TRADE_BANK_URL}/Signin`,
+              {
+                userId: env.MASARAT_TRADE_BANK_USER_ID,
+                pin: env.MASARAT_TRADE_BANK_PIN,
+                providerId: env.MASARAT_TRADE_BANK_PROVIDER_ID,
+                authUserType: 0,
+              },
+            )
+          : bank === 'republic'
+            ? await this.republicBankClient.post<MasaratSigninResponse>(
+                `${env.MASARAT_REPUBLIC_BANK_URL}/Signin`,
+                {
+                  userId: env.MASARAT_REPUBLIC_BANK_USER_ID,
+                  pin: env.MASARAT_REPUBLIC_BANK_PIN,
+                  providerId: env.MASARAT_REPUBLIC_BANK_PROVIDER_ID,
+                  authUserType: 0,
+                },
+              )
+            : await this.sahariBankClient.post<MasaratSigninResponse>(
+                `${env.MASARAT_SAHARI_BANK_URL}/Signin`,
+                {
+                  userId: env.MASARAT_SAHARI_BANK_USER_ID,
+                  pin: env.MASARAT_SAHARI_BANK_PIN,
+                  providerId: env.MASARAT_SAHARI_BANK_PROVIDER_ID,
+                  authUserType: 0,
+                },
+              );
       if (data.type !== 1) {
         const err = `Failed to sign in to Masarat: ${JSON.stringify(data)}`;
         this.logger.error(err);
@@ -56,8 +89,16 @@ export class MasaratService {
     }
   }
 
-  async openSession(orderId: string, userId: string, cardNumber: string, token: string) {
+  async openSession(
+    bank: MasaratBank,
+    orderId: string,
+    userId: string,
+    cardNumber: string,
+    token: string,
+  ) {
     try {
+      this.logger.log(`Opening session with Masarat with bank: ${bank}`);
+
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
       if (!order) {
@@ -72,22 +113,50 @@ export class MasaratService {
         throw new BadRequestException('routes.payment.order_already_paid');
       }
 
-      const { data } = await firstValueFrom(
-        this.httpService.post<MasaratOpenSessionResponse>(
-          `${env.MASARAT_URL}/OpenSession`,
-          {
-            amount: Number(order.finalPrice),
-            identityCard: cardNumber,
-            transactionId: order.id,
-            onlineOperation: 1, // 1=Sell, 2=Recover
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        ),
-      );
+      const body = {
+        amount: Number(order.finalPrice),
+        identityCard: cardNumber,
+        transactionId: order.id,
+        onlineOperation: 1, // 1=Sell, 2=Recover
+      };
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      const { data } =
+        bank === 'trade'
+          ? await this.tradeBankClient.post<MasaratOpenSessionResponse>(
+              `${env.MASARAT_TRADE_BANK_URL}/OpenSession`,
+              body,
+              { headers },
+            )
+          : bank === 'republic'
+            ? await this.republicBankClient.post<MasaratOpenSessionResponse>(
+                `${env.MASARAT_REPUBLIC_BANK_URL}/OpenSession`,
+                body,
+                { headers },
+              )
+            : await this.sahariBankClient.post<MasaratOpenSessionResponse>(
+                `${env.MASARAT_SAHARI_BANK_URL}/OpenSession`,
+                body,
+                { headers },
+              );
+      // const { data } = await firstValueFrom(
+      //   this.httpService.post<MasaratOpenSessionResponse>(
+      //     `${env.MASARAT_URL}/OpenSession`,
+      //     {
+      //       amount: Number(order.finalPrice),
+      //       identityCard: cardNumber,
+      //       transactionId: order.id,
+      //       onlineOperation: 1, // 1=Sell, 2=Recover
+      //     },
+      //     {
+      //       headers: {
+      //         Authorization: `Bearer ${token}`,
+      //       },
+      //     },
+      //   ),
+      // );
 
       if (data.type !== 1) {
         const err = `Failed to open session with Masarat: ${JSON.stringify(data)}`;
@@ -101,8 +170,10 @@ export class MasaratService {
     }
   }
 
-  async completeSession(orderId: string, otp: string, token: string) {
+  async completeSession(bank: MasaratBank, orderId: string, otp: string, token: string) {
     try {
+      this.logger.log(`Completing session with Masarat with bank: ${bank}`);
+
       let paymentFee = MasaratService.DEFAULT_PAYMENT_FEE; // default to 1% fee
       const [config] = await db
         .select({
@@ -117,20 +188,31 @@ export class MasaratService {
         this.logger.warn('No config found, defaulting to 1% fee');
       }
 
-      const { data } = await firstValueFrom(
-        this.httpService.post<MasaratCompleteSessionResponse>(
-          `${env.MASARAT_URL}/CompleteSession`,
-          {
-            otp: otp,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        ),
-      );
+      const body = {
+        otp: otp,
+      };
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
 
+      const { data } =
+        bank === 'trade'
+          ? await this.tradeBankClient.post<MasaratCompleteSessionResponse>(
+              `${env.MASARAT_TRADE_BANK_URL}/CompleteSession`,
+              body,
+              { headers },
+            )
+          : bank === 'republic'
+            ? await this.republicBankClient.post<MasaratCompleteSessionResponse>(
+                `${env.MASARAT_REPUBLIC_BANK_URL}/CompleteSession`,
+                body,
+                { headers },
+              )
+            : await this.sahariBankClient.post<MasaratCompleteSessionResponse>(
+                `${env.MASARAT_SAHARI_BANK_URL}/CompleteSession`,
+                body,
+                { headers },
+              );
       if (data.type !== 1) {
         if (data.type === 2) {
           const err = `OTP incorrect: ${JSON.stringify(data)}`;
@@ -165,11 +247,5 @@ export class MasaratService {
     } catch (error) {
       handleErrorsAndThrow(error, 'routes.payment.failed_complete_session', this.logger);
     }
-  }
-
-  getBankType(cardNumber: string): 'trade' | 'republic' {
-    if (cardNumber.startsWith('33')) return 'trade';
-    else if (cardNumber.startsWith('11')) return 'republic';
-    else throw new BadRequestException('routes.payment.invalid_card_number');
   }
 }
