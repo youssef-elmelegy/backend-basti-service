@@ -2343,11 +2343,11 @@ export class OrderService {
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
         });
-      } else if (item.predesignedCakeId) {
-        const [pdc] = await this.itemService.getPredesignedCakes(
-          [{ id: item.predesignedCakeId }],
-          regionId,
-        );
+      } else if (item.predesignedCakeId || item.predesignedCake) {
+        const [livePdc] = item.predesignedCakeId
+          ? await this.itemService.getPredesignedCakes([{ id: item.predesignedCakeId }], regionId)
+          : [];
+        const pdc = livePdc ?? item.predesignedCake;
         if (pdc) {
           predesignedCakeItems.push({
             data: {
@@ -2406,11 +2406,14 @@ export class OrderService {
             updatedAt: item.updatedAt,
           });
         }
-      } else if (item.featuredCakeId) {
-        const [fc] = await this.itemService.getFeaturedCakes(
-          [{ id: item.featuredCakeId, varients: item.featuredCakeVarients ?? [] }],
-          regionId,
-        );
+      } else if (item.featuredCakeId || item.featuredCake) {
+        const [liveFc] = item.featuredCakeId
+          ? await this.itemService.getFeaturedCakes(
+              [{ id: item.featuredCakeId, varients: item.featuredCakeVarients ?? [] }],
+              regionId,
+            )
+          : [];
+        const fc = liveFc ?? item.featuredCake;
         if (fc) {
           featuredCakeItems.push({
             data: {
@@ -2440,8 +2443,11 @@ export class OrderService {
             updatedAt: item.updatedAt,
           });
         }
-      } else if (item.addonId) {
-        const [addon] = await this.itemService.getAddons([{ id: item.addonId }], regionId);
+      } else if (item.addonId || item.addon) {
+        const [liveAddon] = item.addonId
+          ? await this.itemService.getAddons([{ id: item.addonId }], regionId)
+          : [];
+        const addon = liveAddon ?? item.addon;
         if (addon) {
           addonItems.push({
             data: {
@@ -2470,8 +2476,11 @@ export class OrderService {
             updatedAt: item.updatedAt,
           });
         }
-      } else if (item.sweetId) {
-        const [sweet] = await this.itemService.getSweets([{ id: item.sweetId }], regionId);
+      } else if (item.sweetId || item.sweet) {
+        const [liveSweet] = item.sweetId
+          ? await this.itemService.getSweets([{ id: item.sweetId }], regionId)
+          : [];
+        const sweet = liveSweet ?? item.sweet;
         if (sweet) {
           sweetItems.push({
             data: {

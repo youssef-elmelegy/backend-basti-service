@@ -120,6 +120,20 @@
       "when": 1791749683843,
       "tag": "0017_many_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792671093720,
+      "tag": "0018_polite_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792672020731,
+      "tag": "0019_ambiguous_blackheart",
+      "breakpoints": true
     }
   ]
 }
