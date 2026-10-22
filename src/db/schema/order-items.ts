@@ -29,10 +29,14 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
 
-    addonId: uuid('addon_id').references(() => addons.id),
-    sweetId: uuid('sweet_id').references(() => sweets.id),
-    predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id),
-    featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id),
+    addonId: uuid('addon_id').references(() => addons.id, { onDelete: 'set null' }),
+    sweetId: uuid('sweet_id').references(() => sweets.id, { onDelete: 'set null' }),
+    predesignedCakeId: uuid('predesigned_cakes_id').references(() => predesignedCakes.id, {
+      onDelete: 'set null',
+    }),
+    featuredCakeId: uuid('featured_cake_id').references(() => featuredCakes.id, {
+      onDelete: 'set null',
+    }),
     featuredCakeVarients: jsonb('featured_cake_variants')
       .$type<FeaturedCakeVariant[]>()
       .default(sql`'[]'::jsonb`),
